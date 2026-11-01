@@ -660,7 +660,11 @@ public class MainActivity extends Activity
                     return;
                 }
                 // 球正在朗读时共用同一个引擎：不先停掉，
-                // 球的状态会被这次试听的回调改掉，而且两段声音会叠在一起
+                // 球的状态会被这次试听的回调改掉，而且两段声音会叠在一起。
+                //
+                // 顺序很关键：stopBallSpeaking() 现在在主线程上是同步执行的，
+                // 所以下面这行 speak() 一定排在停止之后。以前它是 post 出去的，
+                // 结果反过来 —— 先发声、后停止，试听一声都听不见。
                 ComboService.stopBallSpeaking();
                 TtsManager.speak("这是一句试听，声音正常就可以用了", prefs.rate(), prefs.pitch());
             }
@@ -1149,12 +1153,16 @@ public class MainActivity extends Activity
         bReset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                prefs.setSizeDp(56);
-                prefs.setAlpha(0.92f);
-                prefs.setIdleAlpha(0.30f);
-                prefs.setSnapEdge(false);
-                prefs.setColorIndex(0);
-                colorIndex = 0;
+                // 一律从 Prefs 的共享常量取，别在这里另写一套数字：
+                // 3.4 把 alpha / idleAlpha 的默认值从 0.92 / 0.30 改成 1.0，
+                // 按钮里那套没跟着改 —— 点「恢复默认」反而退回「闲置会变淡」，
+                // 跟界面上显示的「现在是 100%」对不上，看着像按钮坏了。
+                prefs.setSizeDp(Prefs.DEF_SIZE_DP);
+                prefs.setAlpha(Prefs.DEF_ALPHA);
+                prefs.setIdleAlpha(Prefs.DEF_IDLE_ALPHA);
+                prefs.setSnapEdge(Prefs.DEF_SNAP_EDGE);
+                prefs.setColorIndex(Prefs.DEF_COLOR_INDEX);
+                colorIndex = Prefs.DEF_COLOR_INDEX;
                 ComboService.refresh();   // 让屏幕上的球立刻按新设置重画
                 rebuild();
                 toast("球的设置已恢复默认");
@@ -1466,7 +1474,7 @@ public class MainActivity extends Activity
                         .append(show).append(" 条");
             }
         }
-        sb.append("\n\n只记手势、状态、错误，不记你读的内容。");
+        sb.append("\n\n只记手势、状态、错误和字数，不记你读的内容。");
         tvLog.setText(sb.toString());
     }
 

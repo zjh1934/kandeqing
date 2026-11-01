@@ -21,6 +21,22 @@ public class Prefs {
 
     private static final String P = "cfg";
 
+    /**
+     * 各项默认值。**只有这一处定义**，getter 和界面上的「恢复默认」都从这里取。
+     *
+     * 以前「恢复默认」按钮里另写了一套数字（alpha=0.92 / idle=0.30），
+     * 那是 3.4 之前的旧默认。3.4 把这两个改成 1.0 之后按钮没跟着改 ——
+     * 于是点「恢复默认」反而退回到「闲置会变淡」，跟界面上显示的
+     * 「现在是 100%」自相矛盾，用户会以为按钮坏了。
+     *
+     * 以后再改默认值，只改这里，两边自动一致。
+     */
+    public static final int DEF_SIZE_DP = 56;
+    public static final float DEF_ALPHA = 1.0f;
+    public static final float DEF_IDLE_ALPHA = 1.0f;
+    public static final boolean DEF_SNAP_EDGE = false;
+    public static final int DEF_COLOR_INDEX = 0;
+
     private static final String K_BALL_ON = "ball_on";
     private static final String K_SIZE = "size";
     private static final String K_COLOR = "color";
@@ -122,7 +138,7 @@ public class Prefs {
     }
 
     public int sizeDp() {
-        return sp.getInt(K_SIZE, 56);
+        return sp.getInt(K_SIZE, DEF_SIZE_DP);
     }
 
     public void setSizeDp(int v) {
@@ -130,7 +146,7 @@ public class Prefs {
     }
 
     public int colorIndex() {
-        int i = sp.getInt(K_COLOR, 0);
+        int i = sp.getInt(K_COLOR, DEF_COLOR_INDEX);
         if (i < 0 || i >= COLORS.length) {
             i = 0;
         }
@@ -150,7 +166,7 @@ public class Prefs {
      * 滑杆范围仍是 20% ~ 100%，调过的人不受影响（见 migrateAlpha34）。
      */
     public float alpha() {
-        return sp.getFloat(K_ALPHA, 1.0f);
+        return sp.getFloat(K_ALPHA, DEF_ALPHA);
     }
 
     public void setAlpha(float v) {
@@ -165,7 +181,7 @@ public class Prefs {
      * 淡出的代码逻辑没删，拉到 100% 以下立刻生效。
      */
     public float idleAlpha() {
-        return sp.getFloat(K_IDLE_ALPHA, 1.0f);
+        return sp.getFloat(K_IDLE_ALPHA, DEF_IDLE_ALPHA);
     }
 
     public void setIdleAlpha(float v) {
@@ -208,7 +224,7 @@ public class Prefs {
      * 一松手就弹到边上，下次又要重新找。
      */
     public boolean snapEdge() {
-        return sp.getBoolean(K_SNAP, false);
+        return sp.getBoolean(K_SNAP, DEF_SNAP_EDGE);
     }
 
     public void setSnapEdge(boolean v) {

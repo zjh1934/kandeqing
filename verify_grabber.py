@@ -51,13 +51,15 @@ MAX_DEPTH = _const("MAX_DEPTH", 200)
 
 class FakeNode(object):
     def __init__(self, text=None, desc=None, bounds=(0, 0, 0, 0),
-                 visible=True, children=None, char_rects=None):
+                 visible=True, children=None, char_rects=None,
+                 password=False):
         self._text = text
         self._desc = desc
         self.bounds = bounds
         self.visible = visible
         self.children = children if children is not None else []
         self.char_rects = char_rects
+        self.password = password
         self.recycled = False
 
     def getText(self):
@@ -65,6 +67,9 @@ class FakeNode(object):
 
     def getContentDescription(self):
         return self._desc
+
+    def isPassword(self):
+        return self.password
 
     def getBoundsInScreen(self, out):
         out.left, out.top, out.right, out.bottom = self.bounds
@@ -183,6 +188,16 @@ def char_start_in(node, x, y, sdk=26):
         return 0
 
 
+def is_password(node):
+    """镜像 TextGrabber.isPassword"""
+    if node is None:
+        return False
+    try:
+        return node.isPassword()
+    except Exception:
+        return False
+
+
 def walk(node, w, depth=0):
     """镜像 TextGrabber.walk：一趟后序遍历，返回这个子树有没有交出文字"""
     if node is None:
@@ -217,6 +232,10 @@ def walk(node, w, depth=0):
             c.recycle()
         except Exception:
             pass
+
+    # 镜像 TextGrabber.walk 里的密码框判断：密码框一个字都不收
+    if is_password(node):
+        return child_yielded
 
     t = node_text(node)
     if t is None:
@@ -345,8 +364,9 @@ SCREEN.left, SCREEN.top, SCREEN.right, SCREEN.bottom = 0, 0, 1080, 1920
 
 
 def n(text=None, desc=None, bounds=(0, 0, 0, 0), visible=True, children=None,
-      char_rects=None):
-    return FakeNode(text, desc, bounds, visible, children, char_rects)
+      char_rects=None, password=False):
+    return FakeNode(text, desc, bounds, visible, children, char_rects,
+                    password)
 
 
 def case_two_columns_continue():
@@ -493,35 +513,70 @@ def case_deep_tree_ok():
 
 def case_too_deep_guarded():
     """
-    超深树（远超 MAX_DEPTH）这一趟会被上限挡住、收不到东西；
-    但 grabFrom 会退回 grabAt，那边照样能把最深那块捞出来 —— 不会变成"什么都读不到"。
+    超深树（远超 MAX_DEPTH）：两条路都在上限处停住，读不到东西 —— 但不许崩。
+
+    3.5 之前兜底路径 findDeepest 没有深度上限，这个用例断言它能一路摸到
+    4000 层底下的文字。那个断言其实是**假能力**：
+      · 它之所以能在这里跑通，是因为脚本开头 sys.setrecursionlimit(20000)；
+        Python 默认 1000 层就 RecursionError 了。
+      · 真机上是 Java，findDeepest 每层还要 new 一个 Rect，
+        4000 层几乎必然 StackOverflowError；
+        而 readAt 把 Throwable 一律吞成"这里没读到文字" ——
+        用户看到的就是"点了没反应"，日志里也只留一句"抓字抛异常"。
+
+    所以现在的正确契约是：兜底同样受 MAX_DEPTH 约束，到不了底就到不了底，
+    干干净净返回 None，而不是把爆栈掩盖成"没读到文字"。
+    真实界面节点深度远小于这个上限（常见 <100），不影响正常使用。
     """
     tree = _chain(4000, "最底")
     got = grab_from_windows([tree], 5, 5, SCREEN)
     ok_window_pass = (got is None)
 
     best = Best()
+    try:
+        find_deepest(tree, 5, 5, best)
+    except RecursionError:
+        return False, "兜底路径递归爆了 —— 上限没生效"
+
+    # 到不了底，但也不能崩；同时确认它确实是在上限处停的，不是提前放弃
+    ok_fallback = (best.text is None) and best.visited <= MAX_WALK
+    return (ok_window_pass and ok_fallback), (got, best.text, best.visited)
+
+
+def case_fallback_still_finds_normal_deep():
+    """
+    上限不能误伤：正常深树（400 层，仍小于 MAX_DEPTH）兜底照样能摸到底。
+
+    上面那条把兜底也加了闸，这条守住"闸别关太紧"。
+    """
+    tree = _chain(400, "最底")
+    best = Best()
     find_deepest(tree, 5, 5, best)
-    ok_fallback = (best.text == "最底")
-    return (ok_window_pass and ok_fallback), (got, best.text)
+    return best.text == "最底", best.text
 
 
 class Best(object):
     def __init__(self):
         self.text = None
         self.area = 1 << 30
+        self.visited = 0
 
 
-def find_deepest(node, x, y, best):
-    """镜像 TextGrabber.findDeepest"""
+def find_deepest(node, x, y, best, depth=0):
+    """镜像 TextGrabber.findDeepest（含 3.5 新加的深度上限与节点预算）"""
     if node is None:
         return
+    if depth > MAX_DEPTH:
+        return
+    if best.visited >= MAX_WALK:
+        return
+    best.visited += 1
     r = Rect()
     try:
         node.getBoundsInScreen(r)
     except Exception:
         return
-    if r.contains(x, y):
+    if r.contains(x, y) and not is_password(node):
         t = node_text(node)
         if t is not None:
             area = r.width() * r.height()
@@ -538,7 +593,7 @@ def find_deepest(node, x, y, best):
         except Exception:
             continue
         if child is not None:
-            find_deepest(child, x, y, best)
+            find_deepest(child, x, y, best, depth + 1)
 
 
 def case_all_nodes_recycled():
@@ -562,6 +617,41 @@ def case_all_nodes_recycled():
     return ok, (got, len(leaked))
 
 
+def case_password_skipped_in_walk():
+    """
+    主路径（walk）：点在密码框上，密码一个字都不能被读出来。
+
+    Android 只保证"不把密码放进无障碍事件里广播"，并不阻止服务遍历节点取文本
+    —— 所以这条只能靠我们自己判 isPassword()。
+    """
+    root = n(children=[
+        n("账号", bounds=(0, 0, 200, 40)),
+        n("mima123456", bounds=(0, 40, 200, 80), password=True),
+        n("登录", bounds=(0, 80, 200, 120)),
+    ])
+    got = grab_from_windows([root], 50, 60, SCREEN)
+    ok = (got is not None) and ("mima123456" not in got) and ("登录" in got)
+    return ok, got
+
+
+def case_password_skipped_in_find_deepest():
+    """
+    兜底路径（findDeepest）也得挡住。
+
+    主路径被上限截断或整棵树没收上来时会退到这里，
+    漏掉这第二条路就等于没挡 —— 所以必须单独验。
+    """
+    root = n(children=[
+        n("账号", bounds=(0, 0, 200, 40)),
+        n("mima123456", bounds=(0, 40, 200, 80), password=True),
+        n("登录", bounds=(0, 80, 200, 120)),
+    ])
+    best = Best()
+    find_deepest(root, 50, 60, best)     # 点正好落在密码框里
+    ok = best.text != "mima123456"
+    return ok, best.text
+
+
 CASES = [
     ("两列布局续读不乱序", case_two_columns_continue),
     ("父子节点不重复收录", case_parent_child_no_dup),
@@ -574,8 +664,11 @@ CASES = [
     ("未命中时从点击高度续读", case_no_hit_reads_below),
     ("超宽树在上限处停住", case_budget_does_not_explode),
     ("正常深树不被误伤", case_deep_tree_ok),
-    ("超深树有兜底不会读空", case_too_deep_guarded),
+    ("超深树不爆栈、干净返回空", case_too_deep_guarded),
+    ("兜底上限不误伤正常深树", case_fallback_still_finds_normal_deep),
     ("节点全部回收无泄漏", case_all_nodes_recycled),
+    ("密码框不读（主路径 walk）", case_password_skipped_in_walk),
+    ("密码框不读（兜底 findDeepest）", case_password_skipped_in_find_deepest),
 ]
 
 

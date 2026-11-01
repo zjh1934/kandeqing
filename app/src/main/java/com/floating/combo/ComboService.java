@@ -71,6 +71,20 @@ public class ComboService extends AccessibilityService
      */
     private int pickSeq = 0;
 
+    /**
+     * 作废排队抓字的那一下，是不是用户自己干的。
+     *
+     * 只有"不是他干的"才需要专门告诉他 —— 最常见的是这 250ms 里窗口切走了
+     * （弹输入法 / 来通知 / 切 App），抓字被静默丢掉，用户点了个字却什么都没发生。
+     * 他看不见球变没变色，只能以为软件坏了。
+     *
+     * 反过来，点球取消（有轻震）、按住放大（有强震）都是他自己按的，
+     * 那一刻已经有反馈了，再补一记长震反而像报错，会让人以为操作失败了。
+     *
+     * 取值时机：作废动作发生时写入，250ms 任务跑到时读。全程主线程，无竞态。
+     */
+    private boolean pickAbortedByUser = true;
+
     public static boolean isRunning() {
         return instance != null;
     }
@@ -173,7 +187,7 @@ public class ComboService extends AccessibilityService
             return;     // 是我们自己的界面（比如打开了 App），不动
         }
         Log.i("pick", "窗口切走了，退出选字态");
-        pickSeq++;
+        abortPendingGrab(false);      // 不是用户点的，得让他知道这次没读成
         removeOverlay();
         toIdle();
     }
@@ -270,7 +284,7 @@ public class ComboService extends AccessibilityService
 
     private void closeAll() {
         stopSpeakingInternal();
-        pickSeq++;
+        abortPendingGrab(true);     // 界面里关开关 / 服务重刷，属于用户自己的操作
         removeOverlay();
         if (zoom != null) {
             zoom.zoomOut();
@@ -302,7 +316,7 @@ public class ComboService extends AccessibilityService
             h.removeCallbacks(forceStopTask);
             h.postDelayed(forceStopTask, 800);
         }
-        pickSeq++;      // 作废可能还在排队的抓字任务
+        abortPendingGrab(true);     // 用户自己要放大，已经有 Haptics.zoom() 了
         removeOverlay();
         state = ST_IDLE;
         zooming = true;
@@ -347,7 +361,10 @@ public class ComboService extends AccessibilityService
             return;   // 放大中不响应轻点
         }
         // 点球本身就是在改状态，先作废排队中的抓字任务
-        pickSeq++;
+        //
+        // 算"用户自己干的"：不管是取消（下面有 Haptics.tap()）还是停止朗读（有 toast），
+        // 这一下都是他主动按的，不该再报一记"没读成"的长震。
+        abortPendingGrab(true);
         if (state == ST_SPEAKING) {
             Log.i("tts", "朗读中轻点球 → 停止");
             stopSpeaking();
@@ -518,7 +535,9 @@ public class ComboService extends AccessibilityService
                 return;
             }
             Log.w("pick", "选取态超时，强制退出");
-            pickSeq++;
+            // 超时这一下刻意不惊动用户：8 秒早过去了，他多半已经走神在做别的，
+            // 这时候补一记长震只会让人莫名其妙。日志里留痕就够了。
+            abortPendingGrab(true);
             removeOverlay();
             toIdle();
         }
@@ -565,7 +584,14 @@ public class ComboService extends AccessibilityService
     /** 抓完回到主线程：复核状态没变，再交给引擎 */
     private void startSpeak(String text, int seq) {
         if (seq != pickSeq || state != ST_PICKING) {
-            Log.i("pick", "抓字回来时状态已变，丢弃");
+            // 抓字是在后台线程跑的（一屏几千个节点，可能上百毫秒），
+            // 这段路比上面那 250ms 更长，同样会被窗口切换打断。
+            // 原来这里也是静默丢弃 —— 用户点完字要等更久才发现"没读"。
+            if (pickAbortedByUser) {
+                Log.i("pick", "抓字回来时用户已取消，丢弃");
+            } else {
+                notifyGrabAborted("抓字途中");
+            }
             return;
         }
         if (!TtsManager.isReady()) {
@@ -581,8 +607,15 @@ public class ComboService extends AccessibilityService
             toIdle();
             return;
         }
-        Log.i("grab", "抓到 " + text.length() + " 字，开头：「"
-                + (text.length() > 20 ? text.substring(0, 20) : text) + "」");
+        // 这里只记【字数】，绝不记内容。
+        //
+        // 日志会被导出成 .md 存进「下载」，界面上还有「复制日志」（见 Log.export /
+        // MainActivity 的诊断区）。抓到的东西可能是验证码、金额、药名、私聊，
+        // 只要写进来就永久留在手机里，还能被一键复制出去 ——
+        // 那跟我们对外说的"不记你读到的任何文字"是直接冲突的。
+        //
+        // 调试抓字逻辑要看内容的话，临时在 logcat 里打，别写进这个文件。
+        Log.i("grab", "抓到 " + text.length() + " 字");
         boolean ok = TtsManager.speak(text, prefs.rate(), prefs.pitch());
         if (!ok) {
             toast("朗读失败");
@@ -601,10 +634,25 @@ public class ComboService extends AccessibilityService
         h.postDelayed(speakWatchdog, guardMs(text.length()));
     }
 
-    /** 界面上的"试听"要占用引擎，先把球这边的朗读停掉，别两边抢 */
+    /**
+     * 界面上的"试听"要占用引擎，先把球这边的朗读停掉，别两边抢。
+     *
+     * 以前无脑 post：调用方（按钮 onClick，本来就在主线程）紧接着就 speak()，
+     * 而 post 出去的要等当前这轮回调走完才轮到 —— 于是先发声、后停止，
+     * 试听被自己掐掉，一声都听不见。
+     *
+     * 已经在主线程就直接干；不在主线程才 post（保持原来的线程安全）。
+     */
     public static void stopBallSpeaking() {
         final ComboService s = instance;
         if (s == null) {
+            return;
+        }
+        if (Looper.myLooper() == s.h.getLooper()) {
+            // 就在主线程：立刻停，别等
+            if (s.state == ST_SPEAKING) {
+                s.stopSpeaking();
+            }
             return;
         }
         s.h.post(new Runnable() {
@@ -686,7 +734,13 @@ public class ComboService extends AccessibilityService
                                 // 这 250ms 里球可能又被点了（取消选取 / 要放大），
                                 // 那这次屏幕点击就作废，别再读出来
                                 if (seq != pickSeq || state != ST_PICKING) {
-                                    Log.i("pick", "点击已作废（期间状态变了），跳过抓字");
+                                    if (pickAbortedByUser) {
+                                        Log.i("pick", "用户自己取消了，跳过抓字");
+                                    } else {
+                                        // 不是他取消的：多半是窗口切走了。
+                                        // 必须告诉他 —— 否则"点了字，什么都没发生"。
+                                        notifyGrabAborted("抬手后 250ms 内");
+                                    }
                                     return;
                                 }
                                 readAt(x, y);
@@ -704,9 +758,38 @@ public class ComboService extends AccessibilityService
 
     /** 取消选字：作废排队中的抓字任务，收掉覆盖层，回待命 */
     private void cancelPick() {
-        pickSeq++;
+        abortPendingGrab(true);
         removeOverlay();
         toIdle();
+    }
+
+    /**
+     * 作废还在排队的抓字任务。**所有 pickSeq++ 都必须走这里**，
+     * 顺带记下"这次是不是用户自己造成的"—— 漏了这一步，
+     * 250ms 任务就分不清该沉默还是该提醒，又会退回"点了字没反应"。
+     *
+     * @param byUser true = 用户自己按的（点球取消 / 按住放大 / 界面里关开关），
+     *               那些动作各自已有震动或 toast，不该再报一记失败；
+     *               false = 环境变的（窗口切走最常见），必须提醒。
+     */
+    private void abortPendingGrab(boolean byUser) {
+        pickSeq++;
+        pickAbortedByUser = byUser;
+    }
+
+    /**
+     * 抓字被作废了，而且不是用户自己造成的 —— 得让他知道。
+     *
+     * 不提醒的后果很实在：他明明点了那个字，球没变色、没声音、没震动，
+     * 三样全无。低视力用户看不清球的状态，只能判定"软件坏了"。
+     *
+     * 反馈沿用「读不到字」那一记长震（Haptics.error）：语义一致，
+     * 都是"这次没读成"，用户不用重新学一种震动。
+     */
+    private void notifyGrabAborted(String where) {
+        Log.w("pick", where + "：抓字被作废，不是用户操作的");
+        Haptics.error();
+        toast("这次没读成，再点一下");
     }
 
     private void addOverlay() {

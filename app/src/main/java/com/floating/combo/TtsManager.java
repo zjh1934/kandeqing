@@ -52,11 +52,24 @@ public class TtsManager {
     private static final int MAX_CHUNK = 3600;
 
     private static TextToSpeech tts = null;
+
+    // ── 下面这批字段跨线程：主线程写，引擎回调线程读（或反过来）──
+    //
+    // 不加 volatile 的后果不是崩溃，是「偶发、说不清」：
+    //   · 引擎回调线程改了 ready / failed，主线程过一会儿才看得见
+    //     → 球卡在"两竖"、或者明明能用却提示"还在初始化"
+    //   · 主线程 session++ 作废了旧会话，回调线程还拿着旧值判断
+    //     → "刚点了一句，读两个字球就跳回待命"
+    // 这类问题在真机上几天才撞到一次，撞到也复现不了，
+    // 所以宁可现在就把可见性钉死。
+    //
+    // 只加 volatile，不动结构：这些字段都是「一次写入、到处读」的开关，
+    // 没有"先读再改"的复合操作，volatile 够用，也不需要上锁。
     /** 每次重建 +1，用来丢弃旧实例的回调 */
-    private static int serial = 0;
-    private static boolean ready = false;
-    private static boolean failed = false;
-    private static boolean cnOk = false;
+    private static volatile int serial = 0;
+    private static volatile boolean ready = false;
+    private static volatile boolean failed = false;
+    private static volatile boolean cnOk = false;
     private static String currentPkg = "";
     /** 系统默认引擎包名。enumerate() 时缓存，供界面显示"跟随系统默认"跟的是谁 */
     private static String defaultPkg = "";
@@ -71,10 +84,10 @@ public class TtsManager {
      * 靠这个号把"不是这一次朗读"的回调全部丢掉 ——
      * 否则会出现"刚点了一句，读两个字球就跳回待命"。
      */
-    private static int session = 0;
+    private static volatile int session = 0;
     /** 本次会话一共几段。回调里用它判断"是不是最后一段"，不靠计数器累加 */
-    private static int chunkTotal = 0;
-    /** 上次因初始化失败而重试的时间，避免点一下就重连一次 */
+    private static volatile int chunkTotal = 0;
+    /** 上次因初始化失败而重试的时间，避免点一下就重连一次。只在主线程碰，无需 volatile */
     private static long lastRetry = 0;
 
     public interface OnInitListener {
@@ -698,7 +711,9 @@ public class TtsManager {
                 return false;
             }
             chunkTotal = parts.size();      // 先写总段数
-            int mySession = ++session;      // 再写会话号（volatile 写，前面的写对它可见）
+            // 再写会话号。这行以前注释里写着"volatile 写"，但字段并不是 volatile ——
+            // 现在字段真的加上了，这行注释才名副其实。
+            int mySession = ++session;
             Log.i("tts", "speak " + text.length() + " 字 → " + parts.size()
                     + " 段 rate=" + rate + " pitch=" + pitch);
             for (int i = 0; i < parts.size(); i++) {

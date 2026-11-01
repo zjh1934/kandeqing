@@ -8,6 +8,7 @@
   verify_textlayout.py —— TextLayout 纯逻辑镜像（阅读顺序 / 断句）
   verify_grabber.py   —— TextGrabber 完整流程镜像（收集 / 排序 / 拼装 / 回收）
   verify_speak.py     —— TtsManager 长文本切段（4000 字上限）
+  verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
 
 跑三遍，全绿才准提交。
 
@@ -23,7 +24,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["verify_structure.py", "verify_textlayout.py",
-          "verify_grabber.py", "verify_speak.py"]
+          "verify_grabber.py", "verify_speak.py", "verify_calls.py"]
 PASSES = 3
 
 

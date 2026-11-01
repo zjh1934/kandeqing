@@ -39,7 +39,10 @@ public class BallView extends View {
     private final Paint pIcon = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private int color = 0xFF1565C0;
-    private float alpha = 0.92f;
+    // 初值只在「还没设置过」的那一瞬起作用：BallController 建完 view 立刻
+    // 调 setBallAlpha(prefs.alpha())，所以这里实际看不到。
+    // 跟着 3.4 的新默认（100%）写，避免下次有人照着这个旧数字改回去。
+    private float alpha = 1.0f;
     private int state = ST_NORMAL;
     private float drawScale = 1f;
 
