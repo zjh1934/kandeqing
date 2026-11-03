@@ -1,0 +1,79 @@
+name: 构建安装包
+
+on:
+  push:
+    branches: [main]
+    # 安装包回传、纯文档改动都不再触发，避免自己触发自己
+    paths-ignore:
+      - 'apk/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 准备 Android SDK 30 / build-tools 30.0.3
+        run: |
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SM="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SM" ]; then SM="$(command -v sdkmanager)"; fi
+          yes | "$SM" --licenses >/dev/null 2>&1 || true
+          "$SM" --install "platforms;android-30" "build-tools;30.0.3" "platform-tools" >/dev/null
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK=$SDK_DIR" >> "$GITHUB_ENV"
+
+      - name: 构建 APK
+        run: bash build_apk.sh
+
+      - name: 读取版本号
+        id: ver
+        run: |
+          VER=$(grep -oE 'versionName[[:space:]]+"[^"]+"' app/build.gradle | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "path=apk/看得清-$VER.apk" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 看得清-${{ steps.ver.outputs.ver }}
+          path: ${{ steps.ver.outputs.path }}
+          if-no-files-found: error
+
+      - name: 把安装包提交回 apk/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f "${{ steps.ver.outputs.path }}"
+          if git diff --cached --quiet; then
+            echo "安装包无变化，跳过提交"
+          else
+            git commit -m "[skip ci] 构建 看得清 ${{ steps.ver.outputs.ver }} 安装包"
+            git push
+          fi
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.ver.outputs.ver }}"
+          APK="${{ steps.ver.outputs.path }}"
+          NOTES="回退 3.5 的密码框过滤与 250ms 抓字等待，恢复早期版本的抓字完整度与跟手度；保留稳定性与日志隐私修复。详见 CHANGELOG.md。"
+          if gh release view "v$VER" >/dev/null 2>&1; then
+            gh release upload "v$VER" "$APK" --clobber
+          else
+            gh release create "v$VER" "$APK" --title "看得清 $VER" --notes "$NOTES"
+          fi

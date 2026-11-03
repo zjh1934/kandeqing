@@ -31,6 +31,11 @@ public class TextGrabber {
 
     /** 一趟最多走多少个节点。超长列表之类的病态树会把主线程拖死（同行方案经验值 10000） */
     private static final int MAX_WALK = 10000;
+    /**
+     * 兜底路径的节点预算。3.5 给兜底也套了 MAX_WALK，结果是主路径被截断后
+     * 兜底同样读不全；3.6 放宽三倍，深度上限仍保留，防爆栈的底线不动。
+     */
+    private static final int FALLBACK_MAX_WALK = 30000;
     /** 一屏最多收多少段，防止一次朗读太长 */
     private static final int MAX_SEG = 400;
     /**
@@ -330,20 +335,10 @@ public class TextGrabber {
             }
         }
 
-        // 密码框：一个字都不收。
-        //
-        // Android 不阻止无障碍服务读密码框 —— 官方只保证「不在无障碍事件里广播密码」，
-        // 直接遍历节点拿 getText() 照样拿得到明文（NDSS'23 的 CONQUER 攻击就是拿这个
-        // 逐位枚举密码的）。主流读屏都是靠显式判断 isPassword() 才不念出来，
-        // 我们以前没判，等于点了密码框会原样念出来 —— 还会被写进日志。
-        //
-        // 返回 childYielded 而不是 false：子树里真收到了别的文字就照样算"有内容"，
-        // 免得父节点把自己整段再贴一遍造成重复。
-        if (isPassword(node)) {
-            Log.i("grab", "跳过密码框");
-            return childYielded;
-        }
-
+        // 3.6：不再过滤密码框。3.5 在这里用 isPassword() 整段跳过，但部分 ROM
+        // 会把验证码 / 金额 / 自定义输入框误报成密码，点上去直接"这里没读到文字"。
+        // 按维护者要求回退到早期行为，让节点照收、照排序、照断句。
+        // 代价：点中真正的密码框会原样念出明文，公共场合请留意。
         String t = nodeText(node);
         if (t == null) {
             return childYielded;
@@ -601,8 +596,9 @@ public class TextGrabber {
      * StackOverflowError。而调用方把 Throwable 一律吞成"这里没读到文字"，
      * 用户看到的就是"点了没反应"，日志里也只留一句抓字抛异常。
      *
-     * 主路径 walk() 有三道闸（MAX_DEPTH / MAX_SEG / MAX_WALK），
-     * 兜底路径一道都没有 —— 偏偏正是主路径被闸断掉的时候才会走到兜底。
+     * 3.5 给兜底补了闸；3.6 保留 MAX_DEPTH 防爆栈，把节点预算放宽到
+     * FALLBACK_MAX_WALK —— 偏偏正是主路径被闸断掉的时候才会走到兜底，
+     * 不能再让兜底也读不全。
      */
     private void findDeepest(AccessibilityNodeInfo node, int x, int y,
                              Best best, int depth) {
@@ -613,7 +609,7 @@ public class TextGrabber {
             Log.w("grab", "兜底路径超深，不再往下找 depth=" + depth);
             return;
         }
-        if (best.visited >= MAX_WALK) {
+        if (best.visited >= FALLBACK_MAX_WALK) {
             Log.w("grab", "兜底路径节点太多，收工 visited=" + best.visited);
             return;
         }
@@ -625,7 +621,7 @@ public class TextGrabber {
             return;
         }
 
-        if (r.contains(x, y) && !isPassword(node)) {
+        if (r.contains(x, y)) {
             String t = nodeText(node);
             if (t != null) {
                 int area = r.width() * r.height();
@@ -636,8 +632,6 @@ public class TextGrabber {
             }
         }
 
-        // 密码框本身不收，但它的子节点照走 ——
-        // 密码框里通常没有别的文字，真有的话也不是密码，没必要整棵子树都砍掉
         int count;
         try {
             count = node.getChildCount();
@@ -669,29 +663,6 @@ public class TextGrabber {
     }
 
     // ---------- 取文本 ----------
-
-    /**
-     * 这是密码输入框吗。
-     *
-     * Android 只保证「不把密码放进无障碍事件里广播」，
-     * 并不阻止服务直接遍历节点取文本 —— 所以这条判断只能由我们自己来做。
-     * 主流读屏（TalkBack）也是这么判的。
-     *
-     * 拿不到就当【不是密码】，跟本文件 visible() 的惯例一致：
-     * 一次 IPC 异常不该让整屏都读不到东西。isPassword() 只是读一个 boolean 标记，
-     * 实际上不会抛；真抛了说明整套节点 API 都废了，那时候 nodeText() 也读不出东西来，
-     * 再"保险"也没有意义。
-     */
-    private static boolean isPassword(AccessibilityNodeInfo node) {
-        if (node == null) {
-            return false;
-        }
-        try {
-            return node.isPassword();
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     /**
      * 节点的文字：正文优先，没有就退回内容描述（图标按钮靠它才有东西读）。

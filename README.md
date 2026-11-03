@@ -273,7 +273,9 @@ python verify_all.py     # 跑三遍，全绿
 3. `Build → Build Bundle(s) / APK(s) → Build APK(s)`
 
 **命令行（aapt2 + javac + d8 + apksigner）**
-见 `build_apk.sh`。要在纯英文路径下编译 —— aapt2 打不开含中文的目录。
+见 `build_apk.sh`。3.6 起脚本在 Windows / Linux / macOS 都能跑；
+push 到 `main` 后 GitHub Actions 会自动出包、回传 `apk/` 并发布 Release，
+不用本地装 Android SDK。要在纯英文路径下编译 —— aapt2 打不开含中文的目录。
 
 依赖：`compileSdkVersion 30` / `minSdkVersion 24`（Android 7.0）/ `targetSdkVersion 29`。
 无第三方运行时依赖，单元测试用 JUnit 4.13.2。
@@ -284,6 +286,9 @@ python verify_all.py     # 跑三遍，全绿
 
 - **读不到图片里的字**：没有 OCR。纯图片、扫描件、游戏界面读不出来。
 - **依赖 APP 向无障碍暴露文字**：有些 APP（尤其自绘引擎）不提供文字节点。
+- **3.6 起不再屏蔽密码框**：按维护者要求回退了 3.5 的 `isPassword()` 过滤，
+  验证码 / 金额 / 输入框不再被误跳过，但点中真正的密码输入位会**原样念出明文**，
+  公共场合请留意。日志仍然不记录读到的文字。
 - **放大是像素放大**，字会变毛边，不会重新排版。
 - **部分国产 ROM 的省电策略**会自动关闭无障碍服务，需要手动设为"不限制"。
 - **`targetSdkVersion 29`**：为 AIDE 构建保留。上架应用商店需要提到 33+，
@@ -297,6 +302,9 @@ python verify_all.py     # 跑三遍，全绿
 
 | 版本 | 安装包 | 名字 | 说明 |
 |---|---|---|---|
+| **3.6** | [看得清-3.6.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.6.apk) | 看得清 | 回退密码过滤与 250ms 抓字等待，抓字更全、点字更快；构建改走 GitHub Actions |
+| 3.5 | [Releases](https://github.com/zjh1934/qiuqiu/releases) | 看得清 | 安全与"没反应"专项：日志不记文字、密码框不读、打断有提示、TTS 状态加 volatile |
+| 3.1–3.4 | [Releases](https://github.com/zjh1934/qiuqiu/releases) | 看得清 | 触感三档化、语速默认 2.0、闲置不变淡、悬浮球重建等 |
 | **3.0** | [看得清-3.0.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.0.apk) | 看得清 | 震动改走系统 UI 触感通道（小米+Android 16 上原始 Vibrator 被吞） |
 | 2.9 | [看得清-2.9.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-2.9.apk) | 看得清 | 震动改 createOneShot+无障碍音频属性，自查结果常驻；日志支持复制/自选路径/导出 md |
 | 2.8 | [看得清-2.8.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-2.8.apk) | 看得清 | 修震动不生效的三处静默失败；新增「试一下」自查按钮与诊断行 |

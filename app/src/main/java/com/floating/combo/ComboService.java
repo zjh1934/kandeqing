@@ -63,25 +63,31 @@ public class ComboService extends AccessibilityService
     private boolean zooming = false;
 
     /**
-     * 选取态的「代号」。每次状态一变就 +1，用来作废还在排队的「延迟抓字」任务。
+     * 抬手后到开始抓字之间的等待。3.5 设成 250ms「等窗口恢复常态」，
+     * 每次点字都固定多等四分之一秒；3.6 按维护者要求回到早期版本的「抬手即抓」。
+     * 覆盖层是同步撤掉的，不必再等。极少数机型若出现抓到浮层，把它调回 60~120 即可。
+     */
+    private static final long PICK_DELAY_MS = 0;
+
+    /**
+     * 选取态的「代号」。每次状态一变就 +1，用来作废还在排队的抓字任务。
      *
-     * 覆盖层抬手后会延迟 250ms 再抓字（等窗口恢复常态）。这 250ms 里用户完全
-     * 可能又点了球：那一下要么是取消选取、要么是要放大。作废掉排队任务，
-     * 否则就出现「点了取消它还在读」。
+     * 抬手到任务真正跑起来之间用户完全可能又点了球：那一下要么是取消选取、
+     * 要么是要放大。作废掉排队任务，否则就出现「点了取消它还在读」。
      */
     private int pickSeq = 0;
 
     /**
      * 作废排队抓字的那一下，是不是用户自己干的。
      *
-     * 只有"不是他干的"才需要专门告诉他 —— 最常见的是这 250ms 里窗口切走了
+     * 只有"不是他干的"才需要专门告诉他 —— 最常见的是抬手后窗口切走了
      * （弹输入法 / 来通知 / 切 App），抓字被静默丢掉，用户点了个字却什么都没发生。
      * 他看不见球变没变色，只能以为软件坏了。
      *
      * 反过来，点球取消（有轻震）、按住放大（有强震）都是他自己按的，
      * 那一刻已经有反馈了，再补一记长震反而像报错，会让人以为操作失败了。
      *
-     * 取值时机：作废动作发生时写入，250ms 任务跑到时读。全程主线程，无竞态。
+     * 取值时机：作废动作发生时写入，抓字任务跑到时读。全程主线程，无竞态。
      */
     private boolean pickAbortedByUser = true;
 
@@ -585,7 +591,7 @@ public class ComboService extends AccessibilityService
     private void startSpeak(String text, int seq) {
         if (seq != pickSeq || state != ST_PICKING) {
             // 抓字是在后台线程跑的（一屏几千个节点，可能上百毫秒），
-            // 这段路比上面那 250ms 更长，同样会被窗口切换打断。
+            // 这段路比抬手到排队那一小段更长，同样会被窗口切换打断。
             // 原来这里也是静默丢弃 —— 用户点完字要等更久才发现"没读"。
             if (pickAbortedByUser) {
                 Log.i("pick", "抓字回来时用户已取消，丢弃");
@@ -727,25 +733,25 @@ public class ComboService extends AccessibilityService
                         final int y = (int) e.getRawY();
                         removeOverlay();
                         final int seq = pickSeq;
-                        // 等覆盖层撤掉、窗口恢复常态再抓，否则可能抓到自己的覆盖层
+                        // 3.6：覆盖层是同步撤掉的，抬手后直接排抓字，不再空等 250ms。
+                        // 排队这一小段里球可能又被点了（取消选取 / 要放大），
+                        // 那这次屏幕点击就作废，别再读出来。
                         h.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                // 这 250ms 里球可能又被点了（取消选取 / 要放大），
-                                // 那这次屏幕点击就作废，别再读出来
                                 if (seq != pickSeq || state != ST_PICKING) {
                                     if (pickAbortedByUser) {
                                         Log.i("pick", "用户自己取消了，跳过抓字");
                                     } else {
                                         // 不是他取消的：多半是窗口切走了。
                                         // 必须告诉他 —— 否则"点了字，什么都没发生"。
-                                        notifyGrabAborted("抬手后 250ms 内");
+                                        notifyGrabAborted("抬手后抓字前");
                                     }
                                     return;
                                 }
                                 readAt(x, y);
                             }
-                        }, 250);
+                        }, PICK_DELAY_MS);
                         return true;
                     }
 
@@ -766,7 +772,7 @@ public class ComboService extends AccessibilityService
     /**
      * 作废还在排队的抓字任务。**所有 pickSeq++ 都必须走这里**，
      * 顺带记下"这次是不是用户自己造成的"—— 漏了这一步，
-     * 250ms 任务就分不清该沉默还是该提醒，又会退回"点了字没反应"。
+     * 抓字任务就分不清该沉默还是该提醒，又会退回"点了字没反应"。
      *
      * @param byUser true = 用户自己按的（点球取消 / 按住放大 / 界面里关开关），
      *               那些动作各自已有震动或 toast，不该再报一记失败；
