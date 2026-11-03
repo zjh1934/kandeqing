@@ -71,9 +71,9 @@ jobs:
         run: |
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
-          NAME="看得清-$VER.apk"
-          # gh 直接带文件参数会把中文名裁掉，改用上传接口显式指定 name
-          ENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$NAME")
+          # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
+          # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
+          NAME="kanqing-$VER.apk"
           NOTES="回退 3.5 的密码框过滤与 250ms 抓字等待，恢复早期版本的抓字完整度与跟手度；保留稳定性与日志隐私修复。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
@@ -86,5 +86,5 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary "@$APK" \
-            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$ENC" >/dev/null
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=$NAME" >/dev/null
           echo "已发布 $NAME"
