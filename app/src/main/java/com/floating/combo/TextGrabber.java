@@ -53,12 +53,19 @@ public class TextGrabber {
 
     private final AccessibilityService svc;
 
+    /**
+     * 3.7 密码保护开关的当前值。每次 grabFrom 开头重读一次 ——
+     * 界面上刚拨完开关，下一次点字就生效，不用重启无障碍服务。
+     */
+    private boolean skipPassword = false;
+
     public TextGrabber(AccessibilityService svc) {
         this.svc = svc;
     }
 
     /** 从点击处开始，往后续读 */
     public String grabFrom(int x, int y) {
+        skipPassword = new Prefs(svc).passwordGuard();
         String out = grabFromWindows(x, y);
         if (out != null && out.length() > 0) {
             return out;
@@ -335,10 +342,14 @@ public class TextGrabber {
             }
         }
 
-        // 3.6：不再过滤密码框。3.5 在这里用 isPassword() 整段跳过，但部分 ROM
-        // 会把验证码 / 金额 / 自定义输入框误报成密码，点上去直接"这里没读到文字"。
-        // 按维护者要求回退到早期行为，让节点照收、照排序、照断句。
-        // 代价：点中真正的密码框会原样念出明文，公共场合请留意。
+        // 3.7：密码保护做成开关，默认关。
+        // 关（默认）→ 3.6 行为：节点照收、照排序、照断句，验证码 / 金额 /
+        //   自定义输入框不会被 ROM 误报成密码而读不到。
+        // 开 → 3.5 行为：整段跳过密码框，公共场合不念明文。
+        if (skipPassword && isPassword(node)) {
+            Log.i("grab", "密码保护已开，跳过密码框");
+            return childYielded;
+        }
         String t = nodeText(node);
         if (t == null) {
             return childYielded;
@@ -621,7 +632,7 @@ public class TextGrabber {
             return;
         }
 
-        if (r.contains(x, y)) {
+        if (r.contains(x, y) && !(skipPassword && isPassword(node))) {
             String t = nodeText(node);
             if (t != null) {
                 int area = r.width() * r.height();
@@ -663,6 +674,18 @@ public class TextGrabber {
     }
 
     // ---------- 取文本 ----------
+
+    /** 3.7：密码保护开关打开时才用得到。读不到就当不是密码，别整屏读不出东西。 */
+    private static boolean isPassword(AccessibilityNodeInfo node) {
+        if (node == null) {
+            return false;
+        }
+        try {
+            return node.isPassword();
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /**
      * 节点的文字：正文优先，没有就退回内容描述（图标按钮靠它才有东西读）。

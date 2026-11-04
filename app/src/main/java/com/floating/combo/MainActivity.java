@@ -1179,6 +1179,36 @@ public class MainActivity extends Activity
     private static final String WECHAT_ID = "Vssfsg";
 
     /**
+     * 3.7 一键推荐：发出去的是纯文字 + 下载链接，微信里能直接发，
+     * 不用让长辈去记网址。链接只写在 strings.xml 一处，以后换成国内短链
+     * 只改那一行，二维码和下载页由配套脚本重新生成即可。
+     */
+    private void shareToFriend() {
+        final String url = getString(R.string.share_download_url);
+        final String msg = "看得清 —— 手机上的字看不清？按住小球放大，"
+                + "点一下屏幕上的字就念给你听。\n"
+                + "不联网、不上传，给爸妈装一个。\n"
+                + "下载：" + url;
+        try {
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("text/plain");
+            i.putExtra(Intent.EXTRA_SUBJECT, "看得清 · 给长辈装一个");
+            i.putExtra(Intent.EXTRA_TEXT, msg);
+            startActivity(Intent.createChooser(i, "推荐给朋友"));
+        } catch (Exception e) {
+            // 个别机型没有可用分享目标，退一步放进剪贴板
+            try {
+                ClipboardManager cm =
+                        (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("看得清下载", msg));
+                toast("分享没打开，内容已复制，粘贴给朋友就行");
+            } catch (Exception e2) {
+                toast("分享失败，下载页：" + url);
+            }
+        }
+    }
+
+    /**
      * 联系页：二维码 + 一键复制微信号。
      * 二维码负责"扫"，复制按钮负责"存" —— 两条路都给，别让人抄。
      */
@@ -1233,6 +1263,45 @@ public class MainActivity extends Activity
         });
         c1.addView(bCopy, lp(0, dp(14), 0, 0));
         page.addView(c1, lp(0, 0, 0, dp(12)));
+
+        // 3.7：只新增这一张卡片，朗读 / 放大 / 球三页和球的手势一律不动。
+        LinearLayout c3 = card();
+        c3.addView(section("推荐与隐私"));
+
+        TextView shareTip = new TextView(this);
+        shareTip.setTextSize(14);
+        shareTip.setTextColor(Theme.TEXT_2);
+        shareTip.setLineSpacing(dp(2), 1f);
+        shareTip.setText("觉得好用，点一下就能发给家人朋友。\n"
+                + "密码保护默认关：打开后不再朗读密码框里的内容。");
+        c3.addView(shareTip, lp(0, dp(6), 0, dp(14)));
+
+        final Button btnPwd = flatBtn("");
+        btnPwd.setTextSize(16);
+        btnPwd.setText("密码保护：" + (prefs.passwordGuard() ? "开" : "关"));
+        btnPwd.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean on = !prefs.passwordGuard();
+                prefs.setPasswordGuard(on);
+                btnPwd.setText("密码保护：" + (on ? "开" : "关"));
+                toast(on ? "已开启：密码框不再朗读" : "已关闭：恢复点哪读哪");
+            }
+        });
+        c3.addView(btnPwd, lp(0, 0, 0, dp(10)));
+
+        Button bShare = flatBtn("一键推荐给朋友");
+        bShare.setTextSize(16);
+        bShare.setBackgroundDrawable(Theme.brandGradientPill(dp(10)));
+        bShare.setTextColor(Color.WHITE);
+        bShare.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                shareToFriend();
+            }
+        });
+        c3.addView(bShare);
+        page.addView(c3, lp(0, 0, 0, dp(12)));
 
         LinearLayout c2 = card();
         c2.addView(section("关于"), lp(0, 0, 0, dp(10)));

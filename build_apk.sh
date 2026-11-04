@@ -88,15 +88,26 @@ cp dex/classes.dex ./classes.dex
 "$BT/zipalign$EXE" -f -p 4 unsigned.apk aligned.apk
 
 echo "== 6/6 签名 =="
+# 3.7：签名密钥固定下来，之后每次发版都是同一把，用户才能覆盖升级。
+# CI 从 Actions Secrets 解码到 .toolchain/debug.keystore；本地没配就退回临时调试密钥。
 KS="$TC/debug.keystore"
+ALIAS="${KEY_ALIAS:-androiddebugkey}"
+STOREPASS="${KEYSTORE_PASSWORD:-android}"
+KEYPASS="${KEY_PASSWORD:-$STOREPASS}"
 if [ ! -f "$KS" ]; then
-  "$JDK/bin/keytool$EXE" -genkeypair -keystore "$KS" -alias androiddebugkey \
-    -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
-    -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+  if [ -n "$KEYSTORE_B64" ]; then
+    printf '%s' "$KEYSTORE_B64" | base64 -d > "$KS"
+    echo "已从 Secrets 恢复固定签名密钥"
+  else
+    echo "::warning::没有固定签名密钥，本次用临时调试密钥，装新版要卸载旧版"
+    "$JDK/bin/keytool$EXE" -genkeypair -keystore "$KS" -alias androiddebugkey \
+      -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
+      -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+  fi
 fi
 "$JDK/bin/java$EXE" -jar "$BT/lib/apksigner.jar" sign \
-  --ks "$KS" --ks-key-alias androiddebugkey \
-  --ks-pass pass:android --key-pass pass:android \
+  --ks "$KS" --ks-key-alias "$ALIAS" \
+  --ks-pass "pass:$STOREPASS" --key-pass "pass:$KEYPASS" \
   --out "$OUT/kanqing.apk" aligned.apk
 
 cp "$OUT/kanqing.apk" "$APK"

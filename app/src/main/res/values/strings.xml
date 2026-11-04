@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">看得清</string>
     <string name="acc_desc">看得清：点一下，再点屏幕上的文字就能听；按住球放大取景，拖动可以挪位置。</string>
+    <!-- 3.7 一键推荐用的下载页。以后换成国内短链（蒲公英等）只改这一行，
+         配套 make_qr.py 里的 DOWNLOAD_URL 同步改一下重新生成二维码即可。 -->
+    <string name="share_download_url">https://github.com/zjh1934/qiuqiu/releases/latest</string>
 </resources>

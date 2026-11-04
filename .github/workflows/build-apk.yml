@@ -6,6 +6,7 @@ on:
     # 安装包回传、纯文档改动都不再触发，避免自己触发自己
     paths-ignore:
       - 'apk/**'
+      - 'promo/**'
       - '**/*.md'
   workflow_dispatch:
 
@@ -37,7 +38,23 @@ jobs:
           echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_SDK=$SDK_DIR" >> "$GITHUB_ENV"
 
+      - name: 恢复固定签名密钥
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          mkdir -p .toolchain
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > .toolchain/debug.keystore
+            echo "已恢复固定签名密钥，本次发版与上一版同签名"
+          else
+            echo "::warning::未配置 KEYSTORE_B64，本次为临时密钥，装新版需卸载旧版"
+          fi
+
       - name: 构建 APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: bash build_apk.sh
 
       - name: 读取版本号
@@ -74,7 +91,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="回退 3.5 的密码框过滤与 250ms 抓字等待，恢复早期版本的抓字完整度与跟手度；保留稳定性与日志隐私修复。详见 CHANGELOG.md。"
+          NOTES="3.7：新增「密码保护」开关（默认关，可开）与「一键推荐给朋友」；固定签名密钥，此后可覆盖升级；球的手势与放大逻辑一行未动。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi
