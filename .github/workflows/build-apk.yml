@@ -67,8 +67,8 @@ jobs:
           echo "== 构建输出 ==" >> build.log
           bash build_apk.sh 2>&1 | tee -a build.log
 
-      - name: 把构建日志写回仓库
-        if: always()
+      - name: 失败时把构建日志写回仓库
+        if: failure()
         run: |
           if [ -f build.log ]; then
             git config user.name "github-actions[bot]"
