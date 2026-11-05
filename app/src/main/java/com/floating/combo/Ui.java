@@ -124,14 +124,28 @@ public final class Ui {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        TextView h = caption(c, title);
+        // 3.9.6 L1：原来只是 12sp 灰小字，跟下面的设置行、展开选项糊成一片。
+        // 现在给章节一根 3dp 蓝竖条 + 13sp 加粗，一眼分出「这是目录」。
+        LinearLayout head = new LinearLayout(c);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        View bar = new View(c);
+        bar.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
+                dp(c, 1.5f), 0, 0));
+        head.addView(bar, new LinearLayout.LayoutParams(dp(c, 3), dp(c, 14)));
+        TextView h = text(c, title, 13, Theme.TEXT, true);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.leftMargin = dp(c, 8);
+        head.addView(h, tlp);
         LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        hlp.leftMargin = dp(c, 6);
+        hlp.leftMargin = dp(c, 4);
         hlp.topMargin = dp(c, 8);
         hlp.bottomMargin = dp(c, 6);
-        wrap.addView(h, hlp);
+        wrap.addView(head, hlp);
 
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -163,8 +177,12 @@ public final class Ui {
      * 卡片和细分割线完全不搭，展开后更是一堆独立小方块。
      *
      * 现在就是分组卡片里的一行普通列表项：左标签、右强调色当前值、最右
-     * 几何箭头。点开**就地展开**单选菜单（不是悬浮弹层、不是二级页面），
-     * 选中项淡强调底 + 一个几何勾。
+     * 几何箭头。点开**就地展开**单选菜单（不是悬浮弹层、不是二级页面）。
+     *
+     * 3.9.6 层级重做：L1 组名有蓝竖条，L2 展开时整行淡底 + 左侧蓝竖条 +
+     * 箭头朝上，L3 缩进并用竖引导线串起、13sp 次级色。选中项改成引导线上
+     * 一小段蓝色圆角竖条，取消原来的整块淡蓝底和几何勾 —— 蓝色只留给
+     * 章节标记与当前值，选项不再跟它们抢。同组同时只展开一个（手风琴）。
      */
     public static SelectRow selectRow(Context c, String label) {
         return new SelectRow(c, label);
@@ -178,6 +196,8 @@ public final class Ui {
         }
 
         private final Context c;
+        private final LinearLayout row;
+        private final View mark;          // L2 展开时左侧那根蓝竖条
         private final TextView value;
         private final GlyphView chevron;
         private final LinearLayout menu;
@@ -185,6 +205,9 @@ public final class Ui {
         private int selected = 0;
         private boolean expanded = false;
         private OnSelected cb;
+
+        /** 全局只开一个。用弱引用，Activity recreate 后不会拽住旧界面。 */
+        private static java.lang.ref.WeakReference<SelectRow> sOpen;
 
         public SelectRow(Context c, String labelText) {
             super(c);
@@ -194,12 +217,24 @@ public final class Ui {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT));
 
-            final LinearLayout row = new LinearLayout(c);
+            row = new LinearLayout(c);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setLayoutParams(rowLp(c, Theme.ROW_SELECT));
             int p = dp(c, 12);
-            row.setPadding(p, 0, p, 0);
+            // mark 一直占位（5 + 3 + 4 = 12dp），label 仍从 12dp 起，
+            // 跟滑块行、分割线严格对齐；展开时也不会左右跳。
+            row.setPadding(dp(c, 5), 0, p, 0);
+
+            // L2 激活标记：默认 INVISIBLE 但仍占位
+            mark = new View(c);
+            mark.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
+                    dp(c, 1.5f), 0, 0));
+            mark.setVisibility(View.INVISIBLE);
+            LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(
+                    dp(c, 3), dp(c, 32));
+            mlp.rightMargin = dp(c, 4);
+            row.addView(mark, mlp);
 
             TextView label = body(c, labelText);
             row.addView(label, new LinearLayout.LayoutParams(
@@ -230,10 +265,15 @@ public final class Ui {
             menu = new LinearLayout(c);
             menu.setOrientation(LinearLayout.VERTICAL);
             menu.setVisibility(View.GONE);
-            menu.setPadding(dp(c, 10), dp(c, 2), dp(c, 10), dp(c, 8));
-            addView(menu, new LinearLayout.LayoutParams(
+            // L3：整体缩进，装在一块更淡的圆角表面里，跟 L2 的行分开。
+            menu.setBackgroundDrawable(Theme.rounded(Theme.SURFACE_2,
+                    dp(c, 10), 0, 0));
+            menu.setPadding(dp(c, 14), dp(c, 4), dp(c, 14), dp(c, 8));
+            LinearLayout.LayoutParams mlp2 = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            mlp2.setMargins(dp(c, 14), dp(c, 4), dp(c, 14), 0);
+            addView(menu, mlp2);
         }
 
         public void setItems(List<String> list) {
@@ -269,11 +309,31 @@ public final class Ui {
         }
 
         private void toggle() {
-            expanded = !expanded;
-            menu.setVisibility(expanded ? View.VISIBLE : View.GONE);
-            chevron.setRotation(expanded ? 180f : 0f);
-            if (expanded) {
+            if (!expanded && sOpen != null) {
+                SelectRow prev = sOpen.get();
+                if (prev != null && prev != this && prev.expanded) {
+                    prev.setExpanded(false);   // 手风琴：开新的就收起旧的
+                }
+            }
+            setExpanded(!expanded);
+        }
+
+        private void setExpanded(boolean on) {
+            expanded = on;
+            menu.setVisibility(on ? View.VISIBLE : View.GONE);
+            chevron.setRotation(on ? 180f : 0f);
+            // L2 激活态：整行淡底 + 左侧蓝竖条，明确「下面这组选项属于我」
+            row.setBackgroundDrawable(on
+                    ? new android.graphics.drawable.InsetDrawable(
+                            Theme.rounded(Theme.ACCENT_SOFT, dp(c, 8), 0, 0),
+                            dp(c, 4), 0, dp(c, 4), 0)
+                    : null);
+            mark.setVisibility(on ? View.VISIBLE : View.INVISIBLE);
+            if (on) {
                 rebuildMenu();
+                sOpen = new java.lang.ref.WeakReference<SelectRow>(this);
+            } else if (sOpen != null && sOpen.get() == this) {
+                sOpen = null;
             }
         }
 
@@ -287,29 +347,44 @@ public final class Ui {
                 item.setGravity(Gravity.CENTER_VERTICAL);
                 item.setLayoutParams(new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 44)));
-                item.setPadding(dp(c, 12), 0, dp(c, 12), 0);
+
+                // L3 轨道：每格一根贯通的 2dp 细线，逐格拼成竖引导线。
+                // 选中项在线上叠一小段蓝色圆角竖条 —— 取代原来的整块淡蓝底
+                // 和几何勾，跟 L1 / L2 的蓝竖条是同一套语言，只是更短。
+                android.widget.FrameLayout rail = new android.widget.FrameLayout(c);
+                rail.setLayoutParams(new LinearLayout.LayoutParams(
+                        dp(c, 30), dp(c, 44)));
+                View line = new View(c);
+                line.setBackgroundColor(Theme.DIVIDER);
+                android.widget.FrameLayout.LayoutParams llp =
+                        new android.widget.FrameLayout.LayoutParams(
+                                dp(c, 2),
+                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                Gravity.CENTER_HORIZONTAL);
+                rail.addView(line, llp);
                 if (on) {
-                    item.setBackgroundDrawable(Theme.rounded(
-                            Theme.ACCENT_SOFT, dp(c, 8), 0, 0));
+                    View seg = new View(c);
+                    seg.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
+                            dp(c, 1.5f), 0, 0));
+                    android.widget.FrameLayout.LayoutParams slp =
+                            new android.widget.FrameLayout.LayoutParams(
+                                    dp(c, 3), dp(c, 18), Gravity.CENTER);
+                    rail.addView(seg, slp);
                 }
-                TextView t = text(c, items.get(i), 14,
-                        on ? Theme.ACCENT : Theme.TEXT, on);
+                item.addView(rail);
+
+                TextView t = text(c, items.get(i), 13,
+                        on ? Theme.ACCENT : Theme.TEXT_2, on);
                 t.setSingleLine(true);
                 t.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 item.addView(t, new LinearLayout.LayoutParams(
                         0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-                if (on) {
-                    GlyphView ck = new GlyphView(c, GlyphView.CHECK);
-                    ck.setTint(Theme.ACCENT);
-                    item.addView(ck, new LinearLayout.LayoutParams(
-                            dp(c, 18), dp(c, 18)));
-                }
                 item.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         int old = selected;
+                        setExpanded(false);     // 先收起，别在点击回调里重建菜单
                         setSelection(pos);
-                        toggle();           // 选完就收起
                         if (cb != null && pos != old) {
                             cb.on(pos);
                         }

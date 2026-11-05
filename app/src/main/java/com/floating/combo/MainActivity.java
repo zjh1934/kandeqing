@@ -529,19 +529,10 @@ public class MainActivity extends Activity
     private void reloadEngines() {
         List<TtsManager.Engine> real = TtsManager.enumerate(this);
         engines = new ArrayList<TtsManager.Engine>();
-        String def = TtsManager.defaultEnginePkg();
-        String defLabel = "";
-        for (int i = 0; i < real.size(); i++) {
-            TtsManager.Engine e = real.get(i);
-            if (e.pkg != null && e.pkg.equals(def)) {
-                defLabel = e.name;
-                break;
-            }
-        }
-        // 空串 = 跟随系统默认，必须有这一项，否则显示与实际用的引擎对不上
-        engines.add(new TtsManager.Engine(
-                defLabel.length() > 0
-                        ? "跟随系统默认（" + defLabel + "）" : "跟随系统默认", ""));
+        // 空串 = 跟随系统默认，必须有这一项，否则显示与实际用的引擎对不上。
+        // 3.9.6：显示短名就好，别把「（MultiTTS…）」这种包名截一半糊在行尾。
+        // 真想知道当前引擎，下面「音色」列表和试听会体现；逻辑仍用 pkg 空串。
+        engines.add(new TtsManager.Engine("跟随系统默认", ""));
         engines.addAll(real);
 
         List<String> names = new ArrayList<String>();

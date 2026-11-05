@@ -310,10 +310,11 @@ public class TtsManager {
                         } catch (Exception ignored) {
                         }
                         String tag = v.getName();
-                        String label = tag;
-                        if (l != null) {
-                            label = tag + "　" + l.getDisplayName(Locale.SIMPLIFIED_CHINESE);
-                        }
+                        // 3.9.6：界面上显示说人话的短名，不再把
+                        // microsoft_zh-CN-XiaoxiaoNeural / NOT_SET 这种包名甩给用户。
+                        // 只改 label（显示），name 仍是原始 tag —— 保存、比对、
+                        // applyVoice 全走 name，一行逻辑都不用动。
+                        String label = friendlyVoice(tag, l);
                         Voice item = new Voice(tag, label);
                         if (l != null && "zh".equals(l.getLanguage())) {
                             zh.add(item);
@@ -347,6 +348,42 @@ public class TtsManager {
         out.addAll(zh);
         out.addAll(other);
         return out;
+    }
+
+    /**
+     * 3.9.6：常见 Neural 音色 → 中文短名。认不出来的保留原名 + 语言，
+     * 不硬猜，也不丢信息。只影响显示，不影响存哪个音色。
+     */
+    private static String friendlyVoice(String tag, Locale l) {
+        if (tag == null) {
+            return "";
+        }
+        String t = tag.toLowerCase(Locale.ROOT).replace("_", "-");
+        String who = null;
+        if (t.contains("xiaoxiao")) {
+            who = "晓晓 · 女声";
+        } else if (t.contains("yunxi")) {
+            who = "云希 · 男声";
+        } else if (t.contains("yunyang")) {
+            who = "云扬 · 男声";
+        } else if (t.contains("xiaoyi")) {
+            who = "晓伊 · 女声";
+        } else if (t.contains("yunjian")) {
+            who = "云健 · 男声";
+        } else if (t.contains("xiaoshuang")) {
+            who = "晓双 · 女声";
+        } else if (t.contains("yunxia")) {
+            who = "云夏 · 童声";
+        } else if (t.contains("not-set") || t.equals("not_set")) {
+            who = "系统默认";
+        }
+        if (who != null) {
+            return who;
+        }
+        if (l != null) {
+            return tag + "　" + l.getDisplayName(Locale.SIMPLIFIED_CHINESE);
+        }
+        return tag;
     }
 
     /** 按名字设音色。名字为空就只设中文语言 */
