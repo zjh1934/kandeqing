@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 3.10：Logo 与球同构 —— 半透明矢量柔边环（径向渐变淡出），
-     环内两条白色竖线。白色是默认，形态与「朗读态」一致，桌面上辨识度更高。 -->
+<!-- 3.11：Logo 换成用户选定的「A 双环」。
+     外柔边环（径向渐变模糊）+ 内细实环 + 极小蓝色中心点。
+     去掉 3.10 那两条白色竖线 —— 缩到桌面尺寸像播放器暂停键。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -8,7 +9,7 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 柔边环：一个圆，用径向渐变做出「中间透明 + 周围渐变模糊」 -->
+    <!-- 外柔边环：一个圆，径向渐变做出「中间透明 + 周围渐变模糊」 -->
     <path
         android:pathData="M54,54m-40,0a40,40 0,1,0 80,0a40,40 0,1,0 -80,0">
         <aapt:attr name="android:fillColor">
@@ -16,20 +17,26 @@
                 android:type="radial"
                 android:centerX="54"
                 android:centerY="54"
-                android:gradientRadius="42">
+                android:gradientRadius="40">
                 <item android:offset="0.00" android:color="#00FFFFFF" />
-                <item android:offset="0.48" android:color="#00FFFFFF" />
-                <item android:offset="0.70" android:color="#E6FFFFFF" />
-                <item android:offset="0.82" android:color="#80FFFFFF" />
-                <item android:offset="0.94" android:color="#00FFFFFF" />
+                <item android:offset="0.60" android:color="#00FFFFFF" />
+                <item android:offset="0.825" android:color="#E6FFFFFF" />
+                <item android:offset="0.90" android:color="#80FFFFFF" />
                 <item android:offset="1.00" android:color="#00FFFFFF" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 框里两条同色竖线 -->
+    <!-- 内细实环：让 48dp 缩小后仍有清晰几何，不至于只剩一团模糊 -->
     <path
-        android:fillColor="#F2FFFFFF"
-        android:pathData="M46,38h5v32h-5z M57,38h5v32h-5z" />
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFAFAFA"
+        android:strokeWidth="1.8"
+        android:pathData="M54,54m-20,0a20,20 0,1,0 40,0a20,20 0,1,0 -40,0" />
+
+    <!-- 极小中心点：产品强调色，视觉落点 -->
+    <path
+        android:fillColor="#FF4AA8FF"
+        android:pathData="M54,54m-4.7,0a4.7,4.7 0,1,0 9.4,0a4.7,4.7 0,1,0 -9.4,0" />
 
 </vector>

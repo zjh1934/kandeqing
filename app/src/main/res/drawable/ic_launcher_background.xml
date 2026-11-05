@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 3.10：中性灰黑底，跟深色模式一致，不带任何蓝调。
-     白色柔边环需要深色底才显出来。 -->
+<!-- 3.11：中性灰黑底，跟深色模式一致，不带任何蓝调。
+     A 双环的白色柔边环需要深色底才显出来。色值不变，只同步注释。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

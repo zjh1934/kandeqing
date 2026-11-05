@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="悬浮球按最终方案重做：半透明矢量柔边环（径向渐变模糊），三态同构——闲置/默认是中间透明的柔边环，点一下选字变成实心球，朗读时退回框并在框里出现两条同色竖线；换颜色只改渐变颜色值，形态不变，默认白色。Logo 与球同构。另按实测反馈把主题默认改为「跟随系统」，深色模式换成中性灰黑、不再是深蓝底。versionCode 25 可覆盖升级。TTS、抓字、放大与悬浮球手势逻辑一行未动。详见 CHANGELOG.md。"
+          NOTES="Logo 换成「A 双环」：外柔边环（径向渐变模糊）+ 内细实环 + 极小蓝色中心点，去掉上一版那两条像播放器暂停键的白色竖线。adaptive icon 前景、低版本简版与五种密度 PNG 全部同步。仅改图标资源，功能代码一行未动；versionCode 26 可覆盖升级。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi
