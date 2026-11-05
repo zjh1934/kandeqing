@@ -55,17 +55,23 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        # tee 落盘：CI 日志端点被网络策略拦时，还能从仓库里读到真实 javac/aapt2 报错
-        run: bash build_apk.sh 2>&1 | tee build.log
+        # tee 落盘：CI 日志端点被网络策略拦时，还能从仓库里读到真实构建过程
+        run: |
+          echo "== 构建环境 ==" > build.log
+          echo "HEAD: $(git rev-parse HEAD)" >> build.log
+          grep -n versionCode app/build.gradle >> build.log
+          find app/src/main/java -name "*.java" | sort >> build.log
+          echo "== 构建输出 ==" >> build.log
+          bash build_apk.sh 2>&1 | tee -a build.log
 
-      - name: 失败时把构建日志写回仓库
-        if: failure()
+      - name: 把构建日志写回仓库
+        if: always()
         run: |
           if [ -f build.log ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -f build.log
-            git commit -m "[skip ci] 构建失败日志" || true
+            git commit -m "[skip ci] 构建日志" || true
             git push || true
           fi
 
