@@ -3,7 +3,9 @@ package com.floating.combo;
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Build;
+import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -13,45 +15,54 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
- * 3.8 新增：低延迟、抓得全的取词器。
+ * 3.9 重做：低延迟、抓得全、断句准、失败有反馈。
  *
- * 旧的 TextGrabber.grabFrom(x,y) 是「点字之后才开始遍历整棵无障碍树」，
- * 一屏几千个节点、每节点数次跨进程调用，注释自己都写了「可能上百毫秒」；
- * 而且只有点击点严格落在某个文字节点 bounds 内才算命中，落在行间距 /
- * 字间空隙 / padding 就退回 joinBelow，点的那一行整个跳过 —— 低视力用户
- * 点不准，必然高发「有些字抓不到」。
+ * 3.8 的四个残留问题，根子都在同一处：
+ *   ① 预扫 prepare() 和点字兜底 grabFrom() 排在同一个 grabH 上。
+ *      用户点球后立刻点字，缓存还没好，兜底任务必须等整树预扫跑完才开始，
+ *      自己再遍历一遍 —— 延迟翻倍，期间一个反馈都没有。
+ *   ② collect() 只取「第一个收到文字的窗口」就 return。复杂界面
+ *      （Dialog / WebView / 分屏 / 多浮层）正文常在后面的窗口，直接读不到。
+ *   ③ 断句 charStart 只用 x / 段宽 × 全文长度，丢掉 y（行号）；
+ *      长文自动换行时点在行首一律估到全文前 10%，再被 sentenceStart 推到篇头。
+ *   ④ 缓存只绑 pickSeq + 8 秒 TTL，不认滚屏 / 内容变化，命中旧 bounds。
  *
- * 这里把两件事拆开：
- *   1) prepare()：进选字态时就在后台线程把整屏文字预扫成**纯数据**缓存，
- *      不持有任何 AccessibilityNodeInfo；点字前的那一两秒已经把活干完。
- *   2) pick()：点字时只做纯计算（容差命中 + 拼串），主线程直接调、零 IPC、
- *      零线程切换，抓字延迟降到接近 0。
- *
- * 原 TextGrabber 一行未动，作为缓存未就绪 / 失效时的兜底，
- * 所以 verify_grabber.py 的镜像断言仍然成立，回归风险可控。
+ * 3.9 的做法：
+ *   - prepareQuick()：点球时主线程做一次**极浅**扫描（预算 300 节点），
+ *     立刻发布可用快照。用户多快点字都有缓存，不必等后台。
+ *   - prepare()：独立后台线程做完整多窗口扫描 + 逐字位置预取，覆盖快照。
+ *   - 逐字位置在**预扫阶段**取（后台，不占点字），转成纯数据 RectF[] 缓存；
+ *     点字时 pick() 仍是纯计算，二维最近字符 → 句子起点，零 IPC、零线程切换。
+ *   - 多窗口按 layer 分组收集，命中优先上层窗口，窗口之间不混排。
+ *   - 拿不到逐字位置时按 y 比例估行（比 x 比例准一个数量级），
+ *     且句起点只在命中字附近找，绝不静默退 0。
  */
 public final class TextPicker {
 
-    /** 预扫节点预算。比主路径宽一倍，长列表后半也能收进来 */
-    private static final int MAX_WALK = 20000;
-    /** 一屏最多收多少段 */
-    private static final int MAX_SEG = 800;
+    private static final int MAX_WALK = 30000;
+    private static final int MAX_SEG = 1200;
     private static final int MAX_DEPTH = 500;
-    /** 缓存有效期：窗口切走 / 滚屏后别拿旧内容糊弄 */
-    private static final long CACHE_TTL_MS = 8000L;
-    /** 容差命中半径（dp）。点不中任何 bounds 时，取最近的一段 */
+    /** 点球时同步浅扫的预算：小到不卡主线程，又保证缓存立刻可用 */
+    private static final int QUICK_MAX_WALK = 300;
+    private static final int QUICK_MAX_DEPTH = 6;
+    /** 逐字位置请求预算：只对最长的几段取，别把预扫拖成几秒 */
+    private static final int MAX_CHAR_NODES = 4;
+    private static final int MAX_CHAR_REQ = 20000;
+    private static final long CACHE_TTL_MS = 10000L;
     private static final float TOLERANCE_DP = 96f;
+    /** 长于此长度才值得找句读 / 请求逐字位置 */
+    private static final int LONG_TEXT = 40;
 
     private final AccessibilityService svc;
     private final float density;
 
-    private List<TextLayout.Node> cache = null;
-    private int cacheSeq = -1;
-    private long cacheTime = 0L;
+    private Snapshot cache = null;
 
     public TextPicker(AccessibilityService svc) {
         this.svc = svc;
@@ -63,69 +74,225 @@ public final class TextPicker {
         this.density = d > 0f ? d : 1f;
     }
 
+    // ---------- 缓存数据结构（全是纯数据，不持有 AccessibilityNodeInfo） ----------
+
+    /** 一个窗口里按阅读顺序排好的文字段 */
+    private static final class WinSegs {
+        final int layer;
+        final List<TextLayout.Node> segs = new ArrayList<TextLayout.Node>();
+
+        WinSegs(int layer) {
+            this.layer = layer;
+        }
+    }
+
+    /** 一段文字的逐字矩形；lead = 原文前导空白数（缓存里存的是 trim 后的串） */
+    private static final class CharPos {
+        final RectF[] rects;
+        final int lead;
+
+        CharPos(RectF[] rects, int lead) {
+            this.rects = rects;
+            this.lead = lead;
+        }
+    }
+
+    private static final class Snapshot {
+        final List<WinSegs> wins;
+        final Map<TextLayout.Node, CharPos> chars;
+        final int seq;
+        final long time;
+        final boolean enhanced;
+
+        Snapshot(List<WinSegs> wins, Map<TextLayout.Node, CharPos> chars,
+                 int seq, boolean enhanced) {
+            this.wins = wins;
+            this.chars = chars;
+            this.seq = seq;
+            this.time = System.currentTimeMillis();
+            this.enhanced = enhanced;
+        }
+
+        boolean usable(int s) {
+            return wins != null && !wins.isEmpty() && seq == s
+                    && System.currentTimeMillis() - time <= CACHE_TTL_MS;
+        }
+    }
+
     /**
-     * 后台线程调用：预扫整屏，只把纯数据（文字 + 矩形）放进缓存。
-     * 不加方法级锁，免得预扫的几百毫秒把主线程 pick() 堵住。
+     * 主线程调用、必须很快：只取活动窗口根节点，浅扫几层，
+     * 让「点球 → 立刻点字」也有缓存可用。任何异常都吞掉，绝不影响点球。
      */
-    public void prepare(int seq) {
-        List<TextLayout.Node> segs = null;
+    public void prepareQuick(int seq) {
         try {
-            segs = collect();
+            AccessibilityNodeInfo root = svc.getRootInActiveWindow();
+            if (root == null) {
+                return;
+            }
+            List<WinSegs> wins = new ArrayList<WinSegs>();
+            try {
+                WinSegs w = new WinSegs(0);
+                Walk walk = new Walk(w.segs, screenRect(), QUICK_MAX_WALK,
+                        QUICK_MAX_DEPTH, null, 0);
+                walkNode(root, walk, 0);
+                if (!w.segs.isEmpty()) {
+                    TextLayout.sortReadingOrder(w.segs);
+                    wins.add(w);
+                }
+            } finally {
+                try {
+                    root.recycle();
+                } catch (Exception ignored) {
+                }
+            }
+            if (!wins.isEmpty()) {
+                publish(wins, new IdentityHashMap<TextLayout.Node, CharPos>(),
+                        seq, false);
+            }
+        } catch (Throwable t) {
+            Log.e("pick", "浅扫抛异常", t);
+        }
+    }
+
+    /** 后台线程调用：完整多窗口扫描 + 逐字位置预取，覆盖粗快照 */
+    public void prepare(int seq) {
+        List<WinSegs> wins = null;
+        Map<TextLayout.Node, CharPos> chars =
+                new IdentityHashMap<TextLayout.Node, CharPos>();
+        try {
+            wins = collectFull(chars);
         } catch (Throwable t) {
             Log.e("pick", "预扫抛异常", t);
         }
-        if (segs != null && !segs.isEmpty()) {
-            TextLayout.sortReadingOrder(segs);
-        } else {
-            segs = null;
-        }
-        synchronized (this) {
-            cache = segs;
-            cacheSeq = seq;
-            cacheTime = System.currentTimeMillis();
+        if (wins != null && !wins.isEmpty()) {
+            publish(wins, chars, seq, true);
         }
     }
 
-    /** 用户取消 / 放大 / 窗口切走：缓存立即作废 */
     public void invalidate() {
         synchronized (this) {
             cache = null;
-            cacheSeq = -1;
-            cacheTime = 0L;
         }
     }
 
-    /**
-     * 主线程可调用：纯计算命中，返回要朗读的整串；缓存不可用返回 null，
-     * 调用方应退回 TextGrabber.grabFrom。
-     */
-    public String pick(int x, int y, int seq) {
-        List<TextLayout.Node> segs;
-        int cseq;
-        long ctime;
+    private void publish(List<WinSegs> wins,
+                         Map<TextLayout.Node, CharPos> chars,
+                         int seq, boolean enhanced) {
+        Snapshot s = new Snapshot(wins, chars, seq, enhanced);
         synchronized (this) {
-            segs = cache;
-            cseq = cacheSeq;
-            ctime = cacheTime;
+            Snapshot old = cache;
+            // 只接受「更新或同代」的快照：
+            //   - 上一轮选取态的后台任务迟到时，seq 更小，绝不能覆盖当前缓存；
+            //   - 同一代里，增强快照优先，粗快照不回退增强快照。
+            if (old == null || s.seq > old.seq
+                    || (s.seq == old.seq && (enhanced || !old.enhanced))) {
+                cache = s;
+            }
         }
-        if (segs == null || segs.isEmpty() || cseq != seq
-                || System.currentTimeMillis() - ctime > CACHE_TTL_MS) {
+    }
+
+    /** 主线程可调用：纯计算命中，返回要朗读的整串；无可用缓存返回 null */
+    public String pick(int x, int y, int seq) {
+        Snapshot s;
+        synchronized (this) {
+            s = cache;
+        }
+        if (s == null || !s.usable(seq)) {
             return null;
         }
         try {
-            return joinFrom(segs, hit(segs, x, y), x, y);
+            return readFrom(s, x, y);
         } catch (Throwable t) {
             Log.e("pick", "命中拼装抛异常", t);
             return null;
         }
     }
 
-    // ---------- 命中 ----------
+    /** 诊断用：只记结构数字，不记内容 */
+    public String diagnose(int seq) {
+        Snapshot s;
+        synchronized (this) {
+            s = cache;
+        }
+        if (s == null) {
+            return "cache=null";
+        }
+        int segs = 0;
+        for (int i = 0; i < s.wins.size(); i++) {
+            segs += s.wins.get(i).segs.size();
+        }
+        return "cache wins=" + s.wins.size() + " segs=" + segs
+                + " charNodes=" + s.chars.size()
+                + " enhanced=" + s.enhanced + " seqOk=" + (s.seq == seq);
+    }
+
+    // ---------- 命中与拼装 ----------
+
+    private String readFrom(Snapshot s, int x, int y) {
+        // 按窗口层级从高到低找，第一个「点得到字」的窗口就是内容窗口。
+        // 3.8 在这里只取第一个窗口就 return，复杂界面正文全丢 —— 改成
+        // 所有窗口都收进来，命中时上层优先，但下层也能兜到。
+        WinSegs bestWin = null;
+        int bestIdx = -1;
+        int bestScore = Integer.MAX_VALUE;
+        for (int w = 0; w < s.wins.size(); w++) {
+            WinSegs win = s.wins.get(w);
+            int idx = hit(win.segs, x, y);
+            if (idx < 0) {
+                continue;
+            }
+            TextLayout.Node n = win.segs.get(idx);
+            boolean exact = x >= n.left && x <= n.right
+                    && y >= n.top && y <= n.bottom;
+            int score = (exact ? 0 : 1000) + w;
+            if (score < bestScore) {
+                bestScore = score;
+                bestWin = win;
+                bestIdx = idx;
+            }
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (bestWin == null) {
+            // 一个都没点中：接点击高度以下的段，并给出明确标记让上层提示
+            for (int w = 0; w < s.wins.size(); w++) {
+                appendBelow(sb, s.wins.get(w).segs, y);
+            }
+            String out = sb.toString().trim();
+            return out.length() == 0 ? null : out;
+        }
+
+        TextLayout.Node head = bestWin.segs.get(bestIdx);
+        int start = startIn(s, head, x, y);
+        String t = head.text;
+        if (start > 0 && start < t.length()) {
+            t = t.substring(start);
+        }
+        append(sb, t);
+        for (int i = bestIdx + 1; i < bestWin.segs.size(); i++) {
+            append(sb, bestWin.segs.get(i).text);
+        }
+        // 后续窗口的段也接上（分屏 / 弹层后面的正文）
+        boolean after = false;
+        for (int w = 0; w < s.wins.size(); w++) {
+            if (s.wins.get(w) == bestWin) {
+                after = true;
+                continue;
+            }
+            if (!after) {
+                continue;
+            }
+            for (int i = 0; i < s.wins.get(w).segs.size(); i++) {
+                append(sb, s.wins.get(w).segs.get(i).text);
+            }
+        }
+        String out = sb.toString().trim();
+        return out.length() == 0 ? null : out;
+    }
 
     /**
-     * 三级命中：精确 contains（取面积最小的）→ 容差最近段 → -1（交给 joinBelow）。
-     * 容差是「抓到更多字」的关键：点在行间距、字间空隙、padding 上时，
-     * 取距离最近的那一段，而不是把点击点上方整行丢掉。
+     * 三级命中：精确 contains（取面积最小）→ 容差最近段 → -1。
+     * 点在行间距 / 字间空隙 / padding 上时取最近的一段，不再把上面整行跳过。
      */
     private int hit(List<TextLayout.Node> segs, int x, int y) {
         int exact = -1;
@@ -170,60 +337,119 @@ public final class TextPicker {
     }
 
     /**
-     * 从命中段开始，接上阅读顺序里后面的所有段。
-     * charStart 用「点击点在段宽里的比例」估算字符下标，再往回找句读 ——
-     * 全部是纯计算，不发 refreshWithExtraData（那是一次同步跨进程调用）。
+     * 3.9 断句核心：先定位「命中了第几个字」，再在该字附近找句读。
+     *
+     * 有逐字矩形（后台预取的纯数据）→ 二维最近字符，dx²+dy²，x 和 y 都用上；
+     * 没有 → 按 y 比例估行号（多行文本里 y 才是行号，3.8 用 x 比例必然错位）。
+     *
+     * sentenceNear 只在命中字前后找标点，**绝不因为找不到就返回 0**——
+     * 3.8 的 sentenceStart 一路扫到段首、失败退 0，才出现「从篇头读起」。
      */
-    private String joinFrom(List<TextLayout.Node> segs, int idx, int x, int y) {
-        if (idx < 0) {
-            return joinBelow(segs, y);
-        }
-        StringBuilder sb = new StringBuilder();
-        TextLayout.Node head = segs.get(idx);
-        // 这一段是精确点中的，还是容差找来的最近段
-        boolean exact = x >= head.left && x <= head.right
-                && y >= head.top && y <= head.bottom;
-        String t = head.text;
-        int start = charStart(head, x, exact);
-        if (start > 0 && start < t.length()) {
-            t = t.substring(start);
-        }
-        append(sb, t);
-        for (int i = idx + 1; i < segs.size(); i++) {
-            append(sb, segs.get(i).text);
-        }
-        String out = sb.toString().trim();
-        return out.length() == 0 ? null : out;
-    }
-
-    private int charStart(TextLayout.Node n, int x, boolean exact) {
-        // 缓存里没有逐字位置（那要一次同步 IPC），按比例估算本来就不精确。
-        // 短段或容差命中一律从段首读，否则会把第一个字切掉 ——
-        // 那是「抓到更多字」的倒退。只有精确点中的长段才按比例找句读。
-        if (!exact || n.text.length() < 40) {
+    private int startIn(Snapshot s, TextLayout.Node n, int x, int y) {
+        String text = n.text;
+        if (text == null || text.length() == 0) {
             return 0;
         }
-        int w = n.right - n.left;
-        if (w <= 0 || n.text.length() == 0) {
-            return 0;
+        int off = -1;
+        CharPos cp = s.chars.get(n);
+        if (cp != null && cp.rects != null) {
+            int k = nearestChar(cp.rects, x, y);
+            if (k >= 0) {
+                off = k - cp.lead;
+                if (off < 0) {
+                    off = 0;
+                }
+                if (off > text.length()) {
+                    off = text.length();
+                }
+            }
         }
-        float ratio = (x - n.left) / (float) w;
-        if (ratio < 0f) {
-            ratio = 0f;
+        if (off < 0) {
+            // 降级：y 比例 ≈ 行号比例，x 只做行内微调（权重 0.15）
+            int h = n.bottom - n.top;
+            int w = n.right - n.left;
+            float ry = h > 0 ? (y - n.top) / (float) h : 0f;
+            float rx = w > 0 ? (x - n.left) / (float) w : 0f;
+            float ratio = Math.max(0f, Math.min(1f, ry * 0.85f + rx * 0.15f));
+            // 短段（单行）不该按比例切掉首字
+            if (text.length() < LONG_TEXT) {
+                return 0;
+            }
+            off = (int) (ratio * text.length());
+            if (off > text.length()) {
+                off = text.length();
+            }
         }
-        if (ratio > 1f) {
-            ratio = 1f;
-        }
-        int off = (int) (ratio * n.text.length());
-        if (off > n.text.length()) {
-            off = n.text.length();
-        }
-        return TextLayout.sentenceStart(n.text, off);
+        return sentenceNear(text, off);
     }
 
-    /** 最后兜底：一个段都没点时，接点击高度以下的段 */
-    private String joinBelow(List<TextLayout.Node> segs, int y) {
-        StringBuilder sb = new StringBuilder();
+    private static int nearestChar(RectF[] rects, float x, float y) {
+        int best = -1;
+        double bestD = Double.MAX_VALUE;
+        for (int i = 0; i < rects.length; i++) {
+            RectF r = rects[i];
+            if (r == null || r.isEmpty()) {
+                continue;
+            }
+            double dx = 0, dy = 0;
+            if (x < r.left) {
+                dx = r.left - x;
+            } else if (x > r.right) {
+                dx = x - r.right;
+            }
+            if (y < r.top) {
+                dy = r.top - y;
+            } else if (y > r.bottom) {
+                dy = y - r.bottom;
+            }
+            double d = dx * dx + dy * dy;
+            if (d < bestD) {
+                bestD = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** 在命中字附近找句读；找不到就从命中字读起，绝不退到篇头 */
+    private static int sentenceNear(String text, int off) {
+        if (off <= 0) {
+            return 0;
+        }
+        if (off >= text.length()) {
+            off = text.length();
+        }
+        final int LOOK = 240;
+        int floor = Math.max(0, off - LOOK);
+        int s = scanNear(text, off, floor, "。！？；\n.!?");
+        if (s > 0) {
+            return s;
+        }
+        s = scanNear(text, off, floor, "，、：,:");
+        if (s > 0) {
+            return s;
+        }
+        return off;     // 从点的那个字读起，不是从整篇头读起
+    }
+
+    private static int scanNear(String text, int off, int floor, String puncts) {
+        for (int i = off - 1; i >= floor; i--) {
+            if (puncts.indexOf(text.charAt(i)) < 0) {
+                continue;
+            }
+            int s = i + 1;
+            while (s < text.length() && Character.isWhitespace(text.charAt(s))) {
+                s++;
+            }
+            if (s >= text.length()) {
+                return Math.max(0, off - 1);    // 点在最后一句：从这句读，不退 0
+            }
+            return s;
+        }
+        return 0;
+    }
+
+    private void appendBelow(StringBuilder sb, List<TextLayout.Node> segs, int y) {
         for (int i = 0; i < segs.size(); i++) {
             TextLayout.Node n = segs.get(i);
             if (n.bottom <= y) {
@@ -231,17 +457,14 @@ public final class TextPicker {
             }
             append(sb, n.text);
         }
-        String out = sb.toString().trim();
-        return out.length() == 0 ? null : out;
     }
 
-    /** 顺手干掉连续重复段，避免父/容器把同一句话贴两遍 */
     private void append(StringBuilder sb, String s) {
         if (s == null || s.length() == 0) {
             return;
         }
-        int tail = sb.length() - s.length();
-        if (tail >= 0 && sb.substring(tail).equals(s)) {
+        if (sb.length() >= s.length()
+                && sb.substring(sb.length() - s.length()).equals(s)) {
             return;
         }
         if (sb.length() > 0) {
@@ -252,25 +475,46 @@ public final class TextPicker {
 
     // ---------- 预扫 ----------
 
-    private List<TextLayout.Node> collect() {
+    private static final class Walk {
+        final List<TextLayout.Node> out;
+        final Rect screen;
+        final int maxWalk;
+        final int maxDepth;
+        final Map<TextLayout.Node, CharPos> chars;
+        int charNodes;
+        int visited = 0;
+
+        Walk(List<TextLayout.Node> out, Rect screen, int maxWalk, int maxDepth,
+             Map<TextLayout.Node, CharPos> chars, int charNodes) {
+            this.out = out;
+            this.screen = screen;
+            this.maxWalk = maxWalk;
+            this.maxDepth = maxDepth;
+            this.chars = chars;
+            this.charNodes = charNodes;
+        }
+    }
+
+    private List<WinSegs> collectFull(Map<TextLayout.Node, CharPos> chars) {
         Rect screen = screenRect();
-        List<AccessibilityNodeInfo> roots = roots();
-        List<TextLayout.Node> out = new ArrayList<TextLayout.Node>();
+        List<WinSegs> out = new ArrayList<WinSegs>();
+        List<Root> roots = roots();
         try {
-            // 取第一个真正收到文字的窗口（层级最高），不把底层 Activity
-            // 和 Dialog 的文字混成一锅粥。
             for (int r = 0; r < roots.size(); r++) {
-                out.clear();
-                Walk w = new Walk(out, screen);
-                walk(roots.get(r), w, 0);
-                if (!out.isEmpty()) {
-                    return out;
+                Root root = roots.get(r);
+                WinSegs win = new WinSegs(root.layer);
+                Walk w = new Walk(win.segs, screen, MAX_WALK, MAX_DEPTH,
+                        chars, 0);
+                walkNode(root.node, w, 0);
+                if (!win.segs.isEmpty()) {
+                    TextLayout.sortReadingOrder(win.segs);
+                    out.add(win);   // 3.9：所有窗口都收，不再第一个就 return
                 }
             }
         } finally {
             for (int i = 0; i < roots.size(); i++) {
                 try {
-                    roots.get(i).recycle();
+                    roots.get(i).node.recycle();
                 } catch (Exception ignored) {
                 }
             }
@@ -278,27 +522,15 @@ public final class TextPicker {
         return out;
     }
 
-    private static final class Walk {
-        final List<TextLayout.Node> out;
-        final Rect screen;
-        int visited = 0;
-
-        Walk(List<TextLayout.Node> out, Rect screen) {
-            this.out = out;
-            this.screen = screen;
-        }
-    }
-
-    /** 后序遍历：拿最靠下的文字节点；父文本只在与直接子文本完全相同时才去重 */
-    private boolean walk(AccessibilityNodeInfo node, Walk w, int depth) {
-        if (node == null || depth > MAX_DEPTH || w.visited >= MAX_WALK
+    /** 后序遍历：拿最靠下的文字节点；父文本被已收子文本包含时跳过，避免整篇+分行重复 */
+    private boolean walkNode(AccessibilityNodeInfo node, Walk w, int depth) {
+        if (node == null || depth > w.maxDepth || w.visited >= w.maxWalk
                 || w.out.size() >= MAX_SEG) {
             return false;
         }
         w.visited++;
 
         String t = nodeText(node);
-        // 只有自己有文字时才需要跟直接子节点去重，省掉大量 HashSet 分配
         Set<String> childTexts = t == null ? null : new HashSet<String>();
         int count = 0;
         try {
@@ -320,15 +552,24 @@ public final class TextPicker {
                     childTexts.add(ct);
                 }
             }
-            walk(c, w, depth + 1);
+            walkNode(c, w, depth + 1);
             try {
                 c.recycle();
             } catch (Exception ignored) {
             }
         }
 
-        if (t == null || (childTexts != null && childTexts.contains(t))) {
+        if (t == null) {
             return false;
+        }
+        // 父节点带了整篇、子节点带分行：父文本包含任一子文本时丢父，
+        // 保留分行段（更细的命中粒度）；否则父子都收。
+        if (childTexts != null) {
+            for (String ct : childTexts) {
+                if (ct.length() > 0 && t.contains(ct)) {
+                    return true;
+                }
+            }
         }
         Rect r = new Rect();
         try {
@@ -337,16 +578,90 @@ public final class TextPicker {
             return false;
         }
         if (r.isEmpty() || !Rect.intersects(r, w.screen)) {
-            return false;   // 只靠 bounds 过滤，不信任 isVisibleToUser
+            return false;   // 只靠 bounds 过滤，不硬信 isVisibleToUser
         }
-        w.out.add(new TextLayout.Node(t, r.left, r.top, r.right, r.bottom));
+        TextLayout.Node seg = new TextLayout.Node(
+                t, r.left, r.top, r.right, r.bottom);
+        w.out.add(seg);
+
+        // 逐字位置在预扫阶段取（后台，不占点字路径），有总量预算
+        if (w.chars != null && t.length() >= LONG_TEXT
+                && w.charNodes < MAX_CHAR_NODES
+                && Build.VERSION.SDK_INT >= 26) {
+            CharPos cp = charPositions(node, t);
+            if (cp != null) {
+                w.chars.put(seg, cp);
+                w.charNodes++;
+            }
+        }
         return true;
     }
 
+    /** 取逐字矩形，转成纯数据缓存；nodeText 存的是 trim 后的串，记下 lead 校正 */
+    private CharPos charPositions(AccessibilityNodeInfo node, String text) {
+        try {
+            try {
+                node.refresh();
+            } catch (Exception ignored) {
+            }
+            CharSequence rawCs = null;
+            try {
+                rawCs = node.getText();
+            } catch (Exception ignored) {
+            }
+            if (rawCs == null) {
+                return null;
+            }
+            String raw = rawCs.toString();
+            int lead = TextLayout.leadingWhitespace(raw);
+            String key = AccessibilityNodeInfo
+                    .EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
+            int[] tries = new int[]{
+                    Math.min(raw.length(), MAX_CHAR_REQ),
+                    Math.min(raw.length(), 2000),
+                    Math.min(raw.length(), 500),
+            };
+            for (int i = 0; i < tries.length; i++) {
+                if (tries[i] <= 0) {
+                    continue;
+                }
+                RectF[] rects = requestRects(node, key, 0, tries[i]);
+                if (rects != null && rects.length > 0) {
+                    return new CharPos(rects, lead);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private RectF[] requestRects(AccessibilityNodeInfo node, String key,
+                                 int start, int count) {
+        try {
+            Bundle args = new Bundle();
+            args.putInt(AccessibilityNodeInfo
+                    .EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, start);
+            args.putInt(AccessibilityNodeInfo
+                    .EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, count);
+            if (!node.refreshWithExtraData(key, args)) {
+                return null;
+            }
+            Bundle extras = node.getExtras();
+            if (extras == null) {
+                return null;
+            }
+            Object raw = extras.get(key);
+            if (raw instanceof RectF[] && ((RectF[]) raw).length > 0) {
+                return (RectF[]) raw;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
     /**
-     * 3.8 抓得更全：正文 → 内容描述 → hintText(26) → tooltipText(28)
-     * → stateDescription(30)。旧实现只读前两个，图标按钮、空输入框、
-     * 自定义控件常常一个字都收不到。
+     * 正文 → 内容描述 → hintText(26) → tooltipText(28) → stateDescription(30)。
+     * 顺手剥掉 WebView 常见的 HTML 标签，别把 "<p>" 念出来。
      */
     private String nodeText(AccessibilityNodeInfo node) {
         if (node == null) {
@@ -361,30 +676,21 @@ public final class TextPicker {
             return s;
         }
         if (Build.VERSION.SDK_INT >= 26) {
-            try {
-                s = clean(node.getHintText());
-                if (s != null) {
-                    return s;
-                }
-            } catch (Throwable ignored) {
+            s = clean(node.getHintText());
+            if (s != null) {
+                return s;
             }
         }
         if (Build.VERSION.SDK_INT >= 28) {
-            try {
-                s = clean(node.getTooltipText());
-                if (s != null) {
-                    return s;
-                }
-            } catch (Throwable ignored) {
+            s = clean(node.getTooltipText());
+            if (s != null) {
+                return s;
             }
         }
         if (Build.VERSION.SDK_INT >= 30) {
-            try {
-                s = clean(node.getStateDescription());
-                if (s != null) {
-                    return s;
-                }
-            } catch (Throwable ignored) {
+            s = clean(node.getStateDescription());
+            if (s != null) {
+                return s;
             }
         }
         return null;
@@ -395,7 +701,11 @@ public final class TextPicker {
             return null;
         }
         try {
-            return TextLayout.clean(cs.toString());
+            String s = cs.toString();
+            if (s.indexOf('<') >= 0 && s.indexOf('>') > s.indexOf('<')) {
+                s = s.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ");
+            }
+            return TextLayout.clean(s);
         } catch (Throwable ignored) {
             return null;
         }
@@ -420,8 +730,18 @@ public final class TextPicker {
         return r;
     }
 
-    private List<AccessibilityNodeInfo> roots() {
-        List<AccessibilityNodeInfo> out = new ArrayList<AccessibilityNodeInfo>();
+    private static final class Root {
+        final AccessibilityNodeInfo node;
+        final int layer;
+
+        Root(AccessibilityNodeInfo node, int layer) {
+            this.node = node;
+            this.layer = layer;
+        }
+    }
+
+    private List<Root> roots() {
+        List<Root> out = new ArrayList<Root>();
         List<AccessibilityWindowInfo> wins = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             try {
@@ -446,7 +766,7 @@ public final class TextPicker {
                 try {
                     AccessibilityNodeInfo r = w.getRoot();
                     if (r != null) {
-                        out.add(r);
+                        out.add(new Root(r, layerOf(w)));
                     }
                 } catch (Exception ignored) {
                 }
@@ -464,7 +784,7 @@ public final class TextPicker {
             try {
                 AccessibilityNodeInfo r = svc.getRootInActiveWindow();
                 if (r != null) {
-                    out.add(r);
+                    out.add(new Root(r, 0));
                 }
             } catch (Exception ignored) {
             }

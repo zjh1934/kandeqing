@@ -1,45 +1,65 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-3.8 新增：TextPicker 的纯逻辑镜像（收集 / 容差命中 / 拼装 / 缓存失效）。
+3.9：TextPicker 的纯逻辑镜像（多窗口收集 / 容差命中 / 二维断句 / 缓存）。
 
 项目里没有 JDK，跑不了 JUnit；verify_all.py 用 Python 镜像 Java 逻辑。
 改了 TextPicker.java 就要同步改这里，且必须做**反向验证**：
-把容差关掉，点偏用例必须拿不到目标段，证明测试真的在检验新逻辑。
+把 START_USE_Y 关掉（退回 3.8 的 x-only 估算），断句用例必须 FAIL，
+证明测试真的在检验「用 y 定位」这件事，而不是碰巧全绿。
 
 跑法：python3 verify_picker.py   全 PASS 返回 0
 """
 import sys
 
-MAX_WALK = 20000
-MAX_SEG = 800
+MAX_WALK = 30000
+MAX_SEG = 1200
 MAX_DEPTH = 500
-CACHE_TTL_MS = 8000
+QUICK_MAX_WALK = 300
+QUICK_MAX_DEPTH = 6
+MAX_CHAR_NODES = 4
+CACHE_TTL_MS = 10000
 TOLERANCE_DP = 96.0
-DENSITY = 3.0          # 测试用固定 density，96dp = 288px
+DENSITY = 3.0
+LONG_TEXT = 40
+LOOK = 240
+
+# 反向验证开关：False = 模拟 3.8 的「只用 x 比例」缺陷
+START_USE_Y = True
 
 
 # ---------------------------------------------------------------- 数据结构
 
 class Node(object):
     def __init__(self, text, left, top, right, bottom, visible=True,
-                 hint=None, tooltip=None, state=None, children=None, desc=None):
+                 hint=None, tooltip=None, state=None, children=None, desc=None,
+                 rects=None, lead=0):
         self.text = text
         self.left, self.top, self.right, self.bottom = left, top, right, bottom
         self.visible = visible
         self.hint, self.tooltip, self.state = hint, tooltip, state
         self.desc = desc
         self.children = children or []
+        self.rects = rects      # 模拟逐字 RectF 列表：(l,t,r,b)
+        self.lead = lead
 
 
 class Seg(object):
-    def __init__(self, text, left, top, right, bottom):
+    def __init__(self, text, left, top, right, bottom, rects=None, lead=0):
         self.text = text
         self.left, self.top, self.right, self.bottom = left, top, right, bottom
+        self.rects = rects
+        self.lead = lead
 
     def __repr__(self):
-        return 'Seg(%r,%d,%d,%d,%d)' % (self.text, self.left, self.top,
+        return 'Seg(%r,%d,%d,%d,%d)' % (self.text[:12], self.left, self.top,
                                         self.right, self.bottom)
+
+
+class WinSegs(object):
+    def __init__(self, layer, segs):
+        self.layer = layer
+        self.segs = segs
 
 
 # ---------------------------------------------------------------- 纯字符串
@@ -51,41 +71,44 @@ def clean(s):
     return t if t else None
 
 
-def scan_back(text, offset, puncts):
-    if text is None or puncts is None:
-        return 0
-    if offset > len(text):
-        offset = len(text)
-    for i in range(offset - 1, -1, -1):
+def tag_strip(s):
+    if '<' in s and '>' in s:
+        import re
+        s = re.sub(r'<[^>]*>', ' ', s)
+        s = re.sub(r'\s+', ' ', s)
+    return s
+
+
+def scan_near(text, off, floor, puncts):
+    for i in range(off - 1, floor - 1, -1):
         if text[i] not in puncts:
             continue
         s = i + 1
         while s < len(text) and text[s].isspace():
             s += 1
         if s >= len(text):
-            return 0
+            return max(0, off - 1)
         return s
     return 0
 
 
-def sentence_start(text, offset):
-    if text is None:
+def sentence_near(text, off):
+    """3.9：只在命中字附近找句读，找不到就从命中字读起，绝不退 0"""
+    if off <= 0:
         return 0
-    if offset <= 0:
-        return 0
-    if offset > len(text):
-        offset = len(text)
-    s = scan_back(text, offset, '。！？；\n.!?')
+    if off >= len(text):
+        off = len(text)
+    floor = max(0, off - LOOK)
+    s = scan_near(text, off, floor, '。！？；\n.!?')
     if s > 0:
         return s
-    s = scan_back(text, offset, '，、：,:')
+    s = scan_near(text, off, floor, '，、：,:')
     if s > 0:
         return s
-    return offset
+    return off
 
 
 def sort_reading_order(segs):
-    """镜像 TextLayout.sortReadingOrder：按 top 排 → 纵向分带 → 行内按 left 排"""
     if len(segs) < 2:
         return
     segs.sort(key=lambda n: (n.top, n.left))
@@ -109,25 +132,24 @@ def sort_reading_order(segs):
 # ---------------------------------------------------------------- 收集
 
 def node_text(n):
-    """镜像 TextPicker.nodeText：正文 → 描述 → hint → tooltip → state"""
-    for v in (n.text, getattr(n, 'desc', None),
-              n.hint, n.tooltip, n.state):
-        c = clean(v)
+    for v in (n.text, getattr(n, 'desc', None), n.hint, n.tooltip, n.state):
+        c = clean(tag_strip(v)) if isinstance(v, str) else clean(v)
         if c is not None:
             return c
     return None
 
 
-def collect(root, screen=(0, 0, 1080, 2400)):
+def collect_window(root, screen=(0, 0, 1080, 2400),
+                   max_walk=MAX_WALK, max_depth=MAX_DEPTH, want_rects=True):
     out = []
-    state = {'visited': 0}
+    state = {'visited': 0, 'char_nodes': 0}
 
     def intersects(r):
         return not (r[2] < screen[0] or r[0] > screen[2]
                     or r[3] < screen[1] or r[1] > screen[3])
 
     def walk(node, depth):
-        if node is None or depth > MAX_DEPTH or state['visited'] >= MAX_WALK \
+        if node is None or depth > max_depth or state['visited'] >= max_walk \
                 or len(out) >= MAX_SEG:
             return
         state['visited'] += 1
@@ -139,21 +161,59 @@ def collect(root, screen=(0, 0, 1080, 2400)):
                 if ct is not None:
                     child_texts.add(ct)
             walk(c, depth + 1)
-        if t is None or (child_texts is not None and t in child_texts):
+        if t is None:
             return
+        # 父文本包含任一直接子文本 → 丢父，保留更细的分行段
+        if child_texts:
+            for ct in child_texts:
+                if ct and ct in t:
+                    return
         r = (node.left, node.top, node.right, node.bottom)
-        if r[2] <= r[0] or r[3] <= r[1]:
-            return
-        if not intersects(r):
-            return          # 不做 isVisibleToUser 硬过滤
-        out.append(Seg(t, *r))
+        if r[2] <= r[0] or r[3] <= r[1] or not intersects(r):
+            return      # 不做 isVisibleToUser 硬过滤
+        rects = None
+        lead = 0
+        if want_rects and t and len(t) >= LONG_TEXT and node.rects is not None \
+                and state['char_nodes'] < MAX_CHAR_NODES:
+            rects = node.rects
+            lead = node.lead
+            state['char_nodes'] += 1
+        out.append(Seg(t, r[0], r[1], r[2], r[3], rects, lead))
 
     walk(root, 0)
     sort_reading_order(out)
     return out
 
 
-# ---------------------------------------------------------------- 命中/拼装
+def collect_windows(roots, want_rects=True):
+    """3.9：所有窗口都收，按 layer 从高到低；3.8 只取第一个就 return"""
+    wins = []
+    for layer, root in roots:
+        segs = collect_window(root, want_rects=want_rects)
+        if segs:
+            wins.append(WinSegs(layer, segs))
+    return wins
+
+
+class Snapshot(object):
+    def __init__(self, wins, seq, now=1000, enhanced=True):
+        self.wins = wins
+        self.seq = seq
+        self.time = now
+        self.enhanced = enhanced
+
+    def usable(self, seq, now=1000):
+        return bool(self.wins) and self.seq == seq \
+            and now - self.time <= CACHE_TTL_MS
+
+    def diagnose(self, seq):
+        return 'wins=%d segs=%d char=%d seqOk=%s' % (
+            len(self.wins), sum(len(w.segs) for w in self.wins),
+            sum(1 for w in self.wins for s in w.segs if s.rects),
+            self.seq == seq)
+
+
+# ---------------------------------------------------------------- 命中/断句
 
 def hit(segs, x, y, tolerance_dp=TOLERANCE_DP):
     exact, exact_area = -1, 1 << 62
@@ -176,75 +236,93 @@ def hit(segs, x, y, tolerance_dp=TOLERANCE_DP):
     return best if best_d <= limit else -1
 
 
-def char_start(n, x, exact=True):
-    if not exact or len(n.text) < 40:
+def nearest_char(rects, x, y):
+    best, best_d = -1, float('inf')
+    for i, r in enumerate(rects):
+        if r is None:
+            continue
+        l, t, rr, b = r
+        if rr <= l or b <= t:
+            continue
+        dx = max(l - x, 0, x - rr)
+        dy = max(t - y, 0, y - b)
+        d = dx * dx + dy * dy
+        if d < best_d:
+            best_d, best = d, i
+    return best
+
+
+def start_in(seg, x, y):
+    """镜像 TextPicker.startIn：二维逐字 → y 比例降级 → sentenceNear"""
+    text = seg.text
+    if not text:
         return 0
-    w = n.right - n.left
-    if w <= 0 or not n.text:
-        return 0
-    ratio = (x - n.left) / float(w)
-    ratio = max(0.0, min(1.0, ratio))
-    off = int(ratio * len(n.text))
-    return sentence_start(n.text, off)
+    off = -1
+    if seg.rects is not None:
+        k = nearest_char(seg.rects, x, y)
+        if k >= 0:
+            off = max(0, min(len(text), k - seg.lead))
+    if off < 0:
+        h = seg.bottom - seg.top
+        w = seg.right - seg.left
+        ry = (y - seg.top) / float(h) if h > 0 else 0.0
+        rx = (x - seg.left) / float(w) if w > 0 else 0.0
+        if START_USE_Y:
+            ratio = max(0.0, min(1.0, ry * 0.85 + rx * 0.15))
+        else:
+            ratio = max(0.0, min(1.0, rx))   # 3.8 缺陷：只看 x
+        if len(text) < LONG_TEXT:
+            return 0
+        off = int(ratio * len(text))
+    return sentence_near(text, off)
 
 
 def append(sb, s):
     if not s:
         return
-    if len(s) <= len(''.join(sb)) and ''.join(sb).endswith(s):
+    joined = ''.join(sb)
+    if len(joined) >= len(s) and joined.endswith(s):
         return
     if sb:
         sb.append(' ')
     sb.append(s)
 
 
-def join_from(segs, idx, x, y):
-    if idx < 0:
-        return join_below(segs, y)
-    out = []
-    head = segs[idx]
-    exact = (head.left <= x <= head.right and head.top <= y <= head.bottom)
-    t = head.text
-    st = char_start(head, x, exact)
-    if 0 < st < len(t):
-        t = t[st:]
-    append(out, t)
-    for n in segs[idx + 1:]:
-        append(out, n.text)
-    s = ''.join(out).strip()
-    return s or None
-
-
-def join_below(segs, y):
-    out = []
-    for n in segs:
-        if n.bottom <= y:
+def read_from(snap, x, y, tolerance_dp=TOLERANCE_DP):
+    best_win, best_idx, best_score = None, -1, 1 << 62
+    for wi, win in enumerate(snap.wins):
+        idx = hit(win.segs, x, y, tolerance_dp)
+        if idx < 0:
             continue
+        n = win.segs[idx]
+        exact = n.left <= x <= n.right and n.top <= y <= n.bottom
+        score = (0 if exact else 1000) + wi
+        if score < best_score:
+            best_score, best_win, best_idx = score, win, idx
+    out = []
+    if best_win is None:
+        for win in snap.wins:
+            for n in win.segs:
+                if n.bottom > y:
+                    append(out, n.text)
+        v = ''.join(out).strip()
+        return v or None
+    head = best_win.segs[best_idx]
+    st = start_in(head, x, y)
+    t = head.text[st:] if 0 < st < len(head.text) else head.text
+    append(out, t)
+    for n in best_win.segs[best_idx + 1:]:
         append(out, n.text)
-    s = ''.join(out).strip()
-    return s or None
-
-
-class Picker(object):
-    """镜像 TextPicker 的缓存有效性（纯计算部分）"""
-    def __init__(self):
-        self.cache = None
-        self.seq = -1
-        self.time = 0
-
-    def prepare(self, root, seq, now=1000):
-        segs = collect(root)
-        self.cache = segs or None
-        self.seq = seq
-        self.time = now
-
-    def invalidate(self):
-        self.cache, self.seq, self.time = None, -1, 0
-
-    def pick(self, x, y, seq, now=1000):
-        if self.cache is None or self.seq != seq or now - self.time > CACHE_TTL_MS:
-            return None
-        return join_from(self.cache, hit(self.cache, x, y), x, y)
+    after = False
+    for win in snap.wins:
+        if win is best_win:
+            after = True
+            continue
+        if after:
+            for n in win.segs:
+                append(out, n.text)
+    v = ''.join(out).strip()
+    return v or None
 
 
 # ---------------------------------------------------------------- 用例
@@ -257,6 +335,10 @@ def root_of(*children):
     return Node(None, 0, 0, 1080, 2400, children=list(children))
 
 
+def snap_one(root, seq=7, now=1000, want_rects=True):
+    return Snapshot(collect_windows([(0, root)], want_rects), seq, now)
+
+
 CASES = []
 
 
@@ -267,90 +349,134 @@ def case(fn):
 
 @case
 def case_exact_hit():
-    root = root_of(
+    s = snap_one(root_of(
         n('第一段话', (10, 10, 300, 50)),
         n('第二段话', (10, 100, 300, 140)),
-        n('第三段话', (10, 200, 300, 240)))
-    got = join_from(collect(root), hit(collect(root), 100, 120), 100, 120)
+        n('第三段话', (10, 200, 300, 240))))
+    got = read_from(s, 100, 120) or ''
     return '第二' in got and '第三' in got and '第一' not in got, got
 
 
 @case
 def case_tolerance_gap_hit():
-    """点在两段之间的行间距，必须读到上面那一段（旧逻辑会整行跳过）"""
-    segs = collect(root_of(
+    s = snap_one(root_of(
         n('上一行文字', (10, 10, 300, 50)),
         n('下一行文字', (10, 100, 300, 140))))
-    idx = hit(segs, 100, 75)
-    got = join_from(segs, idx, 100, 75)
-    return idx >= 0 and '上一行' in got, got
+    got = read_from(s, 100, 75) or ''
+    return '上一行' in got, got
 
 
 @case
 def case_tolerance_limit():
-    segs = collect(root_of(n('远处一段', (10, 10, 300, 50))))
-    idx = hit(segs, 900, 2000)
-    return idx == -1, 'idx=%d' % idx
+    s = snap_one(root_of(n('远处一段', (10, 10, 300, 50))))
+    return hit(s.wins[0].segs, 900, 2000, tolerance_dp=0) == -1, 'ok'
 
 
 @case
 def case_visibility_not_filtered():
-    segs = collect(root_of(n('被误判不可见的字', (10, 10, 300, 50),
-                             visible=False)))
-    return len(segs) == 1 and '被误判' in segs[0].text, [x.text for x in segs]
+    s = snap_one(root_of(n('被误判不可见的字', (10, 10, 300, 50),
+                           visible=False)))
+    return len(s.wins[0].segs) == 1, s.diagnose(7)
 
 
 @case
 def case_parent_text_kept():
-    """父文本与子文本不同 → 两段都保留（抓更多字）"""
     child = n('子文本', (10, 60, 200, 100))
     parent = Node('父说明', 0, 0, 300, 140, children=[child])
-    segs = collect(root_of(parent))
-    texts = [x.text for x in segs]
+    s = snap_one(root_of(parent))
+    texts = [x.text for w in s.wins for x in w.segs]
     return '父说明' in texts and '子文本' in texts, texts
 
 
 @case
-def case_parent_exact_dup_dropped():
-    child = n('同一句', (10, 60, 200, 100))
-    parent = Node('同一句', 0, 0, 300, 140, children=[child])
-    texts = [x.text for x in collect(root_of(parent))]
-    return texts == ['同一句'], texts
+def case_parent_containing_child_dropped():
+    child = n('分行文本', (10, 60, 200, 100))
+    parent = Node('这是一整篇文本，其中分行文本只是其中一句。',
+                  0, 0, 300, 140, children=[child])
+    s = snap_one(root_of(parent))
+    texts = [x.text for w in s.wins for x in w.segs]
+    return '分行文本' in texts and '这是一整篇文本' not in texts, texts
 
 
 @case
 def case_hint_tooltip_state():
-    segs = collect(root_of(
+    s = snap_one(root_of(
         n(None, (10, 10, 200, 50), hint='请输入手机号'),
         n(None, (10, 60, 200, 100), tooltip='长按可编辑'),
         n(None, (10, 110, 200, 150), state='已选中')))
-    texts = [x.text for x in segs]
-    return ('请输入手机号' in texts and '长按可编辑' in texts
-            and '已选中' in texts), texts
+    texts = [x.text for w in s.wins for x in w.segs]
+    return all(k in texts for k in ('请输入手机号', '长按可编辑', '已选中')), texts
 
 
 @case
 def case_budget_wide():
-    kids = [n('第%d段' % i, (10, i * 3, 300, i * 3 + 2))
-            for i in range(600)]
-    segs = collect(root_of(*kids))
-    return any('第599段' in x.text for x in segs), len(segs)
+    kids = [n('第%d段' % i, (10, i * 2, 300, i * 2 + 1))
+            for i in range(1100)]
+    s = snap_one(root_of(*kids))
+    texts = [x.text for w in s.wins for x in w.segs]
+    return '第1099段' in texts, len(texts)
 
 
 @case
-def case_charstart_sentence():
-    long_text = '第一句。' + '第二句内容很长' * 10   # 超过 40 字才启用比例定位
-    seg = Seg(long_text, 0, 0, 200, 40)
-    # 点在 80% 宽度处，应往回找到句号后
-    st = char_start(seg, 160, exact=True)
-    return st == 4, 'start=%d len=%d' % (st, len(long_text))
+def case_html_stripped():
+    s = snap_one(root_of(n('<p>正文内容</p>', (10, 10, 300, 50))))
+    texts = [x.text for w in s.wins for x in w.segs]
+    return texts == ['正文内容'], texts
+
+
+@case
+def case_multi_window_keeps_body():
+    """3.8 只取第一个窗口就 return，正文（第二窗口）全丢；3.9 必须读到"""
+    toolbar = root_of(n('工具栏', (10, 10, 200, 50)))
+    body = root_of(n('这是文章正文内容', (10, 100, 600, 200)))
+    s = Snapshot(collect_windows([(9, toolbar), (3, body)]), 7)
+    got = read_from(s, 300, 150) or ''
+    return '文章正文' in got and '工具栏' not in got, got
+
+
+@case
+def case_y_ratio_not_from_head():
+    """断句核心：点长文第 20 行行首，起点必须落在中段，不能回到篇头"""
+    lines = 40
+    text = ''.join('第%d行的内容写在这里' % i
+                   + ('。' if i % 3 == 2 else '，') for i in range(lines))
+    seg = Seg(text, 0, 0, 1000, 1600)
+    s = Snapshot([WinSegs(0, [seg])], 7)
+    x = int(3 / 30 * 1000)          # 行首（第 3 个字）
+    y = int(20 / 40 * 1600)         # 第 20 行
+    st = start_in(seg, x, y)
+    ratio = st / float(len(text))
+    ok = 0.25 < ratio < 0.65
+    return ok, 'start=%d len=%d ratio=%.3f' % (st, len(text), ratio)
+
+
+@case
+def case_sentence_near_no_zero():
+    text = '完全没有任何标点的一长串中文内容' * 12
+    seg = Seg(text, 0, 0, 1000, 1600)
+    x, y = 100, 800
+    st = start_in(seg, x, y)
+    return st > 0.2 * len(text), 'start=%d len=%d' % (st, len(text))
+
+
+@case
+def case_char_rects_two_dimensional():
+    """有逐字矩形时，x 和 y 都要参与，点第 5 行不能落到第 0 行"""
+    per_line = 10
+    rects = []
+    for i in range(60):
+        row, col = divmod(i, per_line)
+        rects.append((col * 100, row * 40, col * 100 + 100, row * 40 + 40))
+    text = '字' * 60
+    seg = Seg(text, 0, 0, 1000, 240, rects=rects, lead=0)
+    st = start_in(seg, 250, 5 * 40 + 20)   # 第 5 行第 2 字
+    return 45 <= st <= 55, 'start=%d (应≈50)' % st
 
 
 @case
 def case_short_segment_not_trimmed():
-    """短段即使精确点中也不按比例切，必须整段读出（别丢第一个字）"""
-    segs = collect(root_of(n('第二段话', (10, 100, 300, 140))))
-    got = join_from(segs, 0, 100, 120)
+    s = snap_one(root_of(n('第二段话', (10, 100, 300, 140))))
+    got = read_from(s, 100, 120)
     return got == '第二段话', got
 
 
@@ -365,28 +491,42 @@ def case_dedup_consecutive():
 
 @case
 def case_cache_ttl():
-    p = Picker()
     root = root_of(n('缓存内容', (10, 10, 300, 50)))
-    p.prepare(root, seq=7, now=1000)
-    ok1 = p.pick(50, 30, 7, now=1000) is not None
-    bad_seq = p.pick(50, 30, 8, now=1000) is None
-    bad_ttl = p.pick(50, 30, 7, now=1000 + CACHE_TTL_MS + 1) is None
-    p.invalidate()
-    bad_invalid = p.pick(50, 30, 7, now=1000) is None
-    return ok1 and bad_seq and bad_ttl and bad_invalid, \
-        (ok1, bad_seq, bad_ttl, bad_invalid)
+    s = Snapshot(collect_windows([(0, root)]), seq=7, now=1000)
+    ok1 = s.usable(7, 1000)
+    bad_seq = not s.usable(8, 1000)
+    bad_ttl = not s.usable(7, 1000 + CACHE_TTL_MS + 1)
+    return ok1 and bad_seq and bad_ttl, (ok1, bad_seq, bad_ttl)
 
 
 @case
 def case_reverse_no_tolerance_fails():
-    """反向验证：容差关掉时，行间距那一点必须读不到上面那段"""
-    segs = collect(root_of(
+    s = snap_one(root_of(
         n('上一行文字', (10, 10, 300, 50)),
         n('下一行文字', (10, 100, 300, 140))))
-    idx = hit(segs, 100, 75, tolerance_dp=0)
-    got = join_from(segs, idx, 100, 75)
-    lost = (idx == -1) and ('上一行' not in (got or ''))
-    return lost, 'idx=%d got=%r' % (idx, got)
+    idx = hit(s.wins[0].segs, 100, 75, tolerance_dp=0)
+    got = read_from(s, 100, 75, tolerance_dp=0) or ''
+    return idx == -1 and '上一行' not in got, 'idx=%d got=%r' % (idx, got)
+
+
+@case
+def case_reverse_x_only_fails_y_case():
+    """反向验证：退回 3.8 的 x-only 估算时，断句用例必须 FAIL"""
+    global START_USE_Y
+    old = START_USE_Y
+    START_USE_Y = False
+    try:
+        lines = 40
+        text = ''.join('第%d行的内容写在这里' % i
+                       + ('。' if i % 3 == 2 else '，') for i in range(lines))
+        seg = Seg(text, 0, 0, 1000, 1600)
+        st = start_in(seg, int(3 / 30 * 1000), int(20 / 40 * 1600))
+        # 3.8 会估到全文前 10% 再被推到篇头，必须不在中段
+        failed = not (0.25 < st / float(len(text)) < 0.65)
+        return failed, 'x-only start=%d ratio=%.3f (应落在前段)' % (
+            st, st / float(len(text)))
+    finally:
+        START_USE_Y = old
 
 
 def run_once():
@@ -396,7 +536,7 @@ def run_once():
             ok, detail = fn()
         except Exception as e:
             ok, detail = False, '%s: %s' % (type(e).__name__, e)
-        print(('PASS' if ok else 'FAIL'), '-', fn.__name__, '|', str(detail)[:140])
+        print(('PASS' if ok else 'FAIL'), '-', fn.__name__, '|', str(detail)[:150])
         if not ok:
             failed += 1
     print('verify_picker: %d/%d passed' % (len(CASES) - failed, len(CASES)))

@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.8：修三个真机问题 + Logo 回退。① 按住球放大时球老实待在手指下面——屏幕尺寸改用 getRealMetrics（与 getRawX/Y、setCenter 同一口径），并把放大期间 lp 坐标语义收敛到一处，消除恒定偏移与靠底部被放大到几百 px 的偏移；② 抓字延迟接近 0——进选字态就在后台把整屏预扫成纯数据缓存，点字时只做纯计算命中，并把覆盖层加好后重挂球这一步移出 onTap 主线程；③ 抓到更多字——新增 TextPicker，容差命中（点偏到行间距/字间空隙也取最近一段），不再硬过滤 isVisibleToUser，补读 hintText/tooltipText/stateDescription，放宽节点预算，物理屏幕尺寸过滤。原 TextGrabber 保留作兜底。④ Logo 回退到 3.6 那套蓝色玻璃球（含 adaptive 前景/背景、低版本简版与五种密度 PNG）。versionCode 29 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9：修断句起点、延迟、复杂界面抓字、无反馈。① 断句——3.8 的段内起点只用 x/段宽×全文长度，丢掉 y（行号），长文自动换行时点在行首一律估到全文前 10% 再被 sentenceStart 推到篇头；3.9 在预扫阶段取逐字矩形（后台、纯数据缓存），点字时二维最近字符定位，句起点只在命中字附近找、绝不静默退 0，拿不到逐字位置时按 y 比例估行。② 延迟——3.8 把预扫和点字兜底都投到同一个 grabH，用户快点字时兜底要排队等整树预扫跑完再自己遍历一遍，延迟翻倍；3.9 拆出独立 prepH，并在点球时主线程做一次极浅扫（300 节点）让缓存立刻可用，覆盖层撤除也改异步。③ 复杂界面——3.8 collect() 只取第一个收到文字的窗口就 return，Dialog / WebView / 分屏的正文全丢；3.9 合并所有非装饰窗口、按 layer 分组命中，父子树稳健去重，预算放宽到 30000/1200，剥 WebView 的 HTML 标签，并监听内容变化/滚屏节流重扫。④ 反馈——抬手立刻轻震（不依赖抓字结果），抓不到字时长震+明确文案+球回待命，诊断日志只记结构数字不记内容。versionCode 30 可覆盖升级，固定签名不变，Logo 仍为 3.6 蓝色玻璃球。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

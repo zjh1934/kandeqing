@@ -61,6 +61,14 @@ public class ComboService extends AccessibilityService
     /** 抓字放在后台线程：一屏几千个节点，主线程做会直接 ANR */
     private HandlerThread grabThread;
     private Handler grabH;
+    /**
+     * 3.9：预扫专用线程。3.8 把 prepare() 和点字兜底 grabFrom() 都投到 grabH，
+     * 用户点球后马上点字时，兜底必须排队等整树预扫跑完、自己再遍历一遍，
+     * 延迟翻倍。拆开后两条路互不阻塞。
+     */
+    private HandlerThread prepThread;
+    private Handler prepH;
+    private long lastReprepareMs = 0L;
     private int state = ST_IDLE;
     private boolean zooming = false;
 
@@ -187,17 +195,47 @@ public class ComboService extends AccessibilityService
         if (event == null || state != ST_PICKING) {
             return;
         }
-        if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        int et = event.getEventType();
+        if (et == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            CharSequence pkg = event.getPackageName();
+            if (pkg != null && getPackageName().contentEquals(pkg)) {
+                return;     // 是我们自己的界面（比如打开了 App），不动
+            }
+            Log.i("pick", "窗口切走了，退出选字态");
+            abortPendingGrab(false);  // 不是用户点的，得让他知道这次没读成
+            removeOverlay();
+            toIdle();
             return;
         }
-        CharSequence pkg = event.getPackageName();
-        if (pkg != null && getPackageName().contentEquals(pkg)) {
-            return;     // 是我们自己的界面（比如打开了 App），不动
+        // 3.9：滚屏 / 内容变了，旧缓存的 bounds 已经对不上新画面。
+        // 不清空缓存（清空会让点字瞬间退回慢兜底），而是节流后重扫覆盖，
+        // 期间旧快照仍在，点字不会突然变慢。
+        if (et == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+                || et == AccessibilityEvent.TYPE_VIEW_SCROLLED
+                || et == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            long now = System.currentTimeMillis();
+            if (now - lastReprepareMs < 300) {
+                return;
+            }
+            lastReprepareMs = now;
+            scheduleReprepare();
         }
-        Log.i("pick", "窗口切走了，退出选字态");
-        abortPendingGrab(false);      // 不是用户点的，得让他知道这次没读成
-        removeOverlay();
-        toIdle();
+    }
+
+    /** 内容变了：后台重扫一遍，新快照按同一 seq 覆盖旧的 */
+    private void scheduleReprepare() {
+        if (picker == null || prepH == null) {
+            return;
+        }
+        final int seq = pickSeq;
+        prepH.post(new Runnable() {
+            @Override
+            public void run() {
+                if (picker != null) {
+                    picker.prepare(seq);
+                }
+            }
+        });
     }
 
     @Override
@@ -268,6 +306,11 @@ public class ComboService extends AccessibilityService
             grabThread = new HandlerThread("grab");
             grabThread.start();
             grabH = new Handler(grabThread.getLooper());
+        }
+        if (prepThread == null) {
+            prepThread = new HandlerThread("prep");
+            prepThread.start();
+            prepH = new Handler(prepThread.getLooper());
         }
         if (ball == null) {
             ball = new BallController(this, prefs, zoom, this);
@@ -410,18 +453,24 @@ public class ComboService extends AccessibilityService
         }
         addOverlay();
 
-        // 3.8：用户「点球 → 找字 → 点下去」总有一两秒，抢在这段时间里把
-        // 整棵无障碍树预扫成纯数据缓存。点字时只做纯计算命中，零 IPC、零线程切换。
-        if (picker != null && grabH != null) {
-            final int seq = pickSeq;
-            grabH.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (picker != null) {
-                        picker.prepare(seq);
+        // 3.9：① 主线程做一次极浅扫（预算 300 节点），缓存**立刻**可用 ——
+        //      用户点球后多快点字都不必等后台，快路径不再 miss；
+        //      ② 独立 prepH 做完整多窗口扫描 + 逐字位置预取，覆盖粗快照。
+        //      拆线程是关键：3.8 把预扫和点字兜底都投到 grabH，用户快点字时
+        //      兜底要排队等整树预扫跑完再自己遍历一遍，延迟翻倍。
+        if (picker != null) {
+            picker.prepareQuick(pickSeq);
+            if (prepH != null) {
+                final int seq = pickSeq;
+                prepH.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (picker != null) {
+                            picker.prepare(seq);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         // 3.2：进选取态不震。柔边环填实成实心球就是信号（见 Haptics 里"取词全程不震"的说明）
@@ -591,13 +640,16 @@ public class ComboService extends AccessibilityService
         if (picker != null) {
             String quick = picker.pick(x, y, seq);
             if (quick != null && quick.trim().length() > 0) {
-                Log.i("pick", "预扫命中，主线程直接朗读");
+                Log.i("pick", "预扫命中，主线程直接朗读 | " + picker.diagnose(seq));
                 startSpeak(quick, seq);
                 return;
             }
+            // 只记结构数字，不记内容：真机看一眼就知道是「缓存没好」
+            // 还是「扫到了但这段没点中」，不用再猜延迟来自哪一段。
+            Log.i("pick", "快路径未命中，走兜底 | " + picker.diagnose(seq));
         }
 
-        // 缓存还没就绪 / 已失效：退回原来的后台整树遍历，功能不坏
+        // 缓存还没就绪 / 已失效：退回后台整树遍历（独立 grabH，不与预扫排队）
         // 抓字是一屏几千个节点、每个节点好几次跨进程调用，放主线程会 ANR
         grabH.post(new Runnable() {
             @Override
@@ -641,9 +693,13 @@ public class ComboService extends AccessibilityService
             return;
         }
         if (text == null || text.trim().length() == 0) {
-            Log.w("grab", "什么都没抓到");
-            toast("这里没读到文字");
+            // 3.9：抓不到字必须让人知道。低视力用户看不清 Toast，
+            // 所以长震放在最前面（不依赖视觉），文案说清该做什么，
+            // 球回待命让状态可见；日志只留结构数字，不记内容。
+            Log.w("grab", "什么都没抓到 | "
+                    + (picker != null ? picker.diagnose(seq) : "picker=null"));
             Haptics.error();
+            toast("这里没读到文字，再点一次");
             toIdle();
             return;
         }
@@ -765,7 +821,17 @@ public class ComboService extends AccessibilityService
                     case MotionEvent.ACTION_UP: {
                         final int x = (int) e.getRawX();
                         final int y = (int) e.getRawY();
-                        removeOverlay();
+                        // 3.9：抬手立刻一记轻震 ——「这一下收到了」的即时反馈，
+                        // 不依赖抓字成功与否。低视力用户不用盯着 Toast 等结果。
+                        Haptics.tap();
+                        // wm.removeView 是主线程跨进程事务，别让它占着抬手到
+                        // readAt 这一段。先入队，Looper 按入队顺序保证它在抓字前执行。
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                removeOverlay();
+                            }
+                        });
                         final int seq = pickSeq;
                         // 3.6：覆盖层是同步撤掉的，抬手后直接排抓字，不再空等 250ms。
                         // 排队这一小段里球可能又被点了（取消选取 / 要放大），
