@@ -1,13 +1,13 @@
 package com.floating.combo;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityWindowInfo;
 import android.content.Context;
 import android.graphics.Rect;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
 
 import java.util.ArrayList;
 import java.util.Collections;

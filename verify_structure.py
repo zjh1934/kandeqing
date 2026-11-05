@@ -350,6 +350,27 @@ def check_imports(per_file, packages, index):
     return errs, warns
 
 
+# 静态符号解析看不出「类不在这个 package 下」：这种错只有真编译会报
+# cannot find symbol。2026-11-05 实测：AccessibilityWindowInfo 被写成
+# android.accessibilityservice.*，镜像全绿、CI 的 javac 直接 12 个错。
+# 把踩过的错包名硬拦在这里，避免再靠一次失败构建去发现。
+BAD_ANDROID_IMPORTS = {
+    "android.accessibilityservice.AccessibilityWindowInfo":
+        "android.view.accessibility.AccessibilityWindowInfo",
+}
+
+
+def check_bad_android_imports(per_file):
+    errs = []
+    for info in per_file:
+        src = open(info["path"], encoding="utf-8").read()
+        for bad, good in BAD_ANDROID_IMPORTS.items():
+            if ("import %s;" % bad) in src:
+                errs.append("FAIL [错包名] %s: import %s → 应为 %s"
+                            % (os.path.basename(info["path"]), bad, good))
+    return errs
+
+
 def run_once():
     index, packages, per_file = build_index()
     problems = []
@@ -357,6 +378,9 @@ def run_once():
     for info in per_file:
         for e in check_balance(info):
             problems.append("FAIL [括号] %s: %s" % (os.path.basename(info["path"]), e))
+
+    for e in check_bad_android_imports(per_file):
+        problems.append(e)
 
     errs = check_symbols(index, packages, per_file)
     for e in errs:
