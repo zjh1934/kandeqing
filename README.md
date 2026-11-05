@@ -13,7 +13,7 @@
 [![下载](https://img.shields.io/github/downloads/zjh1934/kandeqing/total?color=orange)](https://github.com/zjh1934/kandeqing/releases)
 
 [下载安装包](https://github.com/zjh1934/kandeqing/releases/latest) ·
-[给长辈的图文说明](使用说明.md) ·
+[给长辈的图文说明](%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md) ·
 [项目主页](https://zjh1934.github.io/kandeqing/) ·
 [English](README.en.md)
 
@@ -89,7 +89,7 @@ flowchart LR
 > **球过一会儿没了？** 部分国产 ROM 的省电策略会自动关掉无障碍服务，
 > 到「电池 / 省电」把「看得清」设成 **不限制** 即可。
 
-完全不懂手机的长辈，请看 **[给长辈的图文说明](使用说明.md)**，每一步都配了照着做就行的话。
+完全不懂手机的长辈，请看 **[给长辈的图文说明](%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md)**，每一步都配了照着做就行的话。
 也可以把 **[下载页](https://zjh1934.github.io/kandeqing/)** 直接发给家人。
 
 **从 3.7 起签名密钥固定，新版可以直接覆盖安装**，不用卸载。
@@ -165,13 +165,13 @@ flowchart LR
 - 未上架应用商店，升级靠自己下载新版（可直接覆盖安装）
 - `targetSdkVersion 29`：为保留 AIDE 构建能力；上架商店需提到 33+ 并补前台服务类型声明
 
-完整清单见 **[已知限制与开发者文档](docs/开发者.md)**。
+完整清单见 **[已知限制与开发者文档](docs/%E5%BC%80%E5%8F%91%E8%80%85.md)**。
 
 ---
 
 ## 给开发者
 
-- [架构、抓字链路、放大坐标公式、自检与构建](docs/开发者.md)（从 README 搬出来的技术详版）
+- [架构、抓字链路、放大坐标公式、自检与构建](docs/%E5%BC%80%E5%8F%91%E8%80%85.md)（从 README 搬出来的技术详版）
 - [更新记录](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md) · [安全与反馈](SECURITY.md)
 - 纯 Java，无第三方运行时依赖，`compileSdk 30 / minSdk 24 / targetSdk 29`
 - push 到 `main` 会用固定密钥自动出包、回传 `apk/` 并发布 Release

@@ -122,14 +122,14 @@ See [Privacy](docs/privacy.md).
 - Not on any app store; update by downloading a new APK
 - `targetSdkVersion 29` kept for AIDE builds; a store release would need 33+
 
-Full details in [docs/开发者.md](docs/开发者.md) and [CHANGELOG.md](CHANGELOG.md).
+Full details in [docs/开发者.md](docs/%E5%BC%80%E5%8F%91%E8%80%85.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## For developers
 
 Pure Java, no third-party runtime dependencies, `compileSdk 30 / minSdk 24 / targetSdk 29`.
-Architecture, the text-grabbing pipeline, the magnification coordinate formula, self-checks and build instructions: [docs/开发者.md](docs/开发者.md).
+Architecture, the text-grabbing pipeline, the magnification coordinate formula, self-checks and build instructions: [docs/开发者.md](docs/%E5%BC%80%E5%8F%91%E8%80%85.md).
 Push to `main` triggers a fixed-key build that writes the APK back to `apk/` and publishes a Release.
 
 ---
