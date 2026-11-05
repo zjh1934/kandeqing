@@ -226,7 +226,10 @@ public final class TextLayout {
                 s++;
             }
             if (s >= text.length()) {
-                return 0;   // 标点后面没字了，说明点在了最后一句，从头读
+                // 3.9.3：标点后面没字了 = 点在最后一句。
+                // 从这句（点击字附近）读起，绝不退回整篇开头 —— 旧注释
+                // 写的「从头读」正是「点中间却从篇头开始读」的来源之一。
+                return Math.max(0, offset - 1);
             }
             return s;
         }

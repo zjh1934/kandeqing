@@ -481,7 +481,7 @@ public class TextGrabber {
      * 有前导空白时两者下标差了一个偏移量 —— 不减掉就会切错位置（旧实现的 bug）。
      */
     private int charStartIn(AccessibilityNodeInfo node, int x, int y) {
-        if (node == null || Build.VERSION.SDK_INT < 26) {
+        if (node == null) {
             return 0;
         }
         try {
@@ -504,42 +504,86 @@ public class TextGrabber {
                 return 0;
             }
 
-            String key = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
-            // 整段（夹到 20000）→ 2000 字 → 500 字，逐级退让
-            int[] tries = new int[]{
-                    Math.min(raw.length(), MAX_CHAR_REQ),
-                    Math.min(raw.length(), 2000),
-                    Math.min(raw.length(), 500),
-            };
-            for (int t = 0; t < tries.length; t++) {
-                int count = tries[t];
-                if (count <= 0) {
-                    continue;
+            // 3.9.3：早期版本这里本来就有逐字位置（二维 nearestChar），唯一
+            // 的毛病是「拿不到就 return 0」。长文只有一个文字节点时，
+            // charStart=0 让 join() 不截 head，整篇从第一个字念起 —— 这就是
+            // 「点中间一段、却从这一篇的头开始读」。
+            // 现在拿不到逐字位置时按 y 估行（x 只做行内微调），再找句读，
+            // 绝不静默退回篇头。不加新类、不加线程、不碰其它核心逻辑。
+            if (Build.VERSION.SDK_INT >= 26) {
+                String key = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
+                // 整段（夹到 20000）→ 2000 字 → 500 字，逐级退让
+                int[] tries = new int[]{
+                        Math.min(raw.length(), MAX_CHAR_REQ),
+                        Math.min(raw.length(), 2000),
+                        Math.min(raw.length(), 500),
+                };
+                for (int t = 0; t < tries.length; t++) {
+                    int count = tries[t];
+                    if (count <= 0) {
+                        continue;
+                    }
+                    RectF[] rects = requestRects(node, key, 0, count);
+                    if (rects == null) {
+                        continue;
+                    }
+                    int offset = nearestChar(rects, x, y);
+                    if (offset < 0) {
+                        continue;
+                    }
+                    if (offset > raw.length()) {
+                        offset = raw.length();
+                    }
+                    int rel = TextLayout.sentenceStart(raw, offset) - lead;
+                    if (rel < 0) {
+                        rel = 0;
+                    }
+                    if (rel > len) {
+                        rel = len;
+                    }
+                    return rel;
                 }
-                RectF[] rects = requestRects(node, key, 0, count);
-                if (rects == null) {
-                    continue;
-                }
-                int offset = nearestChar(rects, x, y);
-                if (offset < 0) {
-                    continue;
-                }
-                if (offset > raw.length()) {
-                    offset = raw.length();
-                }
-                int rel = TextLayout.sentenceStart(raw, offset) - lead;
-                if (rel < 0) {
-                    rel = 0;
-                }
-                if (rel > len) {
-                    rel = len;
-                }
-                return rel;
             }
-            return 0;
+            return fallbackStart(node, x, y, raw, len, lead);
         } catch (Exception ignored) {
             return 0;
         }
+    }
+
+    /**
+     * 逐字位置拿不到时的降级估算：自动换行的文本里 y 才是行号，
+     * x 只代表「这一行第几个字」。按 ry 为主、rx 微调，比按 x / 全文长度
+     * 准一个数量级；再走 sentenceStart 收敛到句首，绝不返回 0 表示篇头。
+     */
+    private int fallbackStart(AccessibilityNodeInfo node, int x, int y,
+                              String raw, int len, int lead) {
+        if (raw == null || len < 40) {
+            return 0;   // 短段单行：从段首读，别把第一个字切掉
+        }
+        Rect b = new Rect();
+        try {
+            node.getBoundsInScreen(b);
+        } catch (Exception ignored) {
+            return 0;
+        }
+        if (b.isEmpty() || raw.length() == 0) {
+            return 0;
+        }
+        float ry = (y - b.top) / (float) b.height();
+        float rx = (x - b.left) / (float) b.width();
+        float ratio = Math.max(0f, Math.min(1f, ry * 0.85f + rx * 0.15f));
+        int off = (int) (ratio * raw.length());
+        if (off > raw.length()) {
+            off = raw.length();
+        }
+        int rel = TextLayout.sentenceStart(raw, off) - lead;
+        if (rel < 0) {
+            rel = 0;
+        }
+        if (rel > len) {
+            rel = len;
+        }
+        return rel;
     }
 
     private RectF[] requestRects(AccessibilityNodeInfo node, String key, int start, int count) {

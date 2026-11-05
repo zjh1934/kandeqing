@@ -4,10 +4,13 @@
 # 项目环境里没有 JDK / Android SDK，JUnit 跑不起来。TextLayout 是特地写成
 # 无 Android 依赖的纯逻辑，就是为了能在这里 1:1 镜像验证 —— 两边结果必须一致。
 #
-# 重点覆盖两个修复：
+# 重点覆盖三个修复：
 #   1) 阅读顺序：多列布局不能只按 (top,left) 排，要先纵向分带成行。
 #   2) charStart 偏移：字符位置是按【原文】排的，而收录的文本是 trim 过的，
 #      有前导空白时两者差一个偏移量，不减掉就会切错位置。
+#   3) 3.9.3「点哪里从哪读」：逐字位置拿不到时按 y 估行号（x 只做行内
+#      微调），不再 return 0 让 join() 把整篇从头念起；scanBack 点在最后
+#      一句时也从这句读起。含「旧逻辑必须 FAIL」的反向验证。
 
 MAX_CHAR_REQ = 20000
 
@@ -62,7 +65,8 @@ def scan_back(text, offset, puncts):
         while s < len(text) and _is_ws(text[s]):
             s += 1
         if s >= len(text):
-            return 0
+            # 3.9.3：点在最后一句，从这句读起，绝不退回整篇开头
+            return max(0, offset - 1)
         return s
     return 0
 
@@ -183,37 +187,56 @@ def nearest_char(rects, x, y):
     return best
 
 
-def char_start_in(raw, rects_of, x, y, sdk=26):
+def fallback_start(bounds, x, y, raw, length, lead):
+    """3.9.3 镜像：拿不到逐字位置时按 y 估行号（x 只做行内微调）"""
+    if raw is None or length < 40:
+        return 0
+    if bounds is None:
+        return 0        # 连 bounds 都量不到，才退回段首
+    l, t, r, b = bounds
+    if r <= l or b <= t or len(raw) == 0:
+        return 0
+    ry = (y - t) / float(b - t)
+    rx = (x - l) / float(r - l)
+    ratio = max(0.0, min(1.0, ry * 0.85 + rx * 0.15))
+    off = min(len(raw), int(ratio * len(raw)))
+    rel = sentence_start(raw, off) - lead
+    return max(0, min(length, rel))
+
+
+def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None):
     """
     镜像 TextGrabber.charStartIn：
     句读下标在【原文】上算，再减掉前导空白长度，换算到 trim 之后的串上。
     rects_of(count) -> RectF 列表 或 None
+    bounds=(l,t,r,b) 给降级估算用；None 表示连 bounds 都量不到。
     """
-    if raw is None or sdk < 26:
+    if raw is None:
         return 0
     lead = leading_whitespace(raw)
     length = trimmed_length(raw)
     if length <= 0:
         return 0
 
-    for count in (min(len(raw), MAX_CHAR_REQ), min(len(raw), 2000), min(len(raw), 500)):
-        if count <= 0:
-            continue
-        rects = rects_of(count)
-        if not rects:
-            continue
-        offset = nearest_char(rects, x, y)
-        if offset < 0:
-            continue
-        if offset > len(raw):
-            offset = len(raw)
-        rel = sentence_start(raw, offset) - lead
-        if rel < 0:
-            rel = 0
-        if rel > length:
-            rel = length
-        return rel
-    return 0
+    if sdk >= 26:
+        for count in (min(len(raw), MAX_CHAR_REQ), min(len(raw), 2000), min(len(raw), 500)):
+            if count <= 0:
+                continue
+            rects = rects_of(count)
+            if not rects:
+                continue
+            offset = nearest_char(rects, x, y)
+            if offset < 0:
+                continue
+            if offset > len(raw):
+                offset = len(raw)
+            rel = sentence_start(raw, offset) - lead
+            if rel < 0:
+                rel = 0
+            if rel > length:
+                rel = length
+            return rel
+    return fallback_start(bounds, x, y, raw, length, lead)
 
 
 def make_rects(text, x0=0, y0=0, cw=20, ch=40):
@@ -362,6 +385,46 @@ def case_char_req_capped():
     return ok, seen[:1]
 
 
+def _long_text():
+    return ''.join('第%d行的内容写在这里' % i
+                   + ('。' if i % 3 == 2 else '，') for i in range(40))
+
+
+def case_fallback_y_mid_not_head():
+    """3.9.3 核心：长文没逐字位置时，点中段行首不能从篇头读"""
+    raw = _long_text()
+    bounds = (0, 0, 1000, 1600)      # 40 行，点第 20 行行首
+    x, y = 100, 800
+    rel = char_start_in(raw, lambda c: None, x, y, bounds=bounds)
+    ratio = rel / float(len(raw))
+    return 0.25 < ratio < 0.65, 'rel=%d len=%d ratio=%.3f' % (
+        rel, len(raw), ratio)
+
+
+def case_fallback_short_from_head():
+    """短段单行：降级仍从段首读，别把第一个字切掉"""
+    raw = '今天天气很好，我们出去走走。'
+    rel = char_start_in(raw, lambda c: None, 100, 20,
+                        bounds=(0, 0, 300, 40))
+    return rel == 0, rel
+
+
+def case_last_sentence_not_zero():
+    """点在最后一句：scanBack 不再把 0 当答案"""
+    got = scan_back("甲乙丙。", 4, "。")
+    return got > 0, got
+
+
+def case_reverse_old_zero_detected():
+    """反向验证：旧逻辑（拿不到逐字位置直接 return 0）必须被抓出来"""
+    raw = _long_text()
+    bounds = (0, 0, 1000, 1600)
+    new_rel = char_start_in(raw, lambda c: None, 100, 800, bounds=bounds)
+    old_rel = 0                       # 3.9.2 及之前的行为
+    detected = old_rel == 0 and new_rel > 0.25 * len(raw)
+    return detected, 'old=%d new=%d len=%d' % (old_rel, new_rel, len(raw))
+
+
 def case_old_buggy_offset():
     """
     证明修复前的算法确实是错的（用作对照，确保这个回归测试有区分力）。
@@ -389,6 +452,10 @@ CASES = [
     ("无标点时从点中的字开始", case_sentence_no_punct),
     ("请求长度逐级退让", case_sentence_fallback_to_500),
     ("超长文本请求夹到 20000", case_char_req_capped),
+    ("3.9.3 降级按 y 估行，不从篇头读", case_fallback_y_mid_not_head),
+    ("3.9.3 短段降级仍从段首", case_fallback_short_from_head),
+    ("3.9.3 点在最后一句不退 0", case_last_sentence_not_zero),
+    ("3.9.3 反向验证：旧逻辑必被抓出", case_reverse_old_zero_detected),
     ("对照：旧算法确实切错", case_old_buggy_offset),
 ]
 

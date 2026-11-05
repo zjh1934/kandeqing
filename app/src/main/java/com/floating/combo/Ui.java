@@ -3,7 +3,6 @@ package com.floating.combo;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
@@ -11,18 +10,16 @@ import android.graphics.Typeface;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
-import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -158,31 +155,169 @@ public final class Ui {
 
     // ---- 各类行 ----------------------------------------------------------
 
-    /** 下拉选择行：标签 + 原生 Spinner（右半，显示当前值）+ ▾。整行可点。 */
-    public static LinearLayout selectRow(final Context c, String label,
-                                         final Spinner sp) {
-        LinearLayout r = newRow(c, Theme.ROW_SELECT);
-        r.addView(body(c, label), new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+    /**
+     * 下拉选择行（3.9.3 重做）。
+     *
+     * 旧版是「标签 + 原生 Spinner」：Spinner 的 getView 各自套一块 8dp 圆角
+     * 深灰底、灰字右对齐，旁边再挂一个字体 ▾ —— 一行里三块拼贴，跟分组
+     * 卡片和细分割线完全不搭，展开后更是一堆独立小方块。
+     *
+     * 现在就是分组卡片里的一行普通列表项：左标签、右强调色当前值、最右
+     * 几何箭头。点开**就地展开**单选菜单（不是悬浮弹层、不是二级页面），
+     * 选中项淡强调底 + 一个几何勾。
+     */
+    public static SelectRow selectRow(Context c, String label) {
+        return new SelectRow(c, label);
+    }
 
-        sp.setBackgroundColor(Color.TRANSPARENT);
-        sp.setPadding(0, 0, 0, 0);
-        sp.setMinimumHeight(dp(c, Theme.HIT));
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        r.addView(sp, slp);
+    /** 就地展开的单选行。不新增顶层类，跟其他组件一起放在 Ui 里。 */
+    public static final class SelectRow extends LinearLayout {
 
-        TextView ar = text(c, "▾", 12, Theme.TEXT_2, false);
-        ar.setPadding(dp(c, 4), 0, 0, 0);
-        r.addView(ar);
+        public interface OnSelected {
+            void on(int pos);
+        }
 
-        r.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sp.performClick();
+        private final Context c;
+        private final TextView value;
+        private final GlyphView chevron;
+        private final LinearLayout menu;
+        private final List<String> items = new ArrayList<String>();
+        private int selected = 0;
+        private boolean expanded = false;
+        private OnSelected cb;
+
+        public SelectRow(Context c, String labelText) {
+            super(c);
+            this.c = c;
+            setOrientation(LinearLayout.VERTICAL);
+            setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+
+            final LinearLayout row = new LinearLayout(c);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setLayoutParams(rowLp(c, Theme.ROW_SELECT));
+            int p = dp(c, 12);
+            row.setPadding(p, 0, p, 0);
+
+            TextView label = body(c, labelText);
+            row.addView(label, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            value = text(c, "", 14, Theme.ACCENT, true);
+            value.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            value.setSingleLine(true);
+            value.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(value, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            chevron = new GlyphView(c, GlyphView.CHEVRON);
+            chevron.setTint(Theme.TEXT_2);
+            LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(
+                    dp(c, 18), dp(c, 18));
+            glp.leftMargin = dp(c, 8);
+            row.addView(chevron, glp);
+
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggle();
+                }
+            });
+            addView(row);
+
+            menu = new LinearLayout(c);
+            menu.setOrientation(LinearLayout.VERTICAL);
+            menu.setVisibility(View.GONE);
+            menu.setPadding(dp(c, 10), dp(c, 2), dp(c, 10), dp(c, 8));
+            addView(menu, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+
+        public void setItems(List<String> list) {
+            items.clear();
+            if (list != null) {
+                items.addAll(list);
             }
-        });
-        return r;
+            if (selected >= items.size()) {
+                selected = Math.max(0, items.size() - 1);
+            }
+            refreshValue();
+            if (expanded) {
+                rebuildMenu();
+            }
+        }
+
+        /** 初始化用：只改显示与选中态，绝不触发回调（对齐 Spinner.setSelection） */
+        public void setSelection(int pos) {
+            selected = items.isEmpty() ? 0
+                    : Math.max(0, Math.min(items.size() - 1, pos));
+            refreshValue();
+            if (expanded) {
+                rebuildMenu();
+            }
+        }
+
+        public void setOnSelected(OnSelected l) {
+            cb = l;
+        }
+
+        private void refreshValue() {
+            value.setText(items.isEmpty() ? "" : items.get(selected));
+        }
+
+        private void toggle() {
+            expanded = !expanded;
+            menu.setVisibility(expanded ? View.VISIBLE : View.GONE);
+            chevron.setRotation(expanded ? 180f : 0f);
+            if (expanded) {
+                rebuildMenu();
+            }
+        }
+
+        private void rebuildMenu() {
+            menu.removeAllViews();
+            for (int i = 0; i < items.size(); i++) {
+                final int pos = i;
+                boolean on = (i == selected);
+                LinearLayout item = new LinearLayout(c);
+                item.setOrientation(LinearLayout.HORIZONTAL);
+                item.setGravity(Gravity.CENTER_VERTICAL);
+                item.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 44)));
+                item.setPadding(dp(c, 12), 0, dp(c, 12), 0);
+                if (on) {
+                    item.setBackgroundDrawable(Theme.rounded(
+                            Theme.ACCENT_SOFT, dp(c, 8), 0, 0));
+                }
+                TextView t = text(c, items.get(i), 14,
+                        on ? Theme.ACCENT : Theme.TEXT, on);
+                t.setSingleLine(true);
+                t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                item.addView(t, new LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                if (on) {
+                    GlyphView ck = new GlyphView(c, GlyphView.CHECK);
+                    ck.setTint(Theme.ACCENT);
+                    item.addView(ck, new LinearLayout.LayoutParams(
+                            dp(c, 18), dp(c, 18)));
+                }
+                item.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        int old = selected;
+                        setSelection(pos);
+                        toggle();           // 选完就收起
+                        if (cb != null && pos != old) {
+                            cb.on(pos);
+                        }
+                    }
+                });
+                menu.addView(item);
+            }
+        }
     }
 
     /** 滑块行：标签 + 实时数值 + 滑杆。没有刻度、没有说明文字。 */
@@ -535,43 +670,6 @@ public final class Ui {
         return v;
     }
 
-    // ---- Spinner 深色 / 浅色适配 ------------------------------------------
-
-    private static void styleDropdown(View v, Context c, boolean selectedView) {
-        if (v instanceof TextView) {
-            TextView t = (TextView) v;
-            t.setTextColor(selectedView ? Theme.TEXT_2 : Theme.TEXT);
-            t.setTextSize(13);
-            if (selectedView) {
-                t.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-            }
-            t.setPadding(dp(c, 8), dp(c, 6), dp(c, 8), dp(c, 6));
-        }
-        v.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
-                dp(c, 8), 0, 0));
-    }
-
-    public static ArrayAdapter<String> darkAdapter(Context c, List<String> items) {
-        ArrayAdapter<String> ad = new ArrayAdapter<String>(c,
-                android.R.layout.simple_spinner_item, items) {
-            @Override
-            public View getView(int pos, View cv, ViewGroup parent) {
-                View v = super.getView(pos, cv, parent);
-                Ui.styleDropdown(v, getContext(), true);
-                return v;
-            }
-
-            @Override
-            public View getDropDownView(int pos, View cv, ViewGroup parent) {
-                View v = super.getDropDownView(pos, cv, parent);
-                Ui.styleDropdown(v, getContext(), false);
-                return v;
-            }
-        };
-        ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        return ad;
-    }
-
     // ---- 几何图标（不依赖字体符号，避免缺字） -----------------------------
 
     public static final class GlyphView extends View {
@@ -582,6 +680,10 @@ public final class Ui {
         public static final int NAV_ZOOM = 5;
         public static final int NAV_ORB = 6;
         public static final int NAV_MORE = 7;
+        /** 下拉箭头（几何，不用字体 ▾） */
+        public static final int CHEVRON = 8;
+        /** 选中勾 */
+        public static final int CHECK = 9;
 
         private final int kind;
         private final Paint paint;
@@ -653,6 +755,15 @@ public final class Ui {
             } else if (kind == NAV_ORB) {
                 canvas.drawCircle(cx, cy, r * 1.05f, paint);
                 canvas.drawCircle(cx, cy, r * 0.38f, fill);
+            } else if (kind == CHEVRON) {
+                // 几何 chevron：两条短线，展开时由外层 setRotation(180) 翻上去
+                float a = getWidth() * 0.24f;
+                canvas.drawLine(cx - a, cy - a * 0.45f, cx, cy + a * 0.45f, paint);
+                canvas.drawLine(cx, cy + a * 0.45f, cx + a, cy - a * 0.45f, paint);
+            } else if (kind == CHECK) {
+                canvas.drawLine(cx - r * 0.8f, cy, cx - r * 0.1f, cy + r * 0.6f, paint);
+                canvas.drawLine(cx - r * 0.1f, cy + r * 0.6f,
+                        cx + r * 0.9f, cy - r * 0.65f, paint);
             } else {
                 for (int k = 0; k < 3; k++) {
                     canvas.drawCircle(cx - r + k * r, cy,

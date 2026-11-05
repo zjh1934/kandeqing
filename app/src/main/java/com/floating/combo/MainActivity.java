@@ -14,12 +14,10 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 
@@ -65,7 +63,7 @@ public class MainActivity extends Activity
     };
 
     // ---- 朗读页 ----------------------------------------------------------
-    private Spinner spEngine, spVoice;
+    private Ui.SelectRow spEngine, spVoice;
     private Button btnTry;
     private Runnable tryEnd;
     private boolean enginesLoaded = false;
@@ -448,11 +446,9 @@ public class MainActivity extends Activity
     private LinearLayout pageRead() {
         LinearLayout page = pageColumn();
 
-        spEngine = new Spinner(this);
-        spVoice = new Spinner(this);
-        page.addView(Ui.group(this, "声音",
-                Ui.selectRow(this, "语音引擎", spEngine),
-                Ui.selectRow(this, "音色", spVoice)), groupLp());
+        spEngine = Ui.selectRow(this, "语音引擎");
+        spVoice = Ui.selectRow(this, "音色");
+        page.addView(Ui.group(this, "声音", spEngine, spVoice), groupLp());
 
         page.addView(Ui.group(this, "调节",
                 Ui.sliderRow(this, "语速", 50, 300,
@@ -543,13 +539,12 @@ public class MainActivity extends Activity
                 sel = i;
             }
         }
-        spEngine.setAdapter(Ui.darkAdapter(this, names));
+        spEngine.setItems(names);
         spEngine.setSelection(Math.min(sel, names.size() - 1));
         shownEngine = engines.get(Math.min(sel, engines.size() - 1)).pkg;
-        spEngine.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        spEngine.setOnSelected(new Ui.SelectRow.OnSelected() {
             @Override
-            public void onItemSelected(AdapterView<?> parent, View view,
-                                       int pos, long id) {
+            public void on(int pos) {
                 if (engines == null || pos >= engines.size()) {
                     return;
                 }
@@ -566,10 +561,6 @@ public class MainActivity extends Activity
                 Ui.toast(MainActivity.this,
                         pkg.length() == 0 ? "正在切回系统默认引擎…"
                                 : "正在切换引擎…", true);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
             }
         });
         reloadVoices();
@@ -590,14 +581,13 @@ public class MainActivity extends Activity
         if (labels.isEmpty()) {
             labels.add("默认音色");
         }
-        spVoice.setAdapter(Ui.darkAdapter(this, labels));
+        spVoice.setItems(labels);
         spVoice.setSelection(Math.min(sel, labels.size() - 1));
         shownVoice = (voices.isEmpty())
                 ? null : voices.get(Math.min(sel, voices.size() - 1)).name;
-        spVoice.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        spVoice.setOnSelected(new Ui.SelectRow.OnSelected() {
             @Override
-            public void onItemSelected(AdapterView<?> parent, View view,
-                                       int pos, long id) {
+            public void on(int pos) {
                 if (voices == null || pos >= voices.size()) {
                     return;
                 }
@@ -608,10 +598,6 @@ public class MainActivity extends Activity
                 shownVoice = name;
                 TtsManager.saveVoice(MainActivity.this, name);
                 TtsManager.applyVoice(name);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
             }
         });
     }

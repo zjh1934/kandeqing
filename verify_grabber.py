@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from verify_textlayout import (  # noqa: E402
     Node, RectF, clean, nearest_char, sentence_start,
     leading_whitespace, trimmed_length, sort_reading_order,
+    fallback_start,
 )
 
 # 镜像 walk 是递归的，深树测试需要抬高上限
@@ -159,7 +160,7 @@ def visible(node):
 
 def char_start_in(node, x, y, sdk=26):
     """镜像 TextGrabber.charStartIn（不含 Bundle/refresh，只算偏移）"""
-    if node is None or sdk < 26:
+    if node is None:
         return 0
     try:
         cs = node.getText()
@@ -170,20 +171,17 @@ def char_start_in(node, x, y, sdk=26):
         length = trimmed_length(raw)
         if length <= 0:
             return 0
-        rects = node.char_rects
-        if not rects:
-            return 0
-        offset = nearest_char(rects, x, y)
-        if offset < 0:
-            return 0
-        if offset > len(raw):
-            offset = len(raw)
-        rel = sentence_start(raw, offset) - lead
-        if rel < 0:
-            rel = 0
-        if rel > length:
-            rel = length
-        return rel
+        if sdk >= 26:
+            rects = node.char_rects
+            if rects:
+                offset = nearest_char(rects, x, y)
+                if offset >= 0:
+                    if offset > len(raw):
+                        offset = len(raw)
+                    rel = sentence_start(raw, offset) - lead
+                    return max(0, min(length, rel))
+        # 3.9.3：拿不到逐字位置时按 y 估行，绝不退回整篇开头
+        return fallback_start(node.bounds, x, y, raw, length, lead)
     except Exception:
         return 0
 

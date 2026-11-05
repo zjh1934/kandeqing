@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.2：核心代码整体还原到早期版本 + 点字等待时球转圈。用户要求「抓字、移动这些核心代码还原到早期版本」：ComboService / BallController / TextGrabber / TtsManager / ZoomController 五个文件全部回到初始快照 0c2a751，其中后四个与 0c2a751 逐字节一致；3.8 起我加的 TextPicker 类、逐字位置预取、拆线程预扫、contentX/Y 换算、多窗口合并、半宽偏移修正等全部撤销，相关镜像脚本 verify_picker.py / verify_ball_drag.py 删除，verify_all.py 回到基线。UI 层（柔边三态球、主题、Logo、布局）保持用户认可的 3.10 版本不动。另按用户要求加一个极简反馈：点字后到出声前，球在柔边环内画一排小点转圈（ST_LOADING，SystemClock 相位驱动，约 1.1 秒一圈），出声/失败即停，不再是呆着的实心球。ComboService 相对基线只多 15 行，全部是这一处。三轮自检与 Java 语法全绿。versionCode 32 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.3：下拉块重设计 + 点哪里就从哪里开始读。① 语音引擎 / 音色两片很难看：旧版是原生 Spinner，getView 各自套一块 8dp 圆角深灰底、灰字右对齐，再挂字体 ▾，一行里三块拼贴。现改为分组卡片里的普通列表行：左标签、右强调蓝当前值、几何 chevron；点开就地展开单选菜单（不是悬浮弹层、不是二级页面），选中项淡强调底 + 几何勾。删掉 Spinner/ArrayAdapter/styleDropdown/darkAdapter，新增 Ui.SelectRow（不新增顶层文件），MainActivity 六处调用同步。② 点哪里就从哪里开始读：早期版本 charStartIn 拿不到逐字位置时直接 return 0，join() 不截 head，长文单节点时就从整篇第一个字念起。现拿不到逐字位置时按 y 估行号（ry×0.85 + rx×0.15，x 只做行内微调）再找句读，绝不静默退 0；scanBack 点在最后一句时也从这句读，不再写「从头读」。严格外科手术：不加新类、不加线程、不碰 BallController / ComboService 状态机 / 移动逻辑。verify_textlayout.py 与 verify_grabber.py 镜像同步，新增 4 个用例（含旧逻辑反向验证），基线 5 suite 三轮全绿、17 个 Java 语法全过。核心代码仍保持 3.9.2 还原后的早期版本；Logo 仍是 3.6 蓝色玻璃球。versionCode 33 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

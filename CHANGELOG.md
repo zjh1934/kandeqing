@@ -1,5 +1,58 @@
 # 更新记录
 
+## 3.9.3 · 下拉块重设计 + 点哪里就从哪里开始读（versionCode 33）
+
+> 依据确认过的预览稿落地。核心代码保持 3.9.2 还原后的早期版本，
+> 本版只在两处做外科手术式改动，不加类、不加线程、不碰移动逻辑。
+
+### ① 语音引擎 / 音色那「两片」重做
+
+丑的根因：旧版 `Ui.selectRow` 是「标签 + 原生 Spinner」。`darkAdapter.getView()`
+给每个 Spinner 套一块 8dp 圆角深灰底、灰字右对齐，旁边再挂一个字体 ▾ ——
+一行里三块拼贴，跟分组卡片和细分割线完全不搭，展开后是一堆独立小方块。
+
+- 换成 `Ui.SelectRow`（放在 `Ui.java` 里的静态内部类，**不新增顶层文件**）：
+  就是分组卡片里的一行普通列表项，左标签 14sp、右当前值 14sp 强调蓝、最右
+  **几何 chevron**（`GlyphView.CHEVRON`，不再用字体 ▾）。
+- 点开**就地展开**单选菜单：不是悬浮弹层、不是二级页面、没有 ›。
+  选中项淡强调底（`ACCENT_SOFT`）+ 一个几何勾（`GlyphView.CHECK`），
+  选中后自动收起。整行 48dp、菜单行 44dp，行高与现有设置页一致。
+- 删掉 `Spinner` / `ArrayAdapter` / `styleDropdown` / `darkAdapter` 及其 import；
+  `MainActivity` 六处调用改成 `setItems` / `setSelection` / `setOnSelected`。
+  `setSelection` 初始化时**不触发回调**，保持原 Spinner 语义。
+- 深色仍是中性灰黑，浅色用 `ACCENT_SOFT` 淡蓝，跟随系统主题一起换。
+
+### ② 点哪里就从哪里开始读
+
+早期版本**本来就有**逐字位置（`refreshWithExtraData` → `RectF[]` → 二维
+`nearestChar`），唯一毛病在 `TextGrabber.charStartIn`：三档请求都拿不到逐字
+位置时直接 `return 0`，`join()` 里 `if (charStart > 0)` 就不截 head。
+长文只有一个文字节点时，head 是整篇文章 —— 这就是「点中间一段却从篇头读」。
+
+- `charStartIn`：拿不到逐字位置时改走 `fallbackStart()`，按 **y 估行号**
+  （`ry×0.85 + rx×0.15`，x 只做行内微调），再 `sentenceStart` 收敛到句读，
+  **绝不返回 0 表示篇头**；短段（<40 字）仍从段首读，别切掉第一个字。
+  顺带让 API<26 的老系统也走这条降级，不再一律退 0。
+- `TextLayout.scanBack`：标点后面没字（点在最后一句）时旧代码 `return 0`
+  且注释写着「从头读」，改成返回命中字附近 —— 从这句读起。
+- **没动**：`walk()` 的命中规则、`joinBelow`、`grabFrom` 的线程模型、
+  `ComboService` 状态机、`BallController`。没有 `TextPicker`、没有预扫、
+  没有拆线程、没有多窗口合并 —— 那些 3.8/3.9 的东西仍是撤销状态。
+
+### 自检
+
+- `verify_textlayout.py` 镜像同步：新增「降级按 y 估行不从篇头读」「短段仍从段首」
+  「点在最后一句不退 0」「旧逻辑反向验证」4 个用例（共 16 个，两遍全过）。
+- `verify_grabber.py` 的 `char_start_in` 镜像同步（调用同一个 `fallback_start`），
+  避免 Java 改了镜像还停在旧值。
+- `verify_all.py` 基线 5 个 suite 三轮全绿；17 个 Java 文件语法全过；XML / YAML 全过。
+
+### 版本与交付
+
+- `versionCode 33` / `versionName "3.9.3"`，包名与固定签名不变，可直接覆盖安装。
+- CI 自动发到 `v3.9.3` / `apk/看得清-3.9.3.apk`。
+- Logo 仍是 3.6 蓝色玻璃球；点字等待时的转圈加载态（3.9.2）保留。
+
 ## 3.9.2 · 核心代码还原到早期版本 + 等待时球转圈（versionCode 32）
 
 > 用户明确要求：「这些核心代码能够还原到早期版本」「什么抓字移动，这些都是我的核心代码」。
