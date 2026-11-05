@@ -1,0 +1,47 @@
+== 构建环境 ==
+HEAD: 663eec41e5c6df10ac48065e575a3a75e1fa7ba2
+11:        versionCode 22
+app/src/main/java/com/floating/combo/BallController.java
+app/src/main/java/com/floating/combo/BallView.java
+app/src/main/java/com/floating/combo/ComboService.java
+app/src/main/java/com/floating/combo/Haptics.java
+app/src/main/java/com/floating/combo/Log.java
+app/src/main/java/com/floating/combo/MainActivity.java
+app/src/main/java/com/floating/combo/OrbPreview.java
+app/src/main/java/com/floating/combo/Prefs.java
+app/src/main/java/com/floating/combo/TextCompare.java
+app/src/main/java/com/floating/combo/TextGrabber.java
+app/src/main/java/com/floating/combo/TextLayout.java
+app/src/main/java/com/floating/combo/Theme.java
+app/src/main/java/com/floating/combo/TtsManager.java
+app/src/main/java/com/floating/combo/Ui.java
+app/src/main/java/com/floating/combo/ZoomController.java
+app/src/main/java/com/floating/combo/ZoomPreview.java
+== 构建输出 ==
+版本：3.7 (versionCode 22) → apk/看得清-3.7.apk
+== 1/6 aapt2 compile ==
+== 2/6 aapt2 link ==
+== 3/6 javac ==
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/MainActivity.java:1343: error: cannot find symbol
+        qrWrap.setOrientation(LinearLayout.VERTICAL);
+              ^
+  symbol:   method setOrientation(int)
+  location: variable qrWrap of type View
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/MainActivity.java:1344: error: cannot find symbol
+        qrWrap.setGravity(Gravity.CENTER_HORIZONTAL);
+              ^
+  symbol:   method setGravity(int)
+  location: variable qrWrap of type View
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/MainActivity.java:1354: error: cannot find symbol
+        qrWrap.addView(qr, qlp);
+              ^
+  symbol:   method addView(ImageView,LayoutParams)
+  location: variable qrWrap of type View
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/MainActivity.java:1357: error: cannot find symbol
+        qrWrap.addView(wx, Ui.lp(this, 0, 16, 0, 0));
+              ^
+  symbol:   method addView(TextView,LayoutParams)
+  location: variable qrWrap of type View
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+4 errors
