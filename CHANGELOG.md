@@ -1,5 +1,18 @@
 # 更新记录
 
+## 3.7 · Logo 透明底补到位（versionCode 28）
+
+> 上一版虽然把 adaptive 背景层改成全透明，但 `mipmap-anydpi-v26/ic_launcher.xml`
+> 还在：安装器 / 启动器仍按 adaptive-icon 解析，透明背景会被垫成一块深色方块，
+> 用户看到的还是那个丑黑底。这一版把这个入口删掉。
+
+- **删** `res/mipmap-anydpi-v26/ic_launcher.xml`。`android:icon="@mipmap/ic_launcher"`
+  现在直接落到五种密度的 `ic_launcher.png`，全程不经过 background 层。
+- 五种密度 PNG 仍是上一版那张「对比图中间列」纯透明 A 双环，四角 alpha=0，未改。
+- 图形、功能代码一行未动。仅图标资源装配方式变更。
+- 代价：API 26+ 不再是 adaptive icon，图标形状由启动器自行裁切，
+  但换来的是透明底在任何安装器里都不会被垫色，符合用户要的「就是透明的」。
+
 ## 3.7 · Logo 改成纯透明底（versionCode 27）
 
 > 用户看了「透明底对比图」后选了**中间那列「纯透明」**，并强调
