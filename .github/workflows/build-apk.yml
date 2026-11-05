@@ -91,7 +91,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="3.7：新增「密码保护」开关（默认关，可开）与「一键推荐给朋友」；固定签名密钥，此后可覆盖升级；球的手势与放大逻辑一行未动。详见 CHANGELOG.md。"
+          NOTES="3.7 现代 UI 重设计：三个能力页 + 一个收纳页、底部四格导航、常驻全局主控条，Design Tokens 与统一组件，放大/悬浮球实时预览，隐私信任前置，文案与首次引导重做；versionCode 22 可覆盖升级。TTS、抓字、放大与悬浮球手势逻辑一行未动。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

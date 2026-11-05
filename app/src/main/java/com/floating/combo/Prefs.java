@@ -15,8 +15,9 @@ public class Prefs {
             0xFF37474F,  // 墨
             0xFFFAFAFA,  // 白
     };
+    /** 3.7：色块升级为带名称的 token chip，名称只用于展示，索引才是存储值。 */
     public static final String[] COLOR_NAMES = new String[]{
-            "蓝", "绿", "红", "紫", "橙", "墨", "白"
+            "海蓝", "草绿", "正红", "紫", "橙", "石墨", "纯白"
     };
 
     private static final String P = "cfg";
@@ -57,6 +58,8 @@ public class Prefs {
     private static final String K_HAPTIC = "haptic";
     /** 3.7 密码保护开关。默认关 = 照常朗读密码框；开 = 跳过 isPassword 节点 */
     private static final String K_PWD_GUARD = "pwd_guard";
+    /** 3.7 现代 UI 首次使用的 3 步引导，看过或跳过后不再出现 */
+    private static final String K_GUIDE_37 = "guide_37";
 
     private final SharedPreferences sp;
 
@@ -324,5 +327,14 @@ public class Prefs {
 
     public void setPasswordGuard(boolean v) {
         sp.edit().putBoolean(K_PWD_GUARD, v).apply();
+    }
+
+    /** 3.7 首次引导：只弹一次，点「跳过」也记下，不再打扰。 */
+    public boolean guideDone() {
+        return sp.getBoolean(K_GUIDE_37, false);
+    }
+
+    public void setGuideDone() {
+        sp.edit().putBoolean(K_GUIDE_37, true).apply();
     }
 }

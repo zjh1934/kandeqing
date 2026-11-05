@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 3.7 Modern Dark：让 Spinner / Switch / Dialog / Toast 这些原生控件
+         也跟着三层表面走，别在深色界面里冒出一块系统白。 -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/surface_base</item>
+        <item name="android:colorAccent">@color/accent_solid</item>
+        <item name="android:colorControlActivated">@color/accent_solid</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:statusBarColor">@color/surface_base</item>
+        <item name="android:navigationBarColor">@color/surface_base</item>
+    </style>
+</resources>

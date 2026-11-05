@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="surface_base">#FF0B0E13</color>
+    <color name="surface_raised">#FF141922</color>
+    <color name="surface_overlay">#FF1C2330</color>
+    <color name="surface_pressed">#FF222B3A</color>
+    <color name="accent_solid">#FF4AA8FF</color>
+    <color name="text_primary">#FFF2F5FA</color>
+    <color name="text_secondary">#FF9AA6B8</color>
+</resources>
