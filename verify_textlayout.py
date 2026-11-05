@@ -188,7 +188,7 @@ def nearest_char(rects, x, y):
 
 
 def fallback_start(bounds, x, y, raw, length, lead):
-    """3.9.3 镜像：拿不到逐字位置时按 y 估行号（x 只做行内微调）"""
+    """3.9.5 镜像：先按 y 落行、行内再按 x 估；单行时 y 完全不参与"""
     if raw is None or length < 40:
         return 0
     if bounds is None:
@@ -196,9 +196,16 @@ def fallback_start(bounds, x, y, raw, length, lead):
     l, t, r, b = bounds
     if r <= l or b <= t or len(raw) == 0:
         return 0
-    ry = (y - t) / float(b - t)
-    rx = (x - l) / float(r - l)
-    ratio = max(0.0, min(1.0, ry * 0.85 + rx * 0.15))
+    breaks = raw.count('\n')
+    lines = max(1, breaks + 1, (b - t) // 48)
+    rx = max(0.0, min(1.0, (x - l) / float(r - l)))
+    if lines <= 1:
+        ratio = rx
+    else:
+        ry = max(0.0, min(0.999, (y - t) / float(b - t)))
+        line = int(ry * lines)
+        ratio = (line + rx) / float(lines)
+    ratio = max(0.0, min(1.0, ratio))
     off = min(len(raw), int(ratio * len(raw)))
     rel = sentence_start(raw, off) - lead
     return max(0, min(length, rel))
@@ -415,6 +422,16 @@ def case_last_sentence_not_zero():
     return got > 0, got
 
 
+def case_single_line_y_does_not_shift():
+    """3.9.5：单行文本里手指上下偏几像素，起点下标必须一样。
+    旧版 ry×0.85+rx×0.15 让同一行上下点估出不同字符 —— 点这里读那里。"""
+    raw = '这一行是一段没有标点的连续文字用来做单行估算的回归用例甲乙丙丁'
+    bounds = (0, 0, 1000, 40)       # 高度 < 48px → lines=1
+    a = fallback_start(bounds, 500, 4, raw, len(raw), 0)
+    b = fallback_start(bounds, 500, 36, raw, len(raw), 0)
+    return a == b, (a, b)
+
+
 def case_reverse_old_zero_detected():
     """反向验证：旧逻辑（拿不到逐字位置直接 return 0）必须被抓出来"""
     raw = _long_text()
@@ -455,6 +472,7 @@ CASES = [
     ("3.9.3 降级按 y 估行，不从篇头读", case_fallback_y_mid_not_head),
     ("3.9.3 短段降级仍从段首", case_fallback_short_from_head),
     ("3.9.3 点在最后一句不退 0", case_last_sentence_not_zero),
+    ("3.9.5 单行上下点不跳字", case_single_line_y_does_not_shift),
     ("3.9.3 反向验证：旧逻辑必被抓出", case_reverse_old_zero_detected),
     ("对照：旧算法确实切错", case_old_buggy_offset),
 ]

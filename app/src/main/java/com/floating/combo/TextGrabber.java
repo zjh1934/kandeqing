@@ -82,8 +82,20 @@ public class TextGrabber {
     }
 
     /**
-     * 按窗口层级从上往下扫，第一个「点得到字」的窗口就是内容窗口。
-     * 全屏扫完都没点到（比如点在图片上），就用最上面那个有内容的窗口，从点击高度往下接。
+     * 3.9.5：按【触点坐标】在全部窗口里选段，而不是「第一个命中的窗口赢」。
+     *
+     * 旧实现两层毛病，正好对上「点这里读那里」和「分层多的页面经常抓不到字」：
+     *   1) 每扫一个窗口，只要 w.pick != null 就立刻 return —— 上层窗口哪怕只是
+     *      个包裹型大节点（整张卡片 / 标题栏）也直接胜出，下层真正的正文没机会。
+     *   2) 命中只认 r.contains(px,py) 严格包含。多层分级页面里文字节点之间
+     *      全是行间距 / padding / 卡片留白，点在空隙里一个都命中不了，
+     *      最后 fallback 用的是「最上层那个有内容的窗口」，从不相干的地方读起。
+     *
+     * 现在把所有窗口都扫完，按触点坐标全局比较：
+     *   精确命中 → 跨窗口取面积最小的那段（离字最近的那一小块）
+     *   无精确命中 → 跨窗口取离触点最近的一段，距离在 48dp 容差内即命中
+     *   两遍都没命中 → 关掉 isVisibleToUser 过滤再扫一遍（救 ROM 误报），
+     *                  仍不行才用「最近段所在窗口」从点击高度往下接。
      */
     private String grabFromWindows(int x, int y) {
         List<AccessibilityNodeInfo> roots = roots();
@@ -92,36 +104,16 @@ public class TextGrabber {
         }
         try {
             Rect screen = screenRect();
-            List<TextLayout.Node> fallback = null;
-            for (int r = 0; r < roots.size(); r++) {
-                List<TextLayout.Node> segs = new ArrayList<TextLayout.Node>();
-                Walk w = new Walk(segs, screen, x, y);
-                walk(roots.get(r), w, 0);
-                if (w.truncated) {
-                    Log.w("grab", "节点太多，收够上限就停了 walk=" + w.visited
-                            + " seg=" + segs.size());
-                }
-                if (segs.isEmpty() && w.requireVisible) {
-                    // 有些 ROM 的 isVisibleToUser 会乱报 false，收不到就不过滤再走一遍
-                    w.requireVisible = false;
-                    w.visited = 0;
-                    walk(roots.get(r), w, 0);
-                }
-                if (segs.isEmpty()) {
-                    continue;
-                }
-                TextLayout.sortReadingOrder(segs);
-                if (fallback == null) {
-                    fallback = segs;
-                }
-                if (w.pick != null) {
-                    return join(segs, w.pick);
-                }
+            float dens = 3f;
+            try {
+                dens = svc.getResources().getDisplayMetrics().density;
+            } catch (Exception ignored) {
             }
-            if (fallback == null) {
-                return null;
-            }
-            return joinBelow(fallback, y);
+            final long tol = (long) (48 * dens);   // 48dp 容差，约 144px @3x
+
+            // 单次扫描即可：可见性误判由 walk 里「触点落在块内就收下」兜住，
+            // 不再整窗重扫一遍（重复 getChild 有回收风险，也会拖慢点字）。
+            return scanWindows(x, y, true, roots, screen, tol, true);
         } finally {
             for (int r = 0; r < roots.size(); r++) {
                 try {
@@ -130,6 +122,88 @@ public class TextGrabber {
                 }
             }
         }
+    }
+
+    /** 扫一遍所有窗口，返回按触点坐标选出的结果；没选中返回 null。 */
+    private String scanWindows(int x, int y, boolean requireVisible,
+                               List<AccessibilityNodeInfo> roots, Rect screen,
+                               long tol, boolean allowFallback) {
+        int bestArea = Integer.MAX_VALUE;
+        Pick bestPick = null;
+        List<TextLayout.Node> bestSegs = null;
+
+        long bestNearDist = Long.MAX_VALUE;
+        TextLayout.Node bestNearNode = null;
+        int bestNearStart = 0;
+        List<TextLayout.Node> bestNearSegs = null;
+
+        List<TextLayout.Node> firstSegs = null;
+
+        for (int r = 0; r < roots.size(); r++) {
+            List<TextLayout.Node> segs = new ArrayList<TextLayout.Node>();
+            Walk w = new Walk(segs, screen, x, y);
+            w.requireVisible = requireVisible;
+            w.nearTol = tol;
+            walk(roots.get(r), w, 0);
+            if (w.truncated) {
+                Log.w("grab", "节点太多，收够上限就停了 walk=" + w.visited
+                        + " seg=" + segs.size());
+            }
+            if (w.requireVisible
+                    && (segs.isEmpty() || w.visibleSkipped > 0)) {
+                // 有些 ROM 的 isVisibleToUser 会乱报 false。整窗收不到、
+                // 或确实有节点被这个判断过滤掉时，关掉过滤再走一遍。
+                // 清空首遍结果，避免同一段被收两次。
+                segs.clear();
+                w.pick = null;
+                w.nearest = null;
+                w.nearestDist = Long.MAX_VALUE;
+                w.nearestStart = 0;
+                w.visibleSkipped = 0;
+                w.requireVisible = false;
+                w.visited = 0;
+                walk(roots.get(r), w, 0);
+            }
+            if (segs.isEmpty()) {
+                continue;
+            }
+            TextLayout.sortReadingOrder(segs);
+            if (firstSegs == null) {
+                firstSegs = segs;
+            }
+            if (w.pick != null && w.pick.area < bestArea) {
+                bestArea = w.pick.area;
+                bestPick = w.pick;
+                bestSegs = segs;
+            }
+            if (w.nearest != null && w.nearestDist < bestNearDist) {
+                bestNearDist = w.nearestDist;
+                bestNearNode = w.nearest;
+                bestNearStart = w.nearestStart;
+                bestNearSegs = segs;
+            }
+        }
+
+        // 精确命中：跨窗口比面积，最小那块就是触点真正落在的那行字
+        if (bestPick != null) {
+            return join(bestSegs, bestPick);
+        }
+        // 点在行间 / 留白：取离触点最近的一段（y 权重已加倍）
+        if (bestNearNode != null && bestNearDist <= tol) {
+            int area = (bestNearNode.right - bestNearNode.left)
+                    * (bestNearNode.bottom - bestNearNode.top);
+            return join(bestNearSegs,
+                    new Pick(bestNearNode, area, bestNearStart));
+        }
+        if (allowFallback) {
+            // 连容差内都没有：用「离触点最近的那个窗口」，而不是最上层窗口
+            List<TextLayout.Node> fb = (bestNearSegs != null)
+                    ? bestNearSegs : firstSegs;
+            if (fb != null) {
+                return joinBelow(fb, y);
+            }
+        }
+        return null;
     }
 
     /** 兜底：直接读命中的那一块，不切句 */
@@ -256,7 +330,18 @@ public class TextGrabber {
     private Rect screenRect() {
         Rect r = new Rect();
         try {
-            android.util.DisplayMetrics dm = svc.getResources().getDisplayMetrics();
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            // 3.9.5：触点是 getRawX/Y() 的物理屏幕坐标，这里必须也用物理尺寸。
+            // 原来用 getResources().getDisplayMetrics()（不含虚拟导航栏），
+            // 分屏 / 底部弹层 / 带导航栏的机型上，Rect.intersects 会把
+            // 底部那块内容当成「滚出屏幕」直接丢掉。
+            android.view.WindowManager wm = (android.view.WindowManager)
+                    svc.getSystemService(android.content.Context.WINDOW_SERVICE);
+            if (wm != null) {
+                wm.getDefaultDisplay().getRealMetrics(dm);
+            } else {
+                dm = svc.getResources().getDisplayMetrics();
+            }
             r.set(0, 0, dm.widthPixels, dm.heightPixels);
         } catch (Exception e) {
             // 量不到就当无限大，等于不做屏幕过滤，别把内容筛没了
@@ -276,6 +361,23 @@ public class TextGrabber {
         int visited = 0;
         boolean truncated = false;
         Pick pick = null;
+
+        /**
+         * 3.9.5：离触点最近的那一段（不要求严格落在 bounds 内）。
+         * 多层分级页面里文字节点之间全是行间距 / 卡片留白 / padding，
+         * 只认 r.contains(px,py) 会一个都命中不了 —— 这正是「经常抓不到字」。
+         * 距离里 y 权重加倍：阅读是按行走的，上下偏一点比左右偏一点更贵。
+         */
+        TextLayout.Node nearest = null;
+        long nearestDist = Long.MAX_VALUE;
+        int nearestStart = 0;
+        /**
+         * 只有离触点在容差内的段才去取逐字位置。否则一屏 400 段每段
+         * 都 refreshWithExtraData 一遍，点字延迟会回到 3.8 那个坑。
+         */
+        long nearTol = Long.MAX_VALUE;
+        /** 被 isVisibleToUser 过滤掉的节点数：大于 0 才需要关过滤重扫 */
+        int visibleSkipped = 0;
 
         Walk(List<TextLayout.Node> out, Rect screen, int px, int py) {
             this.out = out;
@@ -375,7 +477,13 @@ public class TextGrabber {
         if (r.isEmpty()) {
             return false;   // 量不到位置，没法排序，宁可不收
         }
-        if (w.requireVisible && !visible(node)) {
+        // 3.9.5：触点落在这一块里，就信触点、不信 ROM 的 isVisibleToUser()。
+        // 多层分级页面里国产 ROM 常把正文误报成不可见；旧版只在「整窗
+        // 一个节点都收不到」时才关过滤重扫，窗口里只要还有个标题就会被
+        // 判成「有内容」而跳过重扫，正文整段丢掉。
+        if (w.requireVisible && !visible(node)
+                && !r.contains(w.px, w.py)) {
+            w.visibleSkipped++;
             return false;
         }
         if (!Rect.intersects(r, w.screen)) {
@@ -384,6 +492,27 @@ public class TextGrabber {
 
         TextLayout.Node seg = new TextLayout.Node(t, r.left, r.top, r.right, r.bottom);
         w.out.add(seg);
+
+        // 3.9.5：不管有没有严格命中，都记下这段离触点多远。
+        // dx / dy 是触点到矩形边界的距离（落在矩形内就是 0），y 权重加倍。
+        long dx = 0, dy = 0;
+        if (w.px < r.left) {
+            dx = r.left - w.px;
+        } else if (w.px > r.right) {
+            dx = w.px - r.right;
+        }
+        if (w.py < r.top) {
+            dy = r.top - w.py;
+        } else if (w.py > r.bottom) {
+            dy = w.py - r.bottom;
+        }
+        long dist = dy * 2L + dx;
+        if (w.nearest == null || dist < w.nearestDist) {
+            w.nearest = seg;
+            w.nearestDist = dist;
+            w.nearestStart = (dist <= w.nearTol)
+                    ? charStartIn(node, w.px, w.py) : 0;
+        }
 
         if (r.contains(w.px, w.py)) {
             int area = r.width() * r.height();
@@ -591,9 +720,13 @@ public class TextGrabber {
     }
 
     /**
-     * 逐字位置拿不到时的降级估算：自动换行的文本里 y 才是行号，
-     * x 只代表「这一行第几个字」。按 ry 为主、rx 微调，比按 x / 全文长度
-     * 准一个数量级；再走 sentenceStart 收敛到句首，绝不返回 0 表示篇头。
+     * 逐字位置拿不到时的降级估算。3.9.5 改成【按行落位】：
+     *
+     * 旧版直接拿 ry×0.85 + rx×0.15 当全文比例，多层分级页面里一个节点
+     * 常是整张卡片 / 整块 WebView 文本，bounds 很大、内部还有子块；
+     * 同一行里手指偏上偏下几像素，估出来的下标都会差出去 —— 这就是
+     * 「点这里读那里」。现在先用 y 判断落在第几行，行内再按 x 估字，
+     * 单行时 y 完全不参与，同一行上下点都落到同一个字附近。
      */
     private int fallbackStart(AccessibilityNodeInfo node, int x, int y,
                               String raw, int len, int lead) {
@@ -609,9 +742,26 @@ public class TextGrabber {
         if (b.isEmpty() || raw.length() == 0) {
             return 0;
         }
-        float ry = (y - b.top) / (float) b.height();
-        float rx = (x - b.left) / (float) b.width();
-        float ratio = Math.max(0f, Math.min(1f, ry * 0.85f + rx * 0.15f));
+        // 行数：文本里有换行就按换行数，否则按「高度 / 48px 行高」估自动换行
+        int breaks = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            if (raw.charAt(i) == '\n') {
+                breaks++;
+            }
+        }
+        int lines = Math.max(1, Math.max(breaks + 1, b.height() / 48));
+        float rx = Math.max(0f, Math.min(1f,
+                (x - b.left) / (float) b.width()));
+        float ratio;
+        if (lines <= 1) {
+            ratio = rx;                     // 单行：只用 x，y 抖动不再改下标
+        } else {
+            float ry = Math.max(0f, Math.min(0.999f,
+                    (y - b.top) / (float) b.height()));
+            int line = (int) (ry * lines);
+            ratio = (line + rx) / lines;
+        }
+        ratio = Math.max(0f, Math.min(1f, ratio));
         int off = (int) (ratio * raw.length());
         if (off > raw.length()) {
             off = raw.length();
@@ -787,6 +937,9 @@ public class TextGrabber {
                     return s;
                 }
             }
+        } catch (Exception ignored) {
+        }
+        try {
             CharSequence d = node.getContentDescription();
             if (d != null) {
                 String s = d.toString().trim();
@@ -794,8 +947,26 @@ public class TextGrabber {
                     return s;
                 }
             }
-        } catch (Exception e) {
-            return null;
+        } catch (Exception ignored) {
+        }
+        // 3.9.5：多层分级页面里的自定义控件（输入提示、悬浮说明、状态标签、
+        // 分栏标题）常把屏幕上明明看得见的字放在这几个字段里，text 和
+        // contentDescription 都是空 → 旧版直接判定「这里没读到文字」。
+        // 用反射取，低版本没有的方法自动跳过，不引入高 API 编译依赖。
+        String[] extra = {"getHintText", "getTooltipText",
+                "getStateDescription", "getPaneTitle"};
+        for (int i = 0; i < extra.length; i++) {
+            try {
+                CharSequence cs = (CharSequence) AccessibilityNodeInfo.class
+                        .getMethod(extra[i]).invoke(node);
+                if (cs != null) {
+                    String s = cs.toString().trim();
+                    if (s.length() > 0) {
+                        return s;
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
         }
         return null;
     }

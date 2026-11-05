@@ -123,6 +123,12 @@ class Walk(object):
         self.visited = 0
         self.truncated = False
         self.pick = None
+        # 3.9.5：离触点最近的那段（不要求严格 contains），y 权重加倍
+        self.nearest = None
+        self.nearestDist = float('inf')
+        self.nearestStart = 0
+        self.nearTol = float('inf')
+        self.visibleSkipped = 0
 
 
 class Pick(object):
@@ -133,6 +139,7 @@ class Pick(object):
 
 
 def node_text(node):
+    """3.9.5 镜像：text / desc 之外再读 hint / tooltip / state / paneTitle"""
     if node is None:
         return None
     try:
@@ -141,13 +148,29 @@ def node_text(node):
             s = t.strip()
             if len(s) > 0:
                 return s
+    except Exception:
+        pass
+    try:
         d = node.getContentDescription()
         if d is not None:
             s = d.strip()
             if len(s) > 0:
                 return s
     except Exception:
-        return None
+        pass
+    for m in ('getHintText', 'getTooltipText',
+              'getStateDescription', 'getPaneTitle'):
+        try:
+            fn = getattr(node, m, None)
+            if fn is None:
+                continue
+            cs = fn()
+            if cs is not None:
+                s = cs.strip()
+                if len(s) > 0:
+                    return s
+        except Exception:
+            pass
     return None
 
 
@@ -248,13 +271,26 @@ def walk(node, w, depth=0):
         return False
     if r.isEmpty():
         return False
-    if w.requireVisible and not visible(node):
+    # 3.9.5：触点落在块内就信触点，不信 ROM 的 isVisibleToUser()
+    if (w.requireVisible and not visible(node)
+            and not r.contains(w.px, w.py)):
+        w.visibleSkipped += 1
         return False
     if not intersects(r, w.screen):
         return False
 
     seg = Node(t, r.left, r.top, r.right, r.bottom)
     w.out.append(seg)
+
+    # 3.9.5：不管有没有严格命中，都记下这段离触点多远（y 权重加倍）
+    dx = max(r.left - w.px, 0, w.px - r.right)
+    dy = max(r.top - w.py, 0, w.py - r.bottom)
+    dist = dy * 2 + dx
+    if w.nearest is None or dist < w.nearestDist:
+        w.nearest = seg
+        w.nearestDist = dist
+        w.nearestStart = (char_start_in(node, w.px, w.py)
+                          if dist <= w.nearTol else 0)
 
     if r.contains(w.px, w.py):
         area = r.width() * r.height()
@@ -340,30 +376,72 @@ def join_below(segs, y):
     return out
 
 
+TOL = 144      # 48dp @3x，镜像 TextGrabber 的容差
+
+
+def scan_windows(roots, x, y, screen, require_visible, allow_fallback):
+    """3.9.5 镜像：扫完所有窗口再按触点坐标全局选段，不再「第一个窗口赢」"""
+    best_area = float('inf')
+    best_pick = None
+    best_segs = None
+    best_near = float('inf')
+    best_near_node = None
+    best_near_start = 0
+    best_near_segs = None
+    first_segs = None
+
+    for root in roots:
+        segs = []
+        w = Walk(segs, screen, x, y)
+        w.requireVisible = require_visible
+        w.nearTol = TOL
+        walk(root, w, 0)
+        if w.requireVisible and (not segs or w.visibleSkipped > 0):
+            segs[:] = []
+            w.pick = None
+            w.nearest = None
+            w.nearestDist = float('inf')
+            w.nearestStart = 0
+            w.visibleSkipped = 0
+            w.requireVisible = False
+            w.visited = 0
+            walk(root, w, 0)
+        if not segs:
+            continue
+        segs = sort_reading_order(segs)
+        if first_segs is None:
+            first_segs = segs
+        if w.pick is not None and w.pick.area < best_area:
+            best_area = w.pick.area
+            best_pick = w.pick
+            best_segs = segs
+        if w.nearest is not None and w.nearestDist < best_near:
+            best_near = w.nearestDist
+            best_near_node = w.nearest
+            best_near_start = w.nearestStart
+            best_near_segs = segs
+
+    if best_pick is not None:
+        return join(best_segs, best_pick)
+    if best_near_node is not None and best_near <= TOL:
+        area = ((best_near_node.right - best_near_node.left)
+                * (best_near_node.bottom - best_near_node.top))
+        return join(best_near_segs,
+                    Pick(best_near_node, area, best_near_start))
+    if allow_fallback:
+        fb = best_near_segs if best_near_segs is not None else first_segs
+        if fb is not None:
+            return join_below(fb, y)
+    return None
+
+
 def grab_from_windows(roots, x, y, screen):
     """镜像 TextGrabber.grabFromWindows（含 finally 里的根回收）"""
     if not roots:
         return None
     try:
-        fallback = None
-        for root in roots:
-            segs = []
-            w = Walk(segs, screen, x, y)
-            walk(root, w, 0)
-            if not segs and w.requireVisible:
-                w.requireVisible = False
-                w.visited = 0
-                walk(root, w, 0)
-            if not segs:
-                continue
-            segs = sort_reading_order(segs)
-            if fallback is None:
-                fallback = segs
-            if w.pick is not None:
-                return join(segs, w.pick)
-        if fallback is None:
-            return None
-        return join_below(fallback, y)
+        # 单次扫描：可见性误判由 walk 里「触点落在块内就收下」兜住
+        return scan_windows(roots, x, y, screen, True, True)
     finally:
         for r in roots:
             r.recycle()
@@ -769,7 +847,122 @@ def case_scope_no_hit_join_below():
         READ_SCOPE = old
 
 
+def _nd(text, bounds, children=None, visible=True):
+    """注意：模块里的 n() 第二参数是 desc，不是 bounds。
+    多层用例必须用显式 bounds，否则节点 bounds 全 (0,0,0,0) 被 walk 丢掉。"""
+    return FakeNode(text=text, bounds=bounds,
+                    children=children, visible=visible)
+
+
+# ---------- 3.9.5 多层分级页面：触点坐标定位 ----------
+
+def _screen():
+    r = Rect()
+    r.left, r.top, r.right, r.bottom = 0, 0, 1080, 2000
+    return r
+
+
+def _layered_gap():
+    """上层标题栏 + 下层四行正文，触点落在第 3/4 行之间的空隙"""
+    top = _nd('', (0, 0, 1080, 200), children=[
+        _nd('订单详情', (0, 0, 1080, 120)),
+        _nd('点任意处继续', (0, 120, 1080, 180)),
+    ])
+    bottom = _nd('', (0, 0, 1080, 2000), children=[
+        _nd('第一句：您购买的保温杯已发货。', (0, 400, 1080, 460)),
+        _nd('第二句：预计明天下午送达。', (0, 480, 1080, 540)),
+        _nd('第三句：收货地址是大理古城。', (0, 560, 1080, 620)),
+        _nd('第四句：如有问题联系客服。', (0, 640, 1080, 700)),
+    ])
+    return [top, bottom]
+
+
+def _layered_wrap():
+    """上层一张包裹型大卡片覆盖触点，正文在下层且面积更小"""
+    top = _nd('', (0, 0, 1080, 2000), children=[
+        _nd('订单卡片（整张卡片文本）', (0, 400, 1080, 800)),
+    ])
+    bottom = _nd('', (0, 0, 1080, 2000), children=[
+        _nd('第三句：收货地址是大理古城。', (0, 560, 1080, 620)),
+        _nd('第四句：如有问题联系客服。', (0, 640, 1080, 700)),
+    ])
+    return [top, bottom]
+
+
+def case_layered_gap_hit():
+    """点在行间留白：必须命中最近那行，不能返回空（旧版「经常抓不到字」）"""
+    got = grab_from_windows(_layered_gap(), 540, 630, _screen())
+    return got is not None and got.startswith('第三句'), got
+
+
+def case_layered_exact_smallest_across_windows():
+    """跨窗口比面积：上层大卡片不能压住下层真正那行（旧版「点这里读那里」）"""
+    got = grab_from_windows(_layered_wrap(), 540, 590, _screen())
+    ok = got is not None and got.startswith('第三句') and '订单卡片' not in got
+    return ok, got
+
+
+def case_layered_invisible_rescanned():
+    """ROM 误报 invisible：全窗口没命中时关过滤重扫，正文要能读出来"""
+    top = _nd('顶部提示', (0, 0, 1080, 100))
+    bottom = _nd('', (0, 0, 1080, 2000), children=[
+        _nd('可见的标题', (0, 300, 1080, 360)),
+        _nd('真正想读的这段被误报不可见', (0, 560, 1080, 620), visible=False),
+    ])
+    got = grab_from_windows([top, bottom], 540, 590, _screen())
+    return got is not None and '误报不可见' in got, got
+
+
+def case_layered_hint_text():
+    """自定义控件只有 hint 文字：不能判定「这里没读到文字」"""
+    hint = _nd(None, (0, 560, 1080, 620))
+    hint.getHintText = lambda: '请输入手机号'
+    got = grab_from_windows([hint], 540, 590, _screen())
+    return got == '请输入手机号', got
+
+
+def _old_grab_from_windows(roots, x, y, screen):
+    """3.9.4 及之前的行为：严格 contains + 第一个命中的窗口立刻 return"""
+    fallback = None
+    for root in roots:
+        segs = []
+        w = Walk(segs, screen, x, y)
+        walk(root, w, 0)
+        if not segs and w.requireVisible:
+            w.requireVisible = False
+            w.visited = 0
+            walk(root, w, 0)
+        if not segs:
+            continue
+        segs = sort_reading_order(segs)
+        if fallback is None:
+            fallback = segs
+        if w.pick is not None:
+            return join(segs, w.pick)
+    if fallback is None:
+        return None
+    return join_below(fallback, y)
+
+
+def case_layered_reverse_old_behavior():
+    """反向验证：两个场景旧行为都必须被抓出来（结果不同且明显不对）"""
+    s = _screen()
+    a_old = _old_grab_from_windows(_layered_gap(), 540, 630, s)
+    a_new = grab_from_windows(_layered_gap(), 540, 630, s)
+    b_old = _old_grab_from_windows(_layered_wrap(), 540, 590, s)
+    b_new = grab_from_windows(_layered_wrap(), 540, 590, s)
+    ok = (not a_old and a_new and a_new.startswith('第三句')
+          and b_old and '订单卡片' in b_old
+          and b_new and '订单卡片' not in b_new)
+    return ok, (a_old, a_new, b_old, b_new)
+
+
 CASES = [
+    ("3.9.5 多层留白命中最近行", case_layered_gap_hit),
+    ("3.9.5 跨窗口取最小命中段", case_layered_exact_smallest_across_windows),
+    ("3.9.5 误报不可见时重扫", case_layered_invisible_rescanned),
+    ("3.9.5 hint 文字也能抓到", case_layered_hint_text),
+    ("3.9.5 反向验证：旧行为必被抓出", case_layered_reverse_old_behavior),
     ("3.9.4 默认读到屏底（升级不变）", case_scope_screen_unchanged),
     ("3.9.4 读到段末不接后续段", case_scope_seg_only_head),
     ("3.9.4 只读一句截到句末", case_scope_one_only_first_sentence),
