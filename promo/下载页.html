@@ -3,54 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="看得清下载页 — 按住小球放大，点一下把屏幕上的字念给你听。不联网、不上传、免费。">
 <title>看得清 · 下载</title>
 <style>
-  * { box-sizing: border-box; }
-  body { margin:0; padding:24px 18px 60px; background:#F4F8FD; color:#1A2028;
-         font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
-  .wrap { max-width:560px; margin:0 auto; }
-  h1 { font-size:44px; margin:8px 0 4px; color:#1565C0; }
-  .sub { font-size:24px; color:#5A6470; margin:0 0 28px; }
-  .card { background:#fff; border:1px solid #DCE6F2; border-radius:20px;
-           padding:26px 22px; margin-bottom:22px; }
-  .row { font-size:26px; line-height:1.7; margin:0 0 10px; }
-  .btn { display:block; text-align:center; background:#1565C0; color:#fff;
-          text-decoration:none; font-size:32px; font-weight:bold;
-          padding:22px 10px; border-radius:16px; margin:22px 0 12px; }
-  .alt { display:block; text-align:center; font-size:22px; color:#1565C0;
-          margin-top:14px; word-break:break-all; }
-  img { display:block; width:min(100%,360px); margin:18px auto 6px; }
-  .cap { text-align:center; font-size:22px; color:#5A6470; }
-  .step { font-size:23px; line-height:1.8; margin:0; padding-left:26px; }
-  .note { font-size:20px; color:#5A6470; line-height:1.7; margin-top:18px; }
+  *{box-sizing:border-box}
+  body{margin:0;padding:26px 18px 64px;background:#F6F5F2;color:#1A1A1A;
+       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+       line-height:1.8;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:620px;margin:0 auto}
+  .top{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .orb{width:46px;height:46px;flex:none}
+  h1{font-size:42px;margin:0;letter-spacing:.02em}
+  .sub{font-size:22px;color:#5A5A5A;margin:6px 0 30px}
+  .card{background:#fff;border:1px solid #E4E2DD;border-radius:20px;padding:28px 24px;margin-bottom:20px}
+  .row{font-size:25px;line-height:1.85;margin:0 0 12px}
+  .row b{color:#2F6BFF}
+  .btn{display:block;text-align:center;background:#2F6BFF;color:#fff;text-decoration:none;
+       font-size:30px;font-weight:700;padding:22px 10px;border-radius:16px;margin:26px 0 12px}
+  .alt{display:block;text-align:center;font-size:21px;color:#2F6BFF;margin-top:16px;word-break:break-all}
+  img.qr{display:block;width:min(100%,300px);margin:14px auto 8px}
+  .cap{text-align:center;font-size:21px;color:#5A5A5A;margin:0}
+  .step{font-size:23px;line-height:1.95;margin:0;padding-left:26px}
+  .note{font-size:20px;color:#5A5A5A;line-height:1.8;margin-top:20px}
+  .priv{background:#121212;color:#F2F2F2;border-radius:20px;padding:26px 24px;font-size:22px;line-height:1.85}
+  .priv b{color:#7FB0FF}
+  footer{text-align:center;font-size:18px;color:#8A8A8A;margin-top:28px}
+  footer a{color:#2F6BFF}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>看得清</h1>
+
+  <div class="top">
+    <svg class="orb" viewBox="0 0 46 46" aria-hidden="true">
+      <circle cx="23" cy="23" r="16" fill="none" stroke="#2F6BFF" stroke-width="5" opacity=".18"/>
+      <circle cx="23" cy="23" r="16" fill="none" stroke="#2F6BFF" stroke-width="2"/>
+      <circle cx="23" cy="23" r="2.4" fill="#2F6BFF"/>
+    </svg>
+    <h1>看得清</h1>
+  </div>
   <p class="sub">手机上的字看不清？按住小球放大，点一下字就念给你听。</p>
 
   <div class="card">
-    <p class="row">按住小球　→　画面放大</p>
-    <p class="row">点一下屏幕上的字　→　念给你听</p>
-    <p class="row">不联网 · 不上传 · 免费</p>
-    <a class="btn" href="https://github.com/zjh1934/qiuqiu/releases/latest">点这里下载</a>
-    <a class="alt" href="https://github.com/zjh1934/qiuqiu/releases/download/v3.7/kanqing-3.7.apk">或直接下载安装包</a>
+    <p class="row"><b>按住</b>小球　→　画面放大，手指挪到哪看到哪</p>
+    <p class="row"><b>点一下</b>小球，再<b>点屏幕上的字</b>　→　从这句开始念</p>
+    <p class="row">再点一下小球　→　马上停</p>
+    <a class="btn" href="https://github.com/zjh1934/kandeqing/releases/latest">点这里下载安装包</a>
+    <a class="alt" href="https://github.com/zjh1934/kandeqing">或先看看这个项目是干什么的</a>
+    <p class="note" style="margin-top:22px">打开后点「Assets」，下载里面那个 <b>kanqing-3.9.7.apk</b> 就行。新版本出来这个按钮永远指向最新版，不用换链接。</p>
   </div>
 
   <div class="card">
-    <img src="data:image/png;base64,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" alt="下载二维码">
-    <p class="cap">微信扫一扫也能装</p>
+    <img class="qr" src="二维码-下载页.png" alt="用微信扫一扫打开下载页">
+    <p class="cap">微信扫一扫，把这个页面转到手机上</p>
   </div>
 
   <div class="card">
     <p class="step">① 点上面按钮下载，或扫码<br>
-    ② 提示「未知来源」时选「允许 / 继续」<br>
-    ③ 装完打开，按提示开一次「无障碍」<br>
-    ④ 屏幕边上出现小球，就能用了</p>
-    <p class="note">打不开下载页的话，把页面转给家人帮忙装一下。
-    安装过程不用登录、不用注册，也不联网。</p>
+      ② 提示「未知来源」时选「允许 / 继续」<br>
+      ③ 装完打开，按提示开一次「无障碍」<br>
+      ④ 屏幕边上出现小球，就能用了</p>
+    <p class="note">不会弄的话，把页面转给家人帮忙装一下。安装不用登录、不用注册，也不联网。<br>
+      各品牌手机开无障碍的路径，在 <a href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md">给长辈的图文说明</a> 里都写了。</p>
   </div>
+
+  <div class="priv">
+    <b>不联网 · 不上传 · 不收费</b><br>
+    这个软件连「上网」的权限都没申请，屏幕上读到的字一步都不会离开手机。没有广告、没有账号、没有统计。
+  </div>
+
+  <footer>
+    <a href="https://zjh1934.github.io/kandeqing/">项目主页</a> ·
+    <a href="https://github.com/zjh1934/kandeqing">GitHub</a> ·
+    <a href="https://github.com/zjh1934/kandeqing/issues/new/choose">出问题点这里</a><br>
+    免费开源 · MIT 协议
+  </footer>
 </div>
 </body>
 </html>

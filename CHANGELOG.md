@@ -1,5 +1,9 @@
 # 更新记录
 
+> 只想装来用：看 [README](README.md) 和 [给长辈的图文说明](使用说明.md)。
+> 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
+> 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
+
 ## 3.9.7 · 抓字链路按 Android 官方无障碍树契约重做（versionCode 37）
 
 > 只走 `AccessibilityNodeInfo` 树。OCR / 截图 / MediaProjection / 像素识别整条排除。

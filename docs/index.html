@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="看得清 — 一个悬浮球，把按住放大和点一下念给你听装进同一套动作里。Android 无障碍 / 低视力辅助，不联网、不上传、不用 OCR。">
+<meta name="keywords" content="看得清,无障碍,低视力,老花,放大镜,屏幕放大,点读,朗读,悬浮球,android accessibility service,screen magnifier,select to speak,tap to read,no OCR">
+<meta property="og:title" content="看得清 · 按住放大，点一下念给你听">
+<meta property="og:description" content="不联网 · 不上传 · 不用 OCR · 不学手势。给还看得见、但看得很吃力的人。">
+<meta property="og:type" content="website">
+<title>看得清 · 按住放大，点一下念给你听</title>
+<style>
+  :root{--bg:#121212;--card:#1E1E1E;--line:#2C2C2C;--fg:#F2F2F2;--dim:#A6A6A6;--blue:#4C8BFF;--warm:#F6F5F2}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+       -webkit-font-smoothing:antialiased;line-height:1.75}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  nav{display:flex;align-items:center;justify-content:space-between;gap:18px;
+      padding:20px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-size:19px;font-weight:700;letter-spacing:.04em}
+  .navlinks{display:flex;gap:22px;font-size:14px;color:var(--dim);flex-wrap:wrap}
+  .navlinks a:hover{color:var(--fg)}
+  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;
+        padding:92px 0 84px}
+  .kicker{display:inline-block;font-size:13px;letter-spacing:.18em;color:var(--blue);
+          border:1px solid #2A3A5C;border-radius:99px;padding:6px 16px;margin-bottom:26px}
+  h1{font-size:clamp(38px,6vw,64px);line-height:1.18;margin:0 0 22px;letter-spacing:-.02em;font-weight:750}
+  h1 em{font-style:normal;color:var(--blue)}
+  .lead{font-size:19px;color:var(--dim);max-width:560px;margin:0 0 20px}
+  .pills{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 36px}
+  .pill{font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:5px 14px}
+  .btns{display:flex;gap:14px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:15px 28px;border-radius:12px;font-size:17px;font-weight:650;transition:.2s}
+  .btn-p{background:var(--blue);color:#fff}
+  .btn-p:hover{background:#6A9DFF;transform:translateY(-2px)}
+  .btn-s{border:1px solid #3A3A3A;color:var(--fg)}
+  .btn-s:hover{border-color:#777;transform:translateY(-2px)}
+  .ver{font-size:13px;color:#7E7E7E;margin-top:18px}
+  .orb{width:min(100%,420px);aspect-ratio:1;margin:0 auto;display:block}
+  section{padding:76px 0;border-top:1px solid var(--line)}
+  h2{font-size:clamp(26px,3.6vw,38px);margin:0 0 14px;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:17px;margin:0 0 42px;max-width:720px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 26px}
+  .card h3{margin:20px 0 8px;font-size:19px}
+  .card p{margin:0;color:var(--dim);font-size:15px}
+  .state{width:66px;height:66px;display:block}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{padding:15px 12px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:14px}
+  td:first-child,th:first-child{text-align:left;padding-left:0}
+  .yes{color:#74D99F}.no{color:#6E6E6E}
+  tr.me td{background:#182338;color:#fff;font-weight:650}
+  tr.me td:first-child{border-radius:10px 0 0 10px}
+  tr.me td:last-child{border-radius:0 10px 10px 0}
+  .privacy{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
+  .privacy ul{margin:0;padding-left:20px;color:var(--dim);font-size:16px}
+  .privacy li{margin-bottom:10px}
+  .code{background:#0B0B0B;border:1px solid var(--line);border-radius:14px;padding:22px 24px;
+        font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:#9AD8B0;overflow:auto}
+  .en{background:var(--warm);color:#1A1A1A;padding:60px 0}
+  .en h2{color:#1A1A1A}.en p{color:#555;font-size:16px;max-width:760px}
+  .en .btn-s{border-color:#CCC;color:#1A1A1A}
+  footer{border-top:1px solid var(--line);padding:38px 0 60px;color:var(--dim);font-size:14px}
+  footer a{color:var(--blue)}
+  @media(max-width:820px){
+    .hero{grid-template-columns:1fr;padding:56px 0 48px}
+    .orb{width:min(62%,300px);order:-1}
+    .grid3{grid-template-columns:1fr}
+    .privacy{grid-template-columns:1fr}
+    section{padding:52px 0}
+    th,td{padding:12px 6px;font-size:13px}
+  }
+</style>
+</head>
+<body>
+
+<nav class="wrap">
+  <div class="brand">看得清 <span style="color:#666;font-weight:400;font-size:14px">KanDeQing</span></div>
+  <div class="navlinks">
+    <a href="#how">怎么用</a><a href="#why">为什么不一样</a><a href="#privacy">隐私</a>
+    <a href="https://github.com/zjh1934/kandeqing">GitHub</a>
+    <a href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md">English</a>
+  </div>
+</nav>
+
+<div class="wrap hero">
+  <div>
+    <span class="kicker">ANDROID · 无障碍 · 开源免费</span>
+    <h1>按住<em>放大</em>，<br>点一下<em>念给你听</em>。</h1>
+    <p class="lead">一个常驻屏幕边上的小球，把「看不清」和「不想看」两件事，收进两个动作里。给还看得见、但看得很吃力的人。</p>
+    <div class="pills">
+      <span class="pill">不联网</span><span class="pill">不上传</span>
+      <span class="pill">不用 OCR</span><span class="pill">不学手势</span><span class="pill">不用注册</span>
+    </div>
+    <div class="btns">
+      <a class="btn btn-p" href="https://github.com/zjh1934/kandeqing/releases/latest">下载安装包 · APK</a>
+      <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md">给长辈的图文说明</a>
+    </div>
+    <p class="ver">当前版本 3.9.7 · Android 7.0+ · 装完开一次无障碍即可 · 新版可直接覆盖安装</p>
+  </div>
+
+  <svg class="orb" viewBox="0 0 400 400" role="img" aria-label="看得清柔边环标志">
+    <defs>
+      <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+        <stop offset="62%" stop-color="#FFFFFF" stop-opacity="0"/>
+        <stop offset="78%" stop-color="#FFFFFF" stop-opacity=".55"/>
+        <stop offset="90%" stop-color="#FFFFFF" stop-opacity=".14"/>
+        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="7"/>
+      </filter>
+      <filter id="halo" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="26"/>
+      </filter>
+    </defs>
+    <circle cx="200" cy="200" r="170" fill="#FFFFFF" opacity=".045" filter="url(#halo)"/>
+    <circle cx="200" cy="200" r="128" fill="none" stroke="#FFFFFF" stroke-width="30" opacity=".28" filter="url(#soft)"/>
+    <circle cx="200" cy="200" r="128" fill="none" stroke="url(#glow)" stroke-width="34"/>
+    <circle cx="200" cy="200" r="128" fill="none" stroke="#FFFFFF" stroke-width="2" opacity=".72"/>
+    <circle cx="200" cy="200" r="7" fill="#4C8BFF"/>
+  </svg>
+</div>
+
+<section id="how" class="wrap">
+  <h2>只有两个动作</h2>
+  <p class="sub">球会用自己的样子告诉你它现在在干什么：空心是待命，实心是准备选字，两竖线是正在读，转圈是正在准备。</p>
+  <div class="grid3">
+    <div class="card">
+      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".85"/><circle cx="33" cy="33" r="25" fill="none" stroke="#FFFFFF" stroke-width="7" opacity=".12"/></svg>
+      <h3>空心环 · 待命</h3>
+      <p>中间是透明的，不挡底下的字。按住它 → 画面放大，手指挪到哪看到哪，松手还原。</p>
+    </div>
+    <div class="card">
+      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="#FFFFFF" opacity=".92"/></svg>
+      <h3>实心球 · 准备选字</h3>
+      <p>点一下球变实心。这时候点屏幕上想听的那段字，就从这句开始念。</p>
+    </div>
+    <div class="card">
+      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".85"/><rect x="27" y="22" width="4" height="22" rx="2" fill="#FFFFFF"/><rect x="36" y="22" width="4" height="22" rx="2" fill="#FFFFFF"/></svg>
+      <h3>环 + 两竖 · 朗读中</h3>
+      <p>等待出声时球里一排小点会转圈，不会让你呆等。再点一下球就停。</p>
+    </div>
+  </div>
+</section>
+
+<section id="why" class="wrap">
+  <h2>为什么找不到第二个</h2>
+  <p class="sub">把「实时放大」和「点哪读哪」做进同一个悬浮球、同一套手势、同一个无障碍服务的，我们目前没有找到同类开源项目。常见方案各自只解决一半。</p>
+  <table>
+    <thead><tr><th>方案</th><th>放大</th><th>点哪读哪</th><th>朗读</th><th>要学手势</th><th>联网 / OCR</th></tr></thead>
+    <tbody>
+      <tr><td>系统放大 / 放大镜 App</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td>部分</td><td>否</td></tr>
+      <tr><td>Select to Speak / TalkBack</td><td class="no">❌</td><td>部分</td><td class="yes">✅</td><td>要学</td><td>否</td></tr>
+      <tr><td>OCR 选区朗读类</td><td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td><td>要框选</td><td>截图 + OCR</td></tr>
+      <tr><td>剪贴板朗读类</td><td class="no">❌</td><td class="no">先复制</td><td class="yes">✅</td><td>否</td><td>否</td></tr>
+      <tr class="me"><td>看得清</td><td>✅</td><td>✅</td><td>✅</td><td>两个动作</td><td>都不需要</td></tr>
+    </tbody>
+  </table>
+  <p class="sub" style="margin:26px 0 0">刻意只走 Android 官方无障碍树：不截图、不做 OCR、不引入模型。换来点一下就出声、零网络权限；代价是图片里和游戏自绘的字读不到。这是选的路，不是没修完。</p>
+</section>
+
+<section id="privacy" class="wrap privacy">
+  <div>
+    <h2>从系统层面就传不出去</h2>
+    <p class="sub">不是「我们承诺不上传」，是这个 App 根本没申请上网权限。</p>
+    <ul>
+      <li>读到的字只在内存里活几秒，读完就没了</li>
+      <li>日志只记软件自己的状态，不记任何读到的文字</li>
+      <li>没有第三方 SDK、没有统计、没有广告、没有账号</li>
+      <li>源码可查，MIT 协议，随便审</li>
+    </ul>
+    <p style="margin-top:26px"><a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/docs/privacy.md">看完整隐私说明</a></p>
+  </div>
+  <div class="code">&lt;uses-permission android:name=<br>&nbsp;&nbsp;"android.permission.VIBRATE" /&gt;<br><br>&lt;!-- 没有 INTERNET 这一项 --&gt;<br>&lt;!-- 不是我们克制，是系统不给 --&gt;</div>
+</section>
+
+<div class="en">
+  <div class="wrap">
+    <h2>One ball. Two actions.</h2>
+    <p><strong>Hold</strong> to magnify the screen and follow your finger; <strong>tap</strong> the ball, then tap any text to hear it read aloud from that sentence. No internet permission, no OCR, no account, no gestures to memorize — only the official Android accessibility tree. Built for people who can still see, but strain to read.</p>
+    <p style="margin-top:24px"><a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md">Read the English README →</a></p>
+  </div>
+</div>
+
+<footer class="wrap">
+  <p>看得清 · MIT License · 免费开源 · <a href="https://github.com/zjh1934/kandeqing">GitHub</a> · <a href="https://github.com/zjh1934/kandeqing/releases/latest">下载</a> · <a href="https://github.com/zjh1934/kandeqing/issues/new/choose">反馈</a></p>
+  <p style="color:#666">如果它帮到了你，去 GitHub 点个 ⭐ Star —— 没有推广预算，这是它唯一能被更多需要的人看见的方式。</p>
+</footer>
+
+</body>
+</html>

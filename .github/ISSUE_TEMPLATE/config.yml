@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 先看一眼：给长辈的图文说明
+    url: https://github.com/zjh1934/kandeqing/blob/main/使用说明.md
+    about: 装不上、球不出来、不知道怎么开无障碍，答案基本都在这里
+  - name: ❓ 常见问题与已知限制
+    url: https://github.com/zjh1934/kandeqing#常见问题
+    about: 读不到图片里的字、放大发毛、没上架商店等，先看这里是不是已知边界
+  - name: 💬 聊聊用法 / 提机型经验
+    url: https://github.com/zjh1934/kandeqing/discussions
+    about: 不是 bug 也不是功能建议，来这儿聊
+  - name: 🔒 涉及隐私或安全，私下说
+    url: https://github.com/zjh1934/kandeqing/blob/main/SECURITY.md
+    about: 请不要在公开 Issue 里贴细节

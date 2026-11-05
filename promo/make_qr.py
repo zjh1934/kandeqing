@@ -21,8 +21,8 @@ from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont
 
 # ============ 只改这里 ============
-DOWNLOAD_URL = "https://github.com/zjh1934/qiuqiu/releases/latest"
-APK_URL = "https://github.com/zjh1934/qiuqiu/releases/download/v3.7/kanqing-3.7.apk"
+DOWNLOAD_URL = "https://zjh1934.github.io/kandeqing/"
+APK_URL = "https://github.com/zjh1934/kandeqing/releases/latest"
 APP_NAME = "看得清"
 # ==================================
 
