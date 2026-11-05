@@ -23,6 +23,8 @@ public class BallView extends View {
     public static final int ST_ACTIVE = BallArt.ST_ACTIVE;
     public static final int ST_PICKING = BallArt.ST_PICKING;
     public static final int ST_SPEAKING = BallArt.ST_SPEAKING;
+    /** 点字后到出声前：环内一排小点转圈（3.9.2） */
+    public static final int ST_LOADING = BallArt.ST_LOADING;
 
     /** 默认「苹果白」，与 iOS 缩放控制器的白色款一致 */
     private int color = Prefs.COLORS[Prefs.DEF_COLOR_INDEX];
@@ -57,14 +59,20 @@ public class BallView extends View {
     public void setState(int s) {
         if (state != s) {
             state = s;
+            // 加载态要点自己会转，得持续重绘；离开这个状态后 onDraw
+            // 不再排队，动画自然停 —— 不需要额外记一个 animator。
+            if (state == ST_LOADING) {
+                postInvalidateDelayed(48);
+            }
             invalidate();
         }
     }
 
     private float effAlpha() {
         float a = alpha;
-        // 选取 / 朗读是「正在干活」的状态，别被闲置淡出盖掉
-        if (state == ST_PICKING || state == ST_SPEAKING) {
+        // 选取 / 加载 / 朗读都是「正在干活」，别被闲置淡出盖掉
+        if (state == ST_PICKING || state == ST_SPEAKING
+                || state == ST_LOADING) {
             a = Math.max(a, 0.94f);
         }
         return Math.max(0.12f, Math.min(1f, a));
@@ -79,5 +87,8 @@ public class BallView extends View {
         }
         float r = Math.min(w, h) / 2f * 0.80f * drawScale;
         BallArt.draw(c, w / 2f, h / 2f, r, color, state, effAlpha());
+        if (state == ST_LOADING) {
+            postInvalidateDelayed(48);
+        }
     }
 }

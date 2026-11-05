@@ -245,23 +245,10 @@ public class TextGrabber {
         }
     }
 
-    /**
-     * 3.8：与 BallController.measure() 统一到物理屏幕尺寸。
-     * 旧版用 getResources().getDisplayMetrics()（不含虚拟导航栏），
-     * 会把贴近屏幕底部、落在导航栏高度范围内的文字段误判成「屏幕外」丢掉。
-     */
     private Rect screenRect() {
         Rect r = new Rect();
         try {
-            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
-            android.view.WindowManager wm = (android.view.WindowManager)
-                    svc.getSystemService(android.content.Context.WINDOW_SERVICE);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1
-                    && wm != null) {
-                wm.getDefaultDisplay().getRealMetrics(dm);
-            } else {
-                dm.setTo(svc.getResources().getDisplayMetrics());
-            }
+            android.util.DisplayMetrics dm = svc.getResources().getDisplayMetrics();
             r.set(0, 0, dm.widthPixels, dm.heightPixels);
         } catch (Exception e) {
             // 量不到就当无限大，等于不做屏幕过滤，别把内容筛没了

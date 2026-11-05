@@ -19,12 +19,6 @@ import android.os.Build;
  * 推论：在不动点处 内容坐标 = 屏幕坐标 = fx。
  * 所以球的窗口位置直接就是 fx − 球宽/2，不用换算。
  *
- * 3.8 口径修正：这里的 S 必须是**物理屏幕尺寸**（getRealMetrics），
- * 和 getRawX/Y、setCenter 同源。旧版传的是 getMetrics().heightPixels，
- * 有虚拟导航栏时少了那一段，f − S/2 不再是真正的「相对屏幕中心」，
- * 不动点被破坏，球恒定偏 (S_real−S_app)/2 px，靠底部还会被 clamp 放大。
- * 修好后对任意 f∈[0,S]，K_raw 都落在 [hw, S−hw] 内，clampCenter 不会触发。
- *
  * 【别写成 K = K0 − ΔF/s】
  * 那是"手指抓着内容不动"，画面会相对手指静止，看着像不会左右移动。
  */

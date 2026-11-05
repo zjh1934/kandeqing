@@ -1,5 +1,62 @@
 # 更新记录
 
+## 3.9.2 · 核心代码还原到早期版本 + 等待时球转圈（versionCode 32）
+
+> 用户明确要求：「这些核心代码能够还原到早期版本」「什么抓字移动，这些都是我的核心代码」。
+> 本版**撤销 3.8 / 3.9 / 3.9.1 对核心代码的全部改动**，回到整仓刚拉下来时的
+> 初始快照 `0c2a751`。UI 不动，只加一处用户点名要的加载反馈。
+
+### 还原了什么
+
+| 文件 | 处理 |
+|---|---|
+| `BallController.java` | **完全还原** `0c2a751`，与基线逐字节一致 |
+| `TextGrabber.java` | **完全还原**，与基线逐字节一致 |
+| `TtsManager.java` | **完全还原**，与基线逐字节一致 |
+| `ZoomController.java` | **完全还原**，与基线逐字节一致 |
+| `ComboService.java` | 还原到基线，仅多 15 行加载态（见下） |
+| `TextPicker.java` | **删除**（3.8 我新造的类，不属于原有核心代码） |
+| `verify_picker.py` / `verify_ball_drag.py` | **删除**（镜像的是被撤销的逻辑） |
+| `verify_all.py` | 还原到基线的 5 个 suite |
+
+被一并撤销的「我加的东西」：逐字位置预取、`prepareQuick` 浅扫、独立 `prepH`、
+`getRealMetrics` 口径修正、`contentX/contentY` 换算铺满所有路径、半宽偏移修正、
+多窗口合并、滚屏重扫、结构诊断日志、抬手轻震、抓不到字的新文案、断句 `sentenceNear`。
+**闲置拖球回到最朴素的屏幕坐标直写**：手指挪 Δ、球挪 Δ，零换算。
+
+### 保留了什么
+
+用户认可过的 UI 层一行没碰：柔边环三态球（`BallArt` / `BallView` / `BallPreview`）、
+`Ui` / `MainActivity` / `Theme`、深浅主题与「跟随系统」、3.6 蓝色玻璃球 Logo、
+`Prefs`（UI 依赖其新增偏好项）。
+
+### 只加了一处：点字后到出声前，球转圈
+
+用户原话：「点了以后它没有马上朗读出来的这个时间，希望悬浮球有一排小球在转圈，
+像加载 / 思考那种，起码给个提示，不然不要呆在那里。」
+
+- `BallArt.ST_LOADING`：仍是同一个柔边环，**环内 8 个小点绕圈转**，亮度按相位
+  拖尾递减，约 1.1 秒一圈；`SystemClock.uptimeMillis()` 算相位，纯色画，不换素材。
+- `BallView`：进入加载态后 `postInvalidateDelayed(48)` 持续重绘，离开该状态
+  `onDraw` 不再排队，动画自然停 —— 不引入 Animator、不记额外对象。
+  `effAlpha` 把加载态和选取 / 朗读一起算「正在干活」，不被闲置淡出盖掉。
+- `ComboService` 相对基线只多 15 行：`waitingSpeak` 标记、`readAt` 里切加载态、
+  `startSpeak` / `toIdle` 清标记、`ballStateForCurrent` 认识加载态。
+  出声成功 → 框 + 两竖线；抓不到 / 引擎没好 → `toIdle()` 走 `resetLook()` 回空心环。
+- **不碰抓字逻辑、不碰移动逻辑、不碰线程模型**。
+
+### 验证
+
+- `git diff 0c2a751`：BallController / TextGrabber / TtsManager / ZoomController
+  **零差异**；ComboService 仅 +15 行。
+- `verify_all.py` 基线 5 个 suite 三轮全绿；17 个 Java 文件语法全过；
+  XML / workflow YAML 全过。真编译以 CI 为准。
+
+### 版本与交付
+
+- `versionCode 32` / `versionName "3.9.2"`，包名与固定签名不变，可直接覆盖安装。
+- CI 自动发到 `v3.9.2` / `apk/看得清-3.9.2.apk`。
+
 ## 3.9.1 · 闲置拖球回归修复（versionCode 31）
 
 > 用户反馈：「原本平时闲置状态移动悬浮球，停了它还卡一下，拖的时候坐标也不准，

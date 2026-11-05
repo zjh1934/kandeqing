@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
+import android.os.SystemClock;
 
 /**
  * 球的统一画法：真球（BallView）、界面预览（BallPreview）、颜色色卡
@@ -22,6 +23,10 @@ import android.graphics.Shader;
  *
  * 按住放大（ST_ACTIVE）复用「实心」这一态：正在操作 = 填实，
  * 不额外造第四种形态。闲置淡出由调用方给的 alpha 决定。
+ *
+ * 3.9.2：新增 ST_LOADING —— 点字后到出声前，球里一排小点转圈，
+ * 表示「正在找字 / 正在等引擎」，不是呆在那里。仍是同一个柔边环，
+ * 只在环内多画转圈的点，不换形态、不换素材。
  */
 public final class BallArt {
 
@@ -34,6 +39,8 @@ public final class BallArt {
     public static final int ST_IDLE = 4;
     public static final int ST_DOUBLE = 5;
     public static final int ST_PAN = 6;
+    /** 点字后、出声前：环内一排小点转圈 */
+    public static final int ST_LOADING = 7;
 
     private static final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private static final Paint pBar = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -123,6 +130,31 @@ public final class BallArt {
             }
         }
         p.setShader(null);
+
+        // 加载态：环内一圈小点转圈。必须是纯色画（pBar 从没设过 shader），
+        // 且放在 setShader(null) 之后，避免被环的渐变染上。
+        if (state == ST_LOADING) {
+            drawDots(c, cx, cy, r, rgb, alpha);
+        }
+    }
+
+    /** 8 个小点绕球心转，亮度按相位拖尾递减，约 1.1 秒一圈 */
+    private static void drawDots(Canvas c, float cx, float cy, float r,
+                                 int rgb, float alpha) {
+        final int N = 8;
+        float phase = (SystemClock.uptimeMillis() % 1100L) / 1100f;
+        float orbit = r * 0.52f;
+        float dot = r * 0.105f;
+        for (int i = 0; i < N; i++) {
+            float age = (i / (float) N + phase) % 1f;
+            float a = (1f - age) * 0.88f + 0.12f;
+            double ang = (i / (float) N) * Math.PI * 2
+                    - Math.PI / 2 - phase * Math.PI * 2;
+            float x = cx + (float) Math.cos(ang) * orbit;
+            float y = cy + (float) Math.sin(ang) * orbit;
+            pBar.setColor(argb(a * alpha, rgb));
+            c.drawCircle(x, y, dot * (0.62f + 0.38f * a), pBar);
+        }
     }
 
     private static int argb(float a, int rgb) {

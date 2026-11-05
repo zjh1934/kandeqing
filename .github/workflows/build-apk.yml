@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.1：只修 3.8 引入的闲置拖球回归，其余一行未动。用户反馈「拖的时候坐标不准」「停了还卡一下」：3.8 把 placeBallAtFinger 的「球中心对齐手指」写法（要减半宽）误套到 placeBallKeepOffset 的「保持按下相对偏移」路径，多减了 lp.width/2 与 lp.height/2；而 ACTION_UP 落位没减半宽，于是①拖动时球恒定偏左上半个球，②松手瞬间球突然跳回正确位置。修复：闲置拖球的 ACTION_DOWN offset、placeBallKeepOffset 非放大分支、ACTION_UP 落位三处统一回到 3.7 的屏幕坐标直写（手指挪 Δ、球挪 Δ，零换算、零半宽偏移）；contentX/contentY 只保留给放大期间跟手使用，删掉闲置路径里用不到的dragOffset 死分支。新增 verify_ball_drag.py 6 用例，反向注入半宽偏移时5 个断言全部 FAIL（实测偏移 -35/-36、松手跳 72px），恢复后全绿。3.8 真正有效的 getRealMetrics 放大口径统一、3.9 的断句/延迟/复杂界面/反馈全部保留；Logo 仍是 3.6 蓝色玻璃球。versionCode 31 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.2：核心代码整体还原到早期版本 + 点字等待时球转圈。用户要求「抓字、移动这些核心代码还原到早期版本」：ComboService / BallController / TextGrabber / TtsManager / ZoomController 五个文件全部回到初始快照 0c2a751，其中后四个与 0c2a751 逐字节一致；3.8 起我加的 TextPicker 类、逐字位置预取、拆线程预扫、contentX/Y 换算、多窗口合并、半宽偏移修正等全部撤销，相关镜像脚本 verify_picker.py / verify_ball_drag.py 删除，verify_all.py 回到基线。UI 层（柔边三态球、主题、Logo、布局）保持用户认可的 3.10 版本不动。另按用户要求加一个极简反馈：点字后到出声前，球在柔边环内画一排小点转圈（ST_LOADING，SystemClock 相位驱动，约 1.1 秒一圈），出声/失败即停，不再是呆着的实心球。ComboService 相对基线只多 15 行，全部是这一处。三轮自检与 Java 语法全绿。versionCode 32 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi
