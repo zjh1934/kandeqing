@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 8 以下不支持 adaptive icon / 径向渐变矢量：
-     简版 A 双环 —— 外白环 + 内细白环 + 极小蓝点，形态与高版本一致。 -->
+<!-- 3.12：Android 8 以下简版，底也改成全透明。
+     保留第一个 item 只为给 layer-list 一个固有 48dp 尺寸，填充是 alpha=00。
+     图形仍是 A 双环：外白环 + 内细白环 + 极小蓝点。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 透明占位：只提供尺寸，不画任何底色 -->
     <item>
         <shape android:shape="oval">
-            <solid android:color="#FF1E1E1E" />
+            <solid android:color="#00000000" />
             <size android:width="48dp" android:height="48dp" />
         </shape>
     </item>
