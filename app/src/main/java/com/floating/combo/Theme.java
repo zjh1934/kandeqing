@@ -3,65 +3,134 @@ package com.floating.combo;
 import android.graphics.drawable.GradientDrawable;
 
 /**
- * 看得清 3.7 · Design Tokens。
+ * 看得清 3.8 · 可切换的 Design Tokens。
  *
- * Modern Dark / Calm Tech / System-first：三层表面高程、语义色、字体阶梯、
- * 8pt 栅格、单屏唯一渐变主操作。所有色值只在这里定义一次。
+ * 3.7 那套是「一套深色写死」。3.8 按实测反馈补了正式的深 / 浅主题：
+ * 「更多 → 外观」里的三段控件真正切换整套配色，不是只换一块球预览。
  *
- * 纯展示层 —— 不引用 TTS / 抓字 / 日志 / 手势等任何核心逻辑。
- * 圆角/描边参数一律用 px 传入，由调用方用 dp() 换算。
+ * 色值改成运行时可写的静态字段：所有界面代码都是「用的时候才读 Theme.XXX」，
+ * 所以 apply() 换掉一套值 + recreate() 重画，就能整屏跟着变，不必逐个控件改引用。
  *
- * 兼容：旧版本里曾被 MainActivity 引用的常量名（BG/SURFACE/...）保留为别名，
- * 避免任何遗留引用在编译期炸掉；新代码一律用 3.7 的名字。
+ * 旧名（BG / SURFACE / ...）保留为别名并在 apply() 里同步赋值，避免遗留引用拿到旧色。
+ * 纯展示层，不引用 TTS / 抓字 / 日志 / 手势。
  */
 public final class Theme {
 
-    // ---- 3.1 表面与高程 -------------------------------------------------
-    public static final int BASE     = 0xFF0B0E13; // surface/base 页面底
-    public static final int RAISED   = 0xFF141922; // surface/raised 卡片
-    public static final int OVERLAY  = 0xFF1C2330; // surface/overlay 浮层 / 下拉 / 预览画布
-    public static final int PRESSED  = 0xFF222B3A; // surface/pressed 按压态
-    public static final int DIVIDER  = 0xFF2A3342; // 卡内极弱分隔（不是组间线）
+    /** 0=跟随系统，1=深色，2=浅色。默认深色，与 3.7 观感一致，不突然变白。 */
+    public static final int MODE_SYSTEM = 0;
+    public static final int MODE_DARK = 1;
+    public static final int MODE_LIGHT = 2;
+    public static final int MODE_DEFAULT = MODE_DARK;
 
-    // ---- 3.2 语义色 -----------------------------------------------------
-    public static final int GRADIENT_FROM = 0xFF2BD4C4; // accent/gradient 起点
-    public static final int GRADIENT_TO   = 0xFF3B82F6; // accent/gradient 终点
-    public static final int ACCENT        = 0xFF4AA8FF; // accent/solid 选中 / 滑块 / 聚焦环
-    public static final int SUCCESS       = 0xFF3ECF8E;
-    public static final int WARN          = 0xFFF5A524;
-    public static final int DANGER        = 0xFFF2545B;
-    public static final int TEXT          = 0xFFF2F5FA; // text/primary
-    public static final int TEXT_2        = 0xFF9AA6B8; // text/secondary 对比度 ≥ 4.5:1
-    public static final int TEXT_3        = 0xFF6B7789; // text/tertiary 仅单位与脚注
-    public static final int TRANSPARENT   = 0x00000000;
-    public static final int ON_ACCENT     = 0xFFFFFFFF;
+    // ---- 运行时调色板（apply 里整体替换；逐行给初值，apply 前也读得到） ----
+    public static int BASE = 0xFF0B0E13;
+    public static int RAISED = 0xFF151B25;
+    public static int OVERLAY = 0xFF1C2330;
+    public static int PRESSED = 0xFF1E2836;
+    public static int DIVIDER = 0xFF242C39;
+    public static int ACCENT = 0xFF4AA8FF;
+    public static int ACCENT_SOFT = 0xFF1B2C40;
+    public static int TRACK = 0xFF2C3544;
+    public static int BUTTON = 0xFF1E2836;
+    public static int SUCCESS = 0xFF3ECF8E;
+    public static int WARN = 0xFFF5A524;
+    public static int DANGER = 0xFFF2545B;
+    public static int TEXT = 0xFFF2F5FA;
+    public static int TEXT_2 = 0xFF8E9AAE;
+    public static int TEXT_3 = 0xFF6B7789;
+    public static int GRADIENT_FROM = 0xFF2BD4C4;
+    public static int GRADIENT_TO = 0xFF3B82F6;
 
-    // ---- 3.4 间距与圆角（dp，调用方换算） --------------------------------
-    public static final int GRID      = 4;
-    public static final int GAP_GROUP = 32; // 组间距，不画分割线
-    public static final int CARD_PAD  = 24;
-    public static final int CARD_R    = 20;
-    public static final int CTRL_R    = 14;
-    public static final int HIT       = 48; // 最小触控目标
+    // ---- 两套都不变的常量 -------------------------------------------------
+    public static final int TRANSPARENT = 0x00000000;
+    public static final int ON_ACCENT = 0xFFFFFFFF;
+    public static final int QR_WHITE = 0xFFFFFFFF;
 
-    // ---- 3.5 动效（ms） -------------------------------------------------
-    public static final int DUR_MICRO    = 120;
+    // ---- 旧名别名 --------------------------------------------------------
+    public static int BG = 0xFF0B0E13;
+    public static int SURFACE = 0xFF151B25;
+    public static int SURFACE_2 = 0xFF1C2330;
+    public static int BORDER = 0xFF242C39;
+    public static int TEAL = 0xFF2BD4C4;
+    public static int BLUE = 0xFF3B82F6;
+
+    // ---- 间距 / 圆角（dp，调用方换算） ------------------------------------
+    public static final int GRID = 4;
+    public static final int GAP_GROUP = 12;
+    public static final int CARD_PAD = 16;
+    public static final int CARD_R = 14;
+    public static final int CTRL_R = 10;
+    public static final int HIT = 48;
+    public static final int ROW_SELECT = 48;
+    public static final int ROW_SWITCH = 48;
+    public static final int ROW_ACTION = 48;
+    public static final int ROW_PLAIN = 44;
+    public static final int ROW_SLIDER = 56;
+    public static final int ROW_CHIPS = 48;
+    public static final int ROW_SEGMENT = 52;
+    public static final int ROW_PREVIEW = 60;
+    public static final int ROW_RESET = 48;
+    public static final int ROW_QR = 148;
+
+    // ---- 动效（ms） -------------------------------------------------------
+    public static final int DUR_MICRO = 120;
     public static final int DUR_STANDARD = 240;
-    public static final int DUR_COMPLEX  = 400;
-
-    // ---- 旧名别名：只做兼容，新代码不要用 --------------------------------
-    public static final int BG        = BASE;
-    public static final int SURFACE   = RAISED;
-    public static final int SURFACE_2 = OVERLAY;
-    public static final int BORDER    = DIVIDER;
-    public static final int TEAL      = GRADIENT_FROM;
-    public static final int BLUE      = GRADIENT_TO;
 
     private Theme() {
     }
 
-    /** 圆角矩形：填充 + 可选描边（strokePx<=0 时不描边）。 */
-    public static GradientDrawable rounded(int color, float radiusPx, int strokeColor, float strokePx) {
+    /** 换整套配色。必须在任何 View 被创建之前调用。 */
+    public static void apply(int mode, boolean systemNight) {
+        boolean dark = (mode == MODE_DARK)
+                || (mode == MODE_SYSTEM && systemNight);
+        if (dark) {
+            BASE = 0xFF0B0E13;
+            RAISED = 0xFF151B25;
+            OVERLAY = 0xFF1C2330;
+            PRESSED = 0xFF1E2836;
+            DIVIDER = 0xFF242C39;
+            ACCENT = 0xFF4AA8FF;
+            ACCENT_SOFT = 0xFF1B2C40;
+            TRACK = 0xFF2C3544;
+            BUTTON = 0xFF1E2836;
+            SUCCESS = 0xFF3ECF8E;
+            WARN = 0xFFF5A524;
+            DANGER = 0xFFF2545B;
+            TEXT = 0xFFF2F5FA;
+            TEXT_2 = 0xFF8E9AAE;
+            TEXT_3 = 0xFF6B7789;
+            GRADIENT_FROM = 0xFF2BD4C4;
+            GRADIENT_TO = 0xFF3B82F6;
+        } else {
+            BASE = 0xFFF6F8FB;
+            RAISED = 0xFFFFFFFF;
+            OVERLAY = 0xFFEFF2F7;
+            PRESSED = 0xFFE7EAF0;
+            DIVIDER = 0xFFE7EAF0;
+            ACCENT = 0xFF2F6BFF;
+            ACCENT_SOFT = 0xFFE7EEFF;
+            TRACK = 0xFFD8DDE7;
+            BUTTON = 0xFFF0F3F8;
+            SUCCESS = 0xFF16A34A;
+            WARN = 0xFFD97706;
+            DANGER = 0xFFDC2626;
+            TEXT = 0xFF1A1F27;
+            TEXT_2 = 0xFF6B7280;
+            TEXT_3 = 0xFF9AA3AF;
+            GRADIENT_FROM = 0xFF2F6BFF;
+            GRADIENT_TO = 0xFF2F6BFF;
+        }
+        BG = BASE;
+        SURFACE = RAISED;
+        SURFACE_2 = OVERLAY;
+        BORDER = DIVIDER;
+        TEAL = GRADIENT_FROM;
+        BLUE = GRADIENT_TO;
+    }
+
+    /** 圆角矩形：填充 + 可选描边。 */
+    public static GradientDrawable rounded(int color, float radiusPx,
+                                           int strokeColor, float strokePx) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(color);
         g.setCornerRadius(radiusPx);
@@ -71,10 +140,19 @@ public final class Theme {
         return g;
     }
 
-    /**
-     * 唯一主操作的线性渐变（135°：左上 → 右下）。
-     * 配额：单屏只允许出现 1 次；导航选中态、状态标签一律不用渐变。
-     */
+    /** 圆形纯色（状态点、颜色 chip）。 */
+    public static GradientDrawable circle(int color, float radiusPx,
+                                          int strokeColor, float strokePx) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(color);
+        g.setSize((int) (radiusPx * 2), (int) (radiusPx * 2));
+        if (strokePx > 0f) {
+            g.setStroke((int) (strokePx + 0.5f), strokeColor);
+        }
+        return g;
+    }
+
     public static GradientDrawable brandGradient(float radiusPx) {
         GradientDrawable g = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
@@ -83,12 +161,10 @@ public final class Theme {
         return g;
     }
 
-    /** 旧调用点保留的别名。 */
     public static GradientDrawable brandGradientPill(float radiusPx) {
         return brandGradient(radiusPx);
     }
 
-    /** 带聚焦环的表面：主控条等需要 TalkBack 焦点可读的容器。 */
     public static GradientDrawable focusSurface(float radiusPx, float strokePx) {
         return rounded(RAISED, radiusPx, ACCENT, strokePx);
     }

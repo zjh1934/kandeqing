@@ -58,8 +58,8 @@ public class Prefs {
     private static final String K_HAPTIC = "haptic";
     /** 3.7 密码保护开关。默认关 = 照常朗读密码框；开 = 跳过 isPassword 节点 */
     private static final String K_PWD_GUARD = "pwd_guard";
-    /** 3.7 现代 UI 首次使用的 3 步引导，看过或跳过后不再出现 */
-    private static final String K_GUIDE_37 = "guide_37";
+    /** 3.8 主题模式：0 跟随系统 / 1 深色 / 2 浅色。默认深色，与 3.7 观感一致 */
+    private static final String K_THEME_MODE = "theme_mode";
 
     private final SharedPreferences sp;
 
@@ -329,12 +329,16 @@ public class Prefs {
         sp.edit().putBoolean(K_PWD_GUARD, v).apply();
     }
 
-    /** 3.7 首次引导：只弹一次，点「跳过」也记下，不再打扰。 */
-    public boolean guideDone() {
-        return sp.getBoolean(K_GUIDE_37, false);
+    /** 3.8 主题模式。默认深色，老用户升级后不会突然变白。 */
+    public int themeMode() {
+        int v = sp.getInt(K_THEME_MODE, Theme.MODE_DEFAULT);
+        if (v < 0 || v > 2) {
+            return Theme.MODE_DEFAULT;
+        }
+        return v;
     }
 
-    public void setGuideDone() {
-        sp.edit().putBoolean(K_GUIDE_37, true).apply();
+    public void setThemeMode(int v) {
+        sp.edit().putInt(K_THEME_MODE, v).apply();
     }
 }

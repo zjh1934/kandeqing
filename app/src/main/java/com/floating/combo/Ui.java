@@ -1,9 +1,12 @@
 package com.floating.combo;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -12,8 +15,10 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -21,14 +26,14 @@ import android.widget.Toast;
 import java.util.List;
 
 /**
- * 看得清 3.7 · 组件工厂（QC/MasterControl、QC/SectionCard、QC/ValueSlider、
- * QC/TokenChip、QC/PreviewCanvas 的落地）。
+ * 看得清 3.8 · 紧凑设置列表组件工厂。
  *
- * 全部是「造 View」的静态纯函数：不读 Prefs、不碰 TTS / 抓字 / 悬浮球服务。
- * 回调由调用方传进来，组件本身不知道业务。
+ * 按平台原生设置范式重做：一个分组 = 一块圆角表面 + 若干 48dp 行，
+ * 行间只有极弱细线；没有卡片标题、没有说明文字、没有折叠块、没有 › 二级箭头。
+ * 字号压到 14 / 12 / 11 三档，全部用 sp，跟随系统字号缩放。
  *
- * 字体一律用 sp（setTextSize(float) 就是 sp），跟随系统字号缩放；
- * 数值用等宽数字，拖动时不抖动；可点区域不小于 48dp。
+ * 所有色值运行时从 Theme 读，深 / 浅主题切换后 recreate() 自动整屏生效。
+ * 组件本身不读 Prefs、不碰 TTS / 抓字 / 悬浮球服务，回调一律由调用方传进来。
  */
 public final class Ui {
 
@@ -45,7 +50,6 @@ public final class Ui {
         return (int) (v * c.getResources().getDisplayMetrics().density + 0.5f);
     }
 
-    /** 遵循系统「减少动画」开关：开了就把所有动效降级为淡入淡出 / 直接切换。 */
     public static boolean reduceMotion(Context c) {
         try {
             return Settings.Global.getFloat(c.getContentResolver(),
@@ -55,12 +59,10 @@ public final class Ui {
         }
     }
 
-    /** 等宽数字：滑块当前值、倍率大数用，拖动时不抖、不换行。 */
     public static void tnum(TextView t) {
         try {
             t.setFontFeatureSettings("tnum");
         } catch (Throwable ignored) {
-            // 少数 ROM 不支持 fontFeature，退化成普通数字也不影响功能
         }
     }
 
@@ -75,29 +77,19 @@ public final class Ui {
         return t;
     }
 
-    /** Display 28/600：页面主标题、当前倍率大数 */
-    public static TextView display(Context c, String s) {
-        return text(c, s, 28, Theme.TEXT, true);
-    }
-
-    /** Title 20/600：卡片标题 */
-    public static TextView title(Context c, String s) {
-        return text(c, s, 20, Theme.TEXT, true);
-    }
-
-    /** Body 16/400：正文、设置项标签 */
+    /** 正文 / 列表项标签 14sp */
     public static TextView body(Context c, String s) {
-        return text(c, s, 16, Theme.TEXT, false);
+        return text(c, s, 14, Theme.TEXT, false);
     }
 
-    /** Caption 14/400：说明、单位、脚注 */
+    /** 分组名 / 次要说明 12sp */
     public static TextView caption(Context c, String s) {
-        return text(c, s, 14, Theme.TEXT_2, false);
+        return text(c, s, 12, Theme.TEXT_2, false);
     }
 
-    /** Value 20/600 等宽数字：滑块当前值 */
+    /** 滑块当前值 14sp 等宽数字 */
     public static TextView value(Context c, String s) {
-        TextView t = text(c, s, 20, Theme.ACCENT, true);
+        TextView t = text(c, s, 14, Theme.ACCENT, true);
         tnum(t);
         return t;
     }
@@ -110,79 +102,108 @@ public final class Ui {
         return p;
     }
 
-    // ---- QC/SectionCard -------------------------------------------------
+    private static LinearLayout.LayoutParams rowLp(Context c, int hDp) {
+        return new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, hDp));
+    }
 
-    /** 一组设置 = 一张卡片：20dp 圆角、24dp 留白、无描边，靠底色差分层。 */
-    public static LinearLayout card(Context c) {
-        LinearLayout v = new LinearLayout(c);
-        v.setOrientation(LinearLayout.VERTICAL);
-        v.setBackgroundDrawable(Theme.rounded(Theme.RAISED,
+    private static LinearLayout newRow(Context c, int hDp) {
+        LinearLayout r = new LinearLayout(c);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setLayoutParams(rowLp(c, hDp));
+        int p = dp(c, 12);
+        r.setPadding(p, 0, p, 0);
+        return r;
+    }
+
+    // ---- 分组容器 --------------------------------------------------------
+
+    /** 组名 + 一块圆角表面 + 若干行。行间细线，无组间分割线。 */
+    public static LinearLayout group(Context c, String title, View... rows) {
+        LinearLayout wrap = new LinearLayout(c);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView h = caption(c, title);
+        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        hlp.leftMargin = dp(c, 6);
+        hlp.topMargin = dp(c, 8);
+        hlp.bottomMargin = dp(c, 6);
+        wrap.addView(h, hlp);
+
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackgroundDrawable(Theme.rounded(Theme.RAISED,
                 dp(c, Theme.CARD_R), 0, 0));
-        int p = dp(c, Theme.CARD_PAD);
-        v.setPadding(p, p, p, p);
-        return v;
-    }
-
-    /** 卡片 + 标题 + 最多两行说明。组间距由调用方给 32dp，不画组间分割线。 */
-    public static LinearLayout cardSection(Context c, String heading, String desc) {
-        LinearLayout v = card(c);
-        v.addView(title(c, heading));
-        if (desc != null && desc.length() > 0) {
-            TextView d = caption(c, desc);
-            d.setMaxLines(2);
-            v.addView(d, lp(c, 0, 6, 0, 0));
+        for (int i = 0; i < rows.length; i++) {
+            if (i > 0) {
+                View line = new View(c);
+                line.setBackgroundColor(Theme.DIVIDER);
+                LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        Math.max(1, dp(c, 1)));
+                llp.setMargins(dp(c, 12), 0, dp(c, 12), 0);
+                box.addView(line, llp);
+            }
+            box.addView(rows[i]);
         }
-        return v;
+        wrap.addView(box);
+        return wrap;
     }
 
-    /** 卡内极弱分隔，只用于把标题区与内容区错开，不是组间线。 */
-    public static View hairline(Context c) {
-        View v = new View(c);
-        v.setBackgroundColor(Theme.DIVIDER);
-        return v;
+    // ---- 各类行 ----------------------------------------------------------
+
+    /** 下拉选择行：标签 + 原生 Spinner（右半，显示当前值）+ ▾。整行可点。 */
+    public static LinearLayout selectRow(final Context c, String label,
+                                         final Spinner sp) {
+        LinearLayout r = newRow(c, Theme.ROW_SELECT);
+        r.addView(body(c, label), new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        sp.setBackgroundColor(Color.TRANSPARENT);
+        sp.setPadding(0, 0, 0, 0);
+        sp.setMinimumHeight(dp(c, Theme.HIT));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        r.addView(sp, slp);
+
+        TextView ar = text(c, "▾", 12, Theme.TEXT_2, false);
+        ar.setPadding(dp(c, 4), 0, 0, 0);
+        r.addView(ar);
+
+        r.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sp.performClick();
+            }
+        });
+        return r;
     }
 
-    // ---- QC/ValueSlider -------------------------------------------------
-
-    /**
-     * 四页共用的唯一滑块形态：
-     * 标签 + 实时数值 + 单项重置 + 滑杆 + 最小/默认/最大刻度 + 一句结果式说明。
-     * 数值变化即时作用，不需要「应用」。
-     */
-    public static LinearLayout valueSlider(Context c, String name,
-                                           int min, int max, int cur,
-                                           final Fmt fmt, final OnValue cb,
-                                           final Runnable onReset,
-                                           String minLabel, String defLabel,
-                                           String maxLabel, String hint) {
+    /** 滑块行：标签 + 实时数值 + 滑杆。没有刻度、没有说明文字。 */
+    public static LinearLayout sliderRow(Context c, String label,
+                                         int min, int max, int cur,
+                                         final Fmt fmt, final OnValue cb) {
         LinearLayout r = new LinearLayout(c);
         r.setOrientation(LinearLayout.VERTICAL);
+        r.setLayoutParams(rowLp(c, Theme.ROW_SLIDER));
+        int p = dp(c, 12);
+        r.setPadding(p, dp(c, 4), p, 0);
 
         LinearLayout head = new LinearLayout(c);
         head.setOrientation(LinearLayout.HORIZONTAL);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(body(c, name), new LinearLayout.LayoutParams(
+        head.addView(body(c, label), new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
         final TextView val = value(c, fmt.text(cur));
         head.addView(val);
-
-        if (onReset != null) {
-            TextView reset = text(c, "↺", 20, Theme.TEXT_2, false);
-            reset.setContentDescription(name + "恢复默认");
-            reset.setPadding(dp(c, 14), dp(c, 8), dp(c, 4), dp(c, 8));
-            reset.setMinHeight(dp(c, Theme.HIT));
-            reset.setMinimumWidth(dp(c, Theme.HIT));
-            reset.setGravity(Gravity.CENTER);
-            reset.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    onReset.run();
-                }
-            });
-            head.addView(reset);
-        }
-        r.addView(head);
+        r.addView(head, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
         SeekBar sb = new SeekBar(c);
         sb.setMax(max - min);
@@ -194,7 +215,7 @@ public final class Ui {
             }
         } catch (Exception ignored) {
         }
-        sb.setMinimumHeight(dp(c, Theme.HIT));
+        sb.setMinimumHeight(dp(c, 32));
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int prog, boolean fromUser) {
@@ -213,49 +234,18 @@ public final class Ui {
             public void onStopTrackingTouch(SeekBar s) {
             }
         });
-        r.addView(sb, lp(c, 0, 6, 0, 0));
-
-        LinearLayout ticks = new LinearLayout(c);
-        ticks.setOrientation(LinearLayout.HORIZONTAL);
-        TextView a = text(c, minLabel, 14, Theme.TEXT_3, false);
-        TextView b = text(c, defLabel, 14, Theme.TEXT_3, false);
-        TextView d = text(c, maxLabel, 14, Theme.TEXT_3, false);
-        b.setGravity(Gravity.CENTER);
-        d.setGravity(Gravity.RIGHT);
-        ticks.addView(a, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        ticks.addView(b, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        ticks.addView(d, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        r.addView(ticks);
-
-        if (hint != null && hint.length() > 0) {
-            r.addView(caption(c, hint), lp(c, 0, 8, 0, 0));
-        }
+        r.addView(sb, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 30)));
         return r;
     }
 
-    // ---- Switch / 状态 --------------------------------------------------
-
-    /** 正向陈述的一行开关。状态由 Switch 本身表达，不在文字里写「开/关」。 */
-    public static LinearLayout switchRow(Context c, String label, String desc,
+    /** 开关行：状态由 Switch 本身表达，文字不写「开 / 关」。 */
+    public static LinearLayout switchRow(Context c, String label,
                                          boolean checked, final OnToggle cb) {
-        LinearLayout r = new LinearLayout(c);
-        r.setOrientation(LinearLayout.HORIZONTAL);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setMinimumHeight(dp(c, Theme.HIT));
-
-        LinearLayout texts = new LinearLayout(c);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        texts.addView(body(c, label));
-        if (desc != null && desc.length() > 0) {
-            texts.addView(caption(c, desc));
-        }
-        r.addView(texts, new LinearLayout.LayoutParams(
+        LinearLayout r = newRow(c, Theme.ROW_SWITCH);
+        r.addView(body(c, label), new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        final Switch sw = new Switch(c);
+        Switch sw = new Switch(c);
         sw.setShowText(false);
         sw.setChecked(checked);
         sw.setContentDescription(label);
@@ -267,7 +257,7 @@ public final class Ui {
         sw.setThumbTintList(new ColorStateList(states,
                 new int[]{Theme.ACCENT, Theme.TEXT_2}));
         sw.setTrackTintList(new ColorStateList(states,
-                new int[]{0x664AA8FF, Theme.OVERLAY}));
+                new int[]{Theme.ACCENT_SOFT, Theme.TRACK}));
         sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton b, boolean on) {
@@ -280,53 +270,15 @@ public final class Ui {
         return r;
     }
 
-    /** 状态标签：只用于状态，不承载装饰。 */
-    public static TextView statusTag(Context c, String label, int color) {
-        TextView t = text(c, label, 14, color, true);
-        int h = dp(c, 12);
-        int v = dp(c, 6);
-        t.setPadding(h, v, h, v);
-        t.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY, dp(c, 999), 0, 0));
-        return t;
-    }
-
-    // ---- QC/TokenChip ---------------------------------------------------
-
-    /** 颜色选择器：名称 + 勾选 + 预览圆点，三重编码；每项 ≥48dp。 */
-    public static View tokenChip(Context c, String name, int color,
-                                 boolean selected, final Runnable onClick) {
-        LinearLayout chip = new LinearLayout(c);
-        chip.setOrientation(LinearLayout.HORIZONTAL);
-        chip.setGravity(Gravity.CENTER_VERTICAL);
-        chip.setMinimumHeight(dp(c, Theme.HIT));
-        chip.setBackgroundDrawable(Theme.rounded(
-                selected ? Theme.OVERLAY : Theme.RAISED,
-                dp(c, Theme.CTRL_R),
-                selected ? Theme.ACCENT : Theme.TRANSPARENT,
-                selected ? dp(c, 1.5f) : 0));
-        int p = dp(c, 12);
-        chip.setPadding(p, dp(c, 8), p, dp(c, 8));
-
-        chip.addView(text(c, selected ? "◉" : "○", 16,
-                selected ? Theme.ACCENT : Theme.TEXT_3, false));
-        TextView n = text(c, name, 14, selected ? Theme.TEXT : Theme.TEXT_2, selected);
-        n.setPadding(dp(c, 6), 0, dp(c, 10), 0);
-        chip.addView(n);
-
-        View dot = new View(c);
-        int d = dp(c, 24);
-        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(d, d);
-        dot.setLayoutParams(dlp);
-        android.graphics.drawable.GradientDrawable g =
-                new android.graphics.drawable.GradientDrawable();
-        g.setColor(color);
-        g.setCornerRadius(d / 2f);
-        g.setStroke(dp(c, 1), Theme.DIVIDER);
-        dot.setBackgroundDrawable(g);
-        chip.addView(dot);
-
-        chip.setContentDescription(name + (selected ? "，已选中" : ""));
-        chip.setOnClickListener(new View.OnClickListener() {
+    /** 动作行：右侧圆形按钮直接执行，不暗示进入下一级。 */
+    public static LinearLayout actionRow(Context c, String label, int glyph,
+                                         final Runnable onClick) {
+        LinearLayout r = newRow(c, Theme.ROW_ACTION);
+        r.addView(body(c, label), new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        GlyphView g = new GlyphView(c, glyph);
+        r.addView(g, new LinearLayout.LayoutParams(dp(c, 28), dp(c, 28)));
+        r.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (onClick != null) {
@@ -334,55 +286,209 @@ public final class Ui {
                 }
             }
         });
-        return chip;
+        return r;
     }
 
-    // ---- 按钮层级 -------------------------------------------------------
+    /** 恢复默认行：右侧 ↺ 圆钮，点一下当场生效，无弹层、无二级。 */
+    public static LinearLayout resetRow(Context c, final Runnable onClick) {
+        return actionRow(c, "恢复默认", GlyphView.RESET, onClick);
+    }
 
-    /** Primary：单屏唯一渐变主操作，高 56dp。 */
+    /** 纯状态行：左侧绿点 + 一句信任陈述，无控件。 */
+    public static LinearLayout plainRow(Context c, String label) {
+        LinearLayout r = newRow(c, Theme.ROW_PLAIN);
+        View dot = new View(c);
+        int sz = dp(c, 8);
+        dot.setBackgroundDrawable(Theme.circle(Theme.SUCCESS, dp(c, 4), 0, 0));
+        r.addView(dot, new LinearLayout.LayoutParams(sz, sz));
+        TextView t = body(c, label);
+        t.setPadding(dp(c, 10), 0, 0, 0);
+        r.addView(t, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        return r;
+    }
+
+    /** 颜色行：圆点 + 名称，横向可滑；右侧三点提示还有更多。 */
+    public static LinearLayout chipsRow(Context c, final Prefs prefs,
+                                        int selected, final Runnable onChange) {
+        LinearLayout outer = new LinearLayout(c);
+        outer.setOrientation(LinearLayout.HORIZONTAL);
+        outer.setGravity(Gravity.CENTER_VERTICAL);
+        outer.setLayoutParams(rowLp(c, Theme.ROW_CHIPS));
+        int p = dp(c, 12);
+        outer.setPadding(p, 0, p, 0);
+
+        final LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        buildChips(c, row, prefs, selected, onChange);
+        android.widget.HorizontalScrollView hs =
+                new android.widget.HorizontalScrollView(c);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(row);
+        outer.addView(hs, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView more = text(c, "···", 12, Theme.TEXT_3, false);
+        more.setPadding(dp(c, 6), 0, 0, 0);
+        outer.addView(more);
+        return outer;
+    }
+
+    /** 重画颜色 chip（选中态用名字加粗 + 圆点描边，三重编码）。 */
+    public static void buildChips(final Context c, LinearLayout row,
+                                  final Prefs prefs, final int selected,
+                                  final Runnable onChange) {
+        row.removeAllViews();
+        for (int i = 0; i < Prefs.COLORS.length; i++) {
+            final int idx = i;
+            boolean sel = (i == selected);
+            LinearLayout chip = new LinearLayout(c);
+            chip.setOrientation(LinearLayout.HORIZONTAL);
+            chip.setGravity(Gravity.CENTER_VERTICAL);
+            chip.setMinimumHeight(dp(c, Theme.HIT));
+            chip.setPadding(dp(c, 4), 0, dp(c, 12), 0);
+            chip.setContentDescription(Prefs.COLOR_NAMES[i]
+                    + (sel ? "，已选中" : ""));
+
+            View dot = new View(c);
+            int sz = dp(c, 12);
+            dot.setLayoutParams(new LinearLayout.LayoutParams(sz, sz));
+            dot.setBackgroundDrawable(Theme.circle(Prefs.COLORS[i], dp(c, 6),
+                    sel ? Theme.ACCENT : Theme.DIVIDER,
+                    sel ? dp(c, 1.5f) : dp(c, 1)));
+            chip.addView(dot);
+
+            TextView n = text(c, Prefs.COLOR_NAMES[i], 11,
+                    sel ? Theme.TEXT : Theme.TEXT_2, sel);
+            n.setPadding(dp(c, 6), 0, 0, 0);
+            chip.addView(n);
+
+            chip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    prefs.setColorIndex(idx);
+                    buildChips(c, row, prefs, idx, onChange);
+                    if (onChange != null) {
+                        onChange.run();
+                    }
+                }
+            });
+            row.addView(chip);
+        }
+    }
+
+    /** 三段控件：跟随系统 / 深色 / 浅色。 */
+    public static LinearLayout segmentRow(Context c, int selected,
+                                          final OnValue cb) {
+        LinearLayout r = newRow(c, Theme.ROW_SEGMENT);
+        String[] items = new String[]{"跟随系统", "深色", "浅色"};
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 36)));
+        for (int i = 0; i < items.length; i++) {
+            final int idx = i;
+            boolean on = (i == selected);   // selected 为 0/1/2
+            TextView seg = text(c, items[i], 12,
+                    on ? Theme.ACCENT : Theme.TEXT_2, on);
+            seg.setGravity(Gravity.CENTER);
+            seg.setBackgroundDrawable(Theme.rounded(
+                    on ? Theme.ACCENT_SOFT : Theme.OVERLAY,
+                    dp(c, Theme.CTRL_R), 0, 0));
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            if (i > 0) {
+                slp.leftMargin = dp(c, 4);
+            }
+            seg.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (cb != null) {
+                        cb.on(idx);
+                    }
+                }
+            });
+            box.addView(seg, slp);
+        }
+        r.addView(box, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 36)));
+        return r;
+    }
+
+    /** 放大页的实时预览行：外层 chip 底，内层预览画布。 */
+    public static LinearLayout previewRow(Context c, View preview) {
+        LinearLayout r = newRow(c, Theme.ROW_PREVIEW);
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
+                dp(c, Theme.CTRL_R), 0, 0));
+        box.addView(preview, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(c, Theme.ROW_PREVIEW - 16)));
+        r.addView(box, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(c, Theme.ROW_PREVIEW - 16)));
+        return r;
+    }
+
+    /** 联系作者行：二维码 + 微信号直接铺开，不折叠。 */
+    public static LinearLayout qrRow(Context c, int qrResId, String wxId) {
+        LinearLayout r = new LinearLayout(c);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setGravity(Gravity.CENTER_HORIZONTAL);
+        r.setLayoutParams(rowLp(c, Theme.ROW_QR));
+        r.setPadding(0, dp(c, 8), 0, dp(c, 6));
+
+        int size = dp(c, 96);
+        LinearLayout holder = new LinearLayout(c);
+        holder.setOrientation(LinearLayout.VERTICAL);
+        holder.setBackgroundDrawable(Theme.rounded(Theme.QR_WHITE,
+                dp(c, 12), 0, 0));
+        holder.setPadding(dp(c, 8), dp(c, 8), dp(c, 8), dp(c, 8));
+        holder.setGravity(Gravity.CENTER_HORIZONTAL);
+        ImageView qr = new ImageView(c);
+        qr.setImageResource(qrResId);
+        qr.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        qr.setContentDescription("作者的微信二维码");
+        holder.addView(qr, new LinearLayout.LayoutParams(size, size));
+        r.addView(holder, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView id = text(c, "微信号  " + wxId, 13, Theme.TEXT, true);
+        id.setGravity(Gravity.CENTER);
+        id.setPadding(0, dp(c, 12), 0, 0);
+        r.addView(id);
+        return r;
+    }
+
+    // ---- 主操作按钮 ------------------------------------------------------
+
+    /** 单色主操作，单屏唯一。 */
     public static Button primaryButton(Context c, String label) {
         Button b = new Button(c);
         b.setText(label);
         b.setAllCaps(false);
-        b.setTextSize(16);
-        b.setTextColor(Theme.ON_ACCENT);
+        b.setTextSize(14);
         b.setTypeface(Typeface.DEFAULT_BOLD);
-        b.setBackgroundDrawable(Theme.brandGradient(dp(c, Theme.CTRL_R)));
-        b.setMinimumHeight(dp(c, 56));
-        return b;
-    }
-
-    /** Secondary：overlay 填充，每屏 ≤2。 */
-    public static Button secondaryButton(Context c, String label) {
-        Button b = new Button(c);
-        b.setText(label);
-        b.setAllCaps(false);
-        b.setTextSize(15);
-        b.setTextColor(Theme.TEXT);
-        b.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
+        b.setTextColor(Theme.ON_ACCENT);
+        b.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
                 dp(c, Theme.CTRL_R), 0, 0));
-        b.setMinimumHeight(dp(c, Theme.HIT));
+        b.setMinimumHeight(dp(c, 48));
         return b;
     }
 
-    /** Tertiary：纯文字 + 图标，无底色。 */
-    public static TextView tertiaryButton(Context c, String label) {
-        TextView t = text(c, "›  " + label, 15, Theme.ACCENT, false);
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setMinHeight(dp(c, Theme.HIT));
-        t.setPadding(dp(c, 4), dp(c, 8), dp(c, 4), dp(c, 8));
-        return t;
-    }
+    // ---- 反馈 ------------------------------------------------------------
 
-    // ---- 反馈 -----------------------------------------------------------
-
-    /** 底部带图标的 Toast，2s 自动消失。成功用 ✓，失败用 !。 */
     public static void toast(Context c, String msg, boolean ok) {
         try {
-            TextView t = text(c, (ok ? "✓  " : "!  ") + msg, 14, Theme.TEXT, false);
-            int h = dp(c, 16);
-            t.setPadding(h, dp(c, 10), h, dp(c, 10));
-            t.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY, dp(c, 14), 0, 0));
+            TextView t = text(c, (ok ? "✓  " : "!  ") + msg,
+                    13, Theme.TEXT, false);
+            int h = dp(c, 14);
+            t.setPadding(h, dp(c, 9), h, dp(c, 9));
+            t.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
+                    dp(c, 12), 0, 0));
             Toast toast = new Toast(c);
             toast.setView(t);
             toast.setDuration(Toast.LENGTH_SHORT);
@@ -392,99 +498,47 @@ public final class Ui {
         }
     }
 
-    /** 成功反馈的简写。 */
     public static void iconToast(Context c, String msg) {
         toast(c, msg, true);
     }
 
-    /**
-     * Confirm Sheet：恢复默认一律底部确认，写明影响范围与撤销方式。
-     */
-    public static void confirmSheet(Context c, String heading, String message,
-                                    final Runnable onConfirm) {
-        LinearLayout box = new LinearLayout(c);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY, dp(c, 20), 0, 0));
-        int p = dp(c, 24);
-        box.setPadding(p, p, p, p);
-        box.addView(title(c, heading));
-        TextView m = body(c, message);
-        m.setTextSize(15);
-        m.setLineSpacing(dp(c, 4), 1f);
-        box.addView(m, lp(c, 0, 12, 0, 20));
+    // ---- 底部导航 --------------------------------------------------------
 
-        final Button no = secondaryButton(c, "先不恢复");
-        final Button ok = primaryButton(c, "恢复默认");
-        final AlertDialog[] holder = new AlertDialog[1];
-
-        no.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (holder[0] != null) {
-                    holder[0].dismiss();
-                }
-            }
-        });
-        ok.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (holder[0] != null) {
-                    holder[0].dismiss();
-                }
-                if (onConfirm != null) {
-                    onConfirm.run();
-                }
-            }
-        });
-        box.addView(ok);
-        box.addView(no, lp(c, 0, 10, 0, 0));
-
-        AlertDialog.Builder b = new AlertDialog.Builder(c);
-        b.setView(box);
-        AlertDialog d = b.create();
-        holder[0] = d;
-        if (d.getWindow() != null) {
-            d.getWindow().setGravity(Gravity.BOTTOM);
-            d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
-            d.getWindow().setBackgroundDrawable(
-                    new android.graphics.drawable.ColorDrawable(Theme.TRANSPARENT));
-        }
-        d.show();
-    }
-
-    // ---- 导航 -----------------------------------------------------------
-
-    /** 底部导航一格：图标 + 文字双编码；选中态用 overlay 底色 + accent 图标。 */
-    public static LinearLayout navItem(Context c, String icon, String label, boolean active) {
+    public static LinearLayout navItem(Context c, int glyph, String label,
+                                       boolean active) {
         LinearLayout v = new LinearLayout(c);
         v.setOrientation(LinearLayout.VERTICAL);
         v.setGravity(Gravity.CENTER);
         v.setBackgroundDrawable(Theme.rounded(
-                active ? Theme.OVERLAY : Theme.TRANSPARENT, dp(c, Theme.CTRL_R), 0, 0));
-        int p = dp(c, 6);
-        v.setPadding(p, dp(c, 8), p, dp(c, 8));
-        TextView i = text(c, icon, 20, active ? Theme.ACCENT : Theme.TEXT_3, false);
-        i.setGravity(Gravity.CENTER);
-        TextView l = text(c, label, 12, active ? Theme.ACCENT : Theme.TEXT_2, active);
+                active ? Theme.ACCENT_SOFT : Theme.TRANSPARENT,
+                dp(c, 12), 0, 0));
+        v.setPadding(dp(c, 6), dp(c, 6), dp(c, 6), dp(c, 6));
+        GlyphView g = new GlyphView(c, glyph);
+        g.setBackgroundDrawable(null);
+        g.setTint(active ? Theme.ACCENT : Theme.TEXT_3);
+        v.addView(g, new LinearLayout.LayoutParams(dp(c, 20), dp(c, 20)));
+        TextView l = text(c, label, 11,
+                active ? Theme.ACCENT : Theme.TEXT_2, active);
         l.setGravity(Gravity.CENTER);
-        v.addView(i);
         v.addView(l);
-        v.setMinimumHeight(dp(c, 56));
+        v.setMinimumHeight(dp(c, 52));
         return v;
     }
 
-    // ---- Spinner 深色适配 -----------------------------------------------
+    // ---- Spinner 深色 / 浅色适配 ------------------------------------------
 
-    /** 原生下拉项在深色主题下会是黑字，这里统一染成浅字 + overlay 底。 */
-    private static void styleDropdown(View v, Context c) {
+    private static void styleDropdown(View v, Context c, boolean selectedView) {
         if (v instanceof TextView) {
             TextView t = (TextView) v;
-            t.setTextColor(Theme.TEXT);
-            t.setTextSize(15);
-            t.setPadding(dp(c, 12), dp(c, 10), dp(c, 12), dp(c, 10));
+            t.setTextColor(selectedView ? Theme.TEXT_2 : Theme.TEXT);
+            t.setTextSize(13);
+            if (selectedView) {
+                t.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            }
+            t.setPadding(dp(c, 8), dp(c, 6), dp(c, 8), dp(c, 6));
         }
-        v.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY, dp(c, 10), 0, 0));
+        v.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
+                dp(c, 8), 0, 0));
     }
 
     public static ArrayAdapter<String> darkAdapter(Context c, List<String> items) {
@@ -493,19 +547,109 @@ public final class Ui {
             @Override
             public View getView(int pos, View cv, ViewGroup parent) {
                 View v = super.getView(pos, cv, parent);
-                Ui.styleDropdown(v, getContext());
+                Ui.styleDropdown(v, getContext(), true);
                 return v;
             }
 
             @Override
             public View getDropDownView(int pos, View cv, ViewGroup parent) {
                 View v = super.getDropDownView(pos, cv, parent);
-                Ui.styleDropdown(v, getContext());
+                Ui.styleDropdown(v, getContext(), false);
                 return v;
             }
         };
         ad.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         return ad;
+    }
+
+    // ---- 几何图标（不依赖字体符号，避免缺字） -----------------------------
+
+    public static final class GlyphView extends View {
+        public static final int SHARE = 1;
+        public static final int COPY = 2;
+        public static final int RESET = 3;
+        public static final int NAV_READ = 4;
+        public static final int NAV_ZOOM = 5;
+        public static final int NAV_ORB = 6;
+        public static final int NAV_MORE = 7;
+
+        private final int kind;
+        private final Paint paint;
+        private int tint = 0;
+
+        public GlyphView(Context c, int kind) {
+            super(c);
+            this.kind = kind;
+            paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Ui.dp(c, 1.4f));
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            if (kind <= RESET) {
+                setBackgroundDrawable(Theme.rounded(Theme.BUTTON,
+                        Ui.dp(c, 14), 0, 0));
+            }
+        }
+
+        /** 导航图标用选中 / 未选中色；不设时取 accent。 */
+        public void setTint(int color) {
+            tint = color;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            paint.setColor(tint != 0 ? tint : Theme.ACCENT);
+            float cx = getWidth() / 2f;
+            float cy = getHeight() / 2f;
+            float r = getWidth() * 0.22f;
+            Paint fill = new Paint(paint);
+            fill.setStyle(Paint.Style.FILL);
+
+            if (kind == RESET) {
+                RectF box = new RectF(cx - r, cy - r, cx + r, cy + r);
+                canvas.drawArc(box, 35f, 290f, false, paint);
+                double a = Math.toRadians(35);
+                float px = (float) (cx + r * Math.cos(a));
+                float py = (float) (cy + r * Math.sin(a));
+                canvas.drawCircle(px, py, Ui.dp(getContext(), 1.6f), fill);
+            } else if (kind == SHARE) {
+                canvas.drawLine(cx - r, cy + r * 0.7f, cx + r, cy - r * 0.7f, paint);
+                float ax = cx + r * 0.35f;
+                float ay = cy - r * 0.9f;
+                android.graphics.Path p = new android.graphics.Path();
+                p.moveTo(ax, ay - r * 0.45f);
+                p.lineTo(ax + r * 0.7f, ay);
+                p.lineTo(ax + r * 0.15f, ay + r * 0.55f);
+                p.close();
+                canvas.drawPath(p, fill);
+            } else if (kind == COPY) {
+                float s = r * 0.85f;
+                RectF a = new RectF(cx - s, cy - s, cx + s * 0.25f, cy + s * 0.25f);
+                RectF b = new RectF(cx - s * 0.25f, cy - s * 0.25f, cx + s, cy + s);
+                canvas.drawRoundRect(a, Ui.dp(getContext(), 2), Ui.dp(getContext(), 2), paint);
+                canvas.drawRoundRect(b, Ui.dp(getContext(), 2), Ui.dp(getContext(), 2), paint);
+            } else if (kind == NAV_READ) {
+                float[] hs = new float[]{r * 0.9f, r * 1.8f, r * 1.3f};
+                for (int k = 0; k < 3; k++) {
+                    float x = cx - r + k * r;
+                    canvas.drawRect(x - Ui.dp(getContext(), 1), cy - hs[k] / 2,
+                            x + Ui.dp(getContext(), 1), cy + hs[k] / 2, fill);
+                }
+            } else if (kind == NAV_ZOOM) {
+                canvas.drawCircle(cx - r * 0.25f, cy - r * 0.25f, r * 0.8f, paint);
+                canvas.drawLine(cx + r * 0.3f, cy + r * 0.3f,
+                        cx + r * 1.05f, cy + r * 1.05f, paint);
+            } else if (kind == NAV_ORB) {
+                canvas.drawCircle(cx, cy, r * 1.05f, paint);
+                canvas.drawCircle(cx, cy, r * 0.38f, fill);
+            } else {
+                for (int k = 0; k < 3; k++) {
+                    canvas.drawCircle(cx - r + k * r, cy,
+                            Ui.dp(getContext(), 1.5f), fill);
+                }
+            }
+        }
     }
 }
 
