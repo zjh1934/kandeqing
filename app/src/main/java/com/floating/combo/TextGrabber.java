@@ -59,13 +59,21 @@ public class TextGrabber {
      */
     private boolean skipPassword = false;
 
+    /**
+     * 3.9.4「读多少」。跟 skipPassword 一样每次 grabFrom 开头重读，
+     * 界面上刚改完选项，下一次点字就生效，不用重启无障碍服务。
+     */
+    private int readScope = Prefs.DEF_READ_SCOPE;
+
     public TextGrabber(AccessibilityService svc) {
         this.svc = svc;
     }
 
     /** 从点击处开始，往后续读 */
     public String grabFrom(int x, int y) {
-        skipPassword = new Prefs(svc).passwordGuard();
+        Prefs p = new Prefs(svc);
+        skipPassword = p.passwordGuard();
+        readScope = p.readScope();
         String out = grabFromWindows(x, y);
         if (out != null && out.length() > 0) {
             return out;
@@ -407,14 +415,22 @@ public class TextGrabber {
         if (pick.charStart > 0 && pick.charStart < head.length()) {
             head = head.substring(pick.charStart);
         }
+        // 3.9.4「读多少」：只读一句时，连命中段本身也截到第一个句末标点。
+        if (readScope == Prefs.READ_ONE) {
+            head = firstSentence(head);
+        }
         s.addHead(head);
+        // 只有「读到屏底」才接后续段；段末 / 一句到此为止。
+        if (readScope != Prefs.READ_SCREEN) {
+            return s.text();
+        }
         for (int i = idx + 1; i < segs.size(); i++) {
             s.add(segs.get(i).text);
         }
         return s.text();
     }
 
-    /** 没点中任何一段：把点击高度以下的都接上 */
+    /** 没点中任何一段：把点击高度以下的都接上（同样尊重「读多少」） */
     private String joinBelow(List<TextLayout.Node> segs, int y) {
         Sink s = new Sink();
         for (int i = 0; i < segs.size(); i++) {
@@ -425,8 +441,32 @@ public class TextGrabber {
                 continue;
             }
             s.add(n.text);
+            if (readScope != Prefs.READ_SCREEN) {
+                break;      // 只取命中高度以下的第一段
+            }
         }
-        return s.text();
+        String out = s.text();
+        if (readScope == Prefs.READ_ONE) {
+            return firstSentence(out);
+        }
+        return out;
+    }
+
+    /**
+     * 截到第一个句末标点（含）。找不到标点就整段返回 ——
+     * 宁可多念一点，也不能把内容切成空串导致「这里没读到文字」。
+     */
+    private static String firstSentence(String s) {
+        if (s == null || s.length() == 0) {
+            return s;
+        }
+        final String puncts = "。！？；\n.!?";
+        for (int i = 0; i < s.length(); i++) {
+            if (puncts.indexOf(s.charAt(i)) >= 0) {
+                return s.substring(0, i + 1);
+            }
+        }
+        return s;
     }
 
     private static int indexOf(List<TextLayout.Node> segs, TextLayout.Node target) {

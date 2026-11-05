@@ -46,6 +46,21 @@ public class Prefs {
     public static final boolean DEF_SNAP_EDGE = false;
     public static final int DEF_COLOR_INDEX = 0;
 
+    /**
+     * 3.9.4「读多少」：一次点字念到哪儿为止。
+     * 默认 READ_SCREEN = 一路念到这一屏结束，保持早期版本的行为，
+     * 老用户升级不会突然变短。
+     */
+    public static final int READ_ONE = 0;      // 只读一句
+    public static final int READ_SEG = 1;      // 读到段末
+    public static final int READ_SCREEN = 2;   // 读到屏底（默认）
+    public static final int DEF_READ_SCOPE = READ_SCREEN;
+
+    /** 界面上的「读多少」三档文案，下标就是常量值，不用再映射。 */
+    public static final String[] READ_SCOPE_LABELS = {
+            "只读一句", "读到段末", "读到屏底"
+    };
+
     private static final String K_BALL_ON = "ball_on";
     private static final String K_SIZE = "size";
     private static final String K_COLOR = "color";
@@ -68,6 +83,8 @@ public class Prefs {
     private static final String K_PWD_GUARD = "pwd_guard";
     /** 主题模式：0 跟随系统 / 1 深色 / 2 浅色。3.10 起默认跟随系统 */
     private static final String K_THEME_MODE = "theme_mode";
+    /** 3.9.4 读多少：0 只读一句 / 1 读到段末 / 2 读到屏底 */
+    private static final String K_READ_SCOPE = "read_scope";
 
     private final SharedPreferences sp;
 
@@ -348,5 +365,21 @@ public class Prefs {
 
     public void setThemeMode(int v) {
         sp.edit().putInt(K_THEME_MODE, v).apply();
+    }
+
+    /**
+     * 3.9.4「读多少」。默认 READ_SCREEN，保持早期版本「一路念到屏底」的行为。
+     * 每次 grabFrom 开头重读，界面上刚拨完选项，下一次点字就生效。
+     */
+    public int readScope() {
+        int v = sp.getInt(K_READ_SCOPE, DEF_READ_SCOPE);
+        if (v < READ_ONE || v > READ_SCREEN) {
+            return DEF_READ_SCOPE;
+        }
+        return v;
+    }
+
+    public void setReadScope(int v) {
+        sp.edit().putInt(K_READ_SCOPE, v).apply();
     }
 }

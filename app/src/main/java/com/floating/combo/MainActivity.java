@@ -63,7 +63,7 @@ public class MainActivity extends Activity
     };
 
     // ---- 朗读页 ----------------------------------------------------------
-    private Ui.SelectRow spEngine, spVoice;
+    private Ui.SelectRow spEngine, spVoice, spScope;
     private Button btnTry;
     private Runnable tryEnd;
     private boolean enginesLoaded = false;
@@ -448,7 +448,22 @@ public class MainActivity extends Activity
 
         spEngine = Ui.selectRow(this, "语音引擎");
         spVoice = Ui.selectRow(this, "音色");
-        page.addView(Ui.group(this, "声音", spEngine, spVoice), groupLp());
+        // 3.9.4「读多少」：跟引擎 / 音色同构的一行，复用刚通过的就地展开菜单。
+        // 默认「读到屏底」，保持早期版本行为；改成一句 / 段末时下一次点字就生效。
+        spScope = Ui.selectRow(this, "读多少");
+        List<String> scopeLabels = new ArrayList<String>();
+        for (String s : Prefs.READ_SCOPE_LABELS) {
+            scopeLabels.add(s);
+        }
+        spScope.setItems(scopeLabels);
+        spScope.setSelection(prefs.readScope());
+        spScope.setOnSelected(new Ui.SelectRow.OnSelected() {
+            @Override
+            public void on(int pos) {
+                prefs.setReadScope(pos);
+            }
+        });
+        page.addView(Ui.group(this, "声音", spEngine, spVoice, spScope), groupLp());
 
         page.addView(Ui.group(this, "调节",
                 Ui.sliderRow(this, "语速", 50, 300,

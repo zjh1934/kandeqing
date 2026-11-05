@@ -288,6 +288,22 @@ class Sink(object):
         return "\n".join(self.parts).strip()
 
 
+# 3.9.4「读多少」，镜像 Prefs 常量与 TextGrabber.readScope 字段
+READ_ONE, READ_SEG, READ_SCREEN = 0, 1, 2
+READ_SCOPE = READ_SCREEN        # 用例里临时改，跑完恢复
+
+
+def first_sentence(s):
+    """镜像 TextGrabber.firstSentence：截到第一个句末标点（含），没有就整段"""
+    if not s:
+        return s
+    puncts = "。！？；\n.!?"
+    for i, ch in enumerate(s):
+        if ch in puncts:
+            return s[:i + 1]
+    return s
+
+
 def join(segs, pick):
     idx = -1
     for i, s in enumerate(segs):
@@ -300,7 +316,11 @@ def join(segs, pick):
     head = pick.seg.text
     if 0 < pick.charStart < len(head):
         head = head[pick.charStart:]
+    if READ_SCOPE == READ_ONE:
+        head = first_sentence(head)
     sink.add_head(head)
+    if READ_SCOPE != READ_SCREEN:
+        return sink.text()
     for i in range(idx + 1, len(segs)):
         sink.add(segs[i].text)
     return sink.text()
@@ -312,7 +332,12 @@ def join_below(segs, y):
         if n.bottom <= y:
             continue
         sink.add(n.text)
-    return sink.text()
+        if READ_SCOPE != READ_SCREEN:
+            break
+    out = sink.text()
+    if READ_SCOPE == READ_ONE:
+        return first_sentence(out)
+    return out
 
 
 def grab_from_windows(roots, x, y, screen):
@@ -650,7 +675,107 @@ def case_password_skipped_in_find_deepest():
     return ok, best.text
 
 
+# ---------- 3.9.4「读多少」 ----------
+
+SCOPE_RAW = "第一句。第二句。第三句。"
+SCOPE_EXPECT = {
+    READ_SCREEN: "第二句。第三句。\n另一段的第一句。另一段第二句。\n最后一段。",
+    READ_SEG: "第二句。第三句。",
+    READ_ONE: "第二句。",
+}
+
+
+def _scope_grab(scope, x, y):
+    """临时切到某一档跑一次真实流程，跑完恢复默认，避免污染其它用例"""
+    global READ_SCOPE
+    old = READ_SCOPE
+    READ_SCOPE = scope
+    try:
+        rects = [RectF(i * 20, 0, (i + 1) * 20, 40)
+                 for i in range(len(SCOPE_RAW))]
+        root = n(children=[
+            n(SCOPE_RAW, bounds=(0, 0, len(SCOPE_RAW) * 20, 40),
+              char_rects=rects),
+            n("另一段的第一句。另一段第二句。", bounds=(0, 40, 600, 80)),
+            n("最后一段。", bounds=(0, 80, 300, 120)),
+        ])
+        return grab_from_windows([root], x, y, SCREEN)
+    finally:
+        READ_SCOPE = old
+
+
+def case_scope_screen_unchanged():
+    """默认「读到屏底」= 早期版本行为，老用户升级不会突然变短"""
+    got = _scope_grab(READ_SCREEN, 5 * 20 + 10, 20)
+    return got == SCOPE_EXPECT[READ_SCREEN], got
+
+
+def case_scope_seg_only_head():
+    """读到段末：命中段从点的那句起读完，不接后续段"""
+    got = _scope_grab(READ_SEG, 5 * 20 + 10, 20)
+    return got == SCOPE_EXPECT[READ_SEG], got
+
+
+def case_scope_one_only_first_sentence():
+    """只读一句：连命中段也截到第一个句号"""
+    got = _scope_grab(READ_ONE, 5 * 20 + 10, 20)
+    return got == SCOPE_EXPECT[READ_ONE], got
+
+
+def case_scope_three_lengths_distinct():
+    """三档输出必须逐档变短，不能有两档其实一样"""
+    a = _scope_grab(READ_SCREEN, 5 * 20 + 10, 20)
+    b = _scope_grab(READ_SEG, 5 * 20 + 10, 20)
+    c = _scope_grab(READ_ONE, 5 * 20 + 10, 20)
+    return len(a) > len(b) > len(c), (len(a), len(b), len(c))
+
+
+def case_scope_reverse_old_behavior_detected():
+    """反向验证：关掉裁切（旧行为）时，READ_ONE 与旧输出必须不同"""
+    global READ_SCOPE
+    old = READ_SCOPE
+    try:
+        # 旧实现：无论选项是什么都一路接到底
+        READ_SCOPE = READ_ONE
+        rects = [RectF(i * 20, 0, (i + 1) * 20, 40)
+                 for i in range(len(SCOPE_RAW))]
+        root = n(children=[
+            n(SCOPE_RAW, bounds=(0, 0, len(SCOPE_RAW) * 20, 40),
+              char_rects=rects),
+            n("另一段的第一句。另一段第二句。", bounds=(0, 40, 600, 80)),
+            n("最后一段。", bounds=(0, 80, 300, 120)),
+        ])
+        got = grab_from_windows([root], 5 * 20 + 10, 20, SCREEN)
+        # 模拟旧行为：手动把 head 与后续段拼回去
+        old_out = SCOPE_EXPECT[READ_SCREEN]
+        return got != old_out and got == SCOPE_EXPECT[READ_ONE], (got, old_out)
+    finally:
+        READ_SCOPE = old
+
+
+def case_scope_no_hit_join_below():
+    """点在空白处（没命中段）时，三档也要生效"""
+    global READ_SCOPE
+    old = READ_SCOPE
+    try:
+        READ_SCOPE = READ_ONE
+        root = n(children=[
+            n("第一段第一句。第一段第二句。", bounds=(0, 40, 400, 80)),
+            n("第二段。", bounds=(0, 80, 200, 120)),
+        ])
+        got = grab_from_windows([root], 50, 10, SCREEN)
+        return got == "第一段第一句。", got
+    finally:
+        READ_SCOPE = old
+
+
 CASES = [
+    ("3.9.4 默认读到屏底（升级不变）", case_scope_screen_unchanged),
+    ("3.9.4 读到段末不接后续段", case_scope_seg_only_head),
+    ("3.9.4 只读一句截到句末", case_scope_one_only_first_sentence),
+    ("3.9.4 三档逐档变短", case_scope_three_lengths_distinct),
+    ("3.9.4 反向验证：旧行为必被抓出", case_scope_reverse_old_behavior_detected),
+    ("3.9.4 未命中时读多少也生效", case_scope_no_hit_join_below),
     ("两列布局续读不乱序", case_two_columns_continue),
     ("父子节点不重复收录", case_parent_child_no_dup),
     ("滚出屏的节点不读", case_offscreen_skipped),
