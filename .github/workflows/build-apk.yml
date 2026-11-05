@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9：修断句起点、延迟、复杂界面抓字、无反馈。① 断句——3.8 的段内起点只用 x/段宽×全文长度，丢掉 y（行号），长文自动换行时点在行首一律估到全文前 10% 再被 sentenceStart 推到篇头；3.9 在预扫阶段取逐字矩形（后台、纯数据缓存），点字时二维最近字符定位，句起点只在命中字附近找、绝不静默退 0，拿不到逐字位置时按 y 比例估行。② 延迟——3.8 把预扫和点字兜底都投到同一个 grabH，用户快点字时兜底要排队等整树预扫跑完再自己遍历一遍，延迟翻倍；3.9 拆出独立 prepH，并在点球时主线程做一次极浅扫（300 节点）让缓存立刻可用，覆盖层撤除也改异步。③ 复杂界面——3.8 collect() 只取第一个收到文字的窗口就 return，Dialog / WebView / 分屏的正文全丢；3.9 合并所有非装饰窗口、按 layer 分组命中，父子树稳健去重，预算放宽到 30000/1200，剥 WebView 的 HTML 标签，并监听内容变化/滚屏节流重扫。④ 反馈——抬手立刻轻震（不依赖抓字结果），抓不到字时长震+明确文案+球回待命，诊断日志只记结构数字不记内容。versionCode 30 可覆盖升级，固定签名不变，Logo 仍为 3.6 蓝色玻璃球。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.1：只修 3.8 引入的闲置拖球回归，其余一行未动。用户反馈「拖的时候坐标不准」「停了还卡一下」：3.8 把 placeBallAtFinger 的「球中心对齐手指」写法（要减半宽）误套到 placeBallKeepOffset 的「保持按下相对偏移」路径，多减了 lp.width/2 与 lp.height/2；而 ACTION_UP 落位没减半宽，于是①拖动时球恒定偏左上半个球，②松手瞬间球突然跳回正确位置。修复：闲置拖球的 ACTION_DOWN offset、placeBallKeepOffset 非放大分支、ACTION_UP 落位三处统一回到 3.7 的屏幕坐标直写（手指挪 Δ、球挪 Δ，零换算、零半宽偏移）；contentX/contentY 只保留给放大期间跟手使用，删掉闲置路径里用不到的dragOffset 死分支。新增 verify_ball_drag.py 6 用例，反向注入半宽偏移时5 个断言全部 FAIL（实测偏移 -35/-36、松手跳 72px），恢复后全绿。3.8 真正有效的 getRealMetrics 放大口径统一、3.9 的断句/延迟/复杂界面/反馈全部保留；Logo 仍是 3.6 蓝色玻璃球。versionCode 31 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi
