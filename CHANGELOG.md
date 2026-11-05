@@ -1,5 +1,86 @@
 # 更新记录
 
+## 3.8 · 放大跟手、抓字低延迟、抓得更全、Logo 回退（versionCode 29）
+
+> 依据 `/data/workspace/看得清_代码审查_放大偏移与抓字链路.md` 落地。
+> 只凭代码仓库 + 审查报告 + 长期记忆 skill，一次做完出包，中途不确认。
+> 历史已修过的 250ms 等待、抓字后台线程、密码框误判、旋转重算**都没再动**。
+
+### ① 按住球放大，球老实待在手指下面
+
+根因是坐标系混用：屏幕尺寸取 `getMetrics()`（不含虚拟导航栏），
+手指坐标取 `getRawX/Y()`（含），`MagnificationController.setCenter` 收的是
+「未缩放屏幕相对坐标」。不动点公式 `K = f − (f − S/2)/s` 被喂了两个口径，
+中部恒定偏 72px，靠底部被 `clampCenter()` 放大到 258~568px。
+
+- `BallController.measure()` 改用 `getRealMetrics()`（API 17，minSdk 24 安全）。
+  数值模拟：S 换成物理尺寸后，所有位置偏移都是 0.0px，且对任意
+  f∈[0,S] 都有 K_raw∈[hw, S−hw]，`clampCenter` 不再触发。
+- `BallController` 新增 `contentX()` / `contentY()`：放大期间 `lp` 是内容坐标，
+  统一走 `zoom.screenToContentX/Y()`；`placeBallAtFinger`、
+  `placeBallKeepOffset`、`ACTION_DOWN` 的 offset、抬手落位、
+  `animateToEdge` 全部收敛到这一处，不再两条路径各用一套假设。
+  不动点条件成立时换算结果恰好等于 fx，所以「窗口不被放大」的 ROM 上也对。
+- `TextGrabber.screenRect()` 同步改物理尺寸，别把导航栏高度范围内的文字
+  误判成屏幕外丢掉。
+- `ZoomController` 只补了口径注释，公式与 clamp 不动（修口径后已不再触发）。
+
+### ② 抓字延迟很低
+
+- **新增 `TextPicker`**：进选字态（`onTap`）就在 `grabH` 后台线程把整屏
+  无障碍树预扫成**纯数据**缓存（文字 + 矩形，不持有任何 NodeInfo）。
+  用户「点球 → 找字 → 点下去」那一两秒里活已经干完。
+- `readAt()` 加主线程快路径：`picker.pick(x,y,seq)` 只做容差命中 + 拼串，
+  纯计算、零 IPC、零线程切换，直接 `startSpeak`。缓存未就绪 / 失效
+  （`pickSeq` 变化或 8 秒 TTL）才退回原 `TextGrabber.grabFrom` 后台路径，功能不坏。
+- `addOverlay()` 把 `bringToFront()`（removeView + addView 两次跨进程事务）
+  从 `onTap()` 同步路径挪到下一轮消息循环：覆盖层先就位，用户立刻能点字；
+  球稍后重挂到上层，期间覆盖层全透明、视觉无损。
+- `abortPendingGrab()` 顺带 `picker.invalidate()`，状态一变缓存立即作废。
+- `PICK_DELAY_MS = 0` 保持；`holdMs` 默认 260ms 不动（那是参数取舍，不是延迟）。
+
+### ③ 尽可能抓到更多的字
+
+`TextPicker` 的收集与命中规则（旧 `TextGrabber` 一行未动，作兜底）：
+
+- **容差命中**：精确 `contains`（取面积最小）失败时，取到 bounds 距离最近的
+  一段，半径 96dp。点在行间距、字间空隙、TextView padding 上不再退回
+  `joinBelow` 把点击点上方整行跳过 —— 这是「有些字抓不到」的主因。
+- **不再硬过滤 `isVisibleToUser()`**：ROM 误报 false 时旧版只在「整屏全空」
+  才关过滤重扫，个别段被误判就永久丢失。现在只靠 bounds 与物理屏幕相交过滤。
+- **去重只丢完全相同的**：父文本仅在与某个直接子节点文本完全相同时才丢，
+  不再因为「任一子节点交出文字」就把父节点整段丢掉。
+- **`nodeText()` 补齐**：`getText` → `getContentDescription` →
+  `getHintText`(26) → `getTooltipText`(28) → `getStateDescription`(30)，
+  空输入框、图标按钮、自定义控件也能收到东西。
+- **预算放宽**：`MAX_WALK` 20000（原 10000）、`MAX_SEG` 800（原 400），
+  长列表后半不再被截断；`MAX_DEPTH` 500 保留防爆栈。
+- `charStart` 改用「点击点在段宽里的比例」估算字符下标再往回找句读，
+  纯计算，不发 `refreshWithExtraData` 同步 IPC。
+- 只取第一个真正收到文字的窗口（层级最高），不把底层 Activity 与 Dialog 混读。
+
+> **如实说明**：Canvas 自绘文字、Flutter / Compose / 部分 WebView、图片里的字
+> 本来就没有无障碍文字节点，这一版也抓不到 —— 这不是命中规则能解决的。
+
+### ④ Logo 回退到 3.6 版本那种
+
+从 git 基线提交 `0c2a751` 恢复整套图标（3.9 之前未改过 Logo，基线即 3.6 那套）：
+
+- adaptive 前景：浅蓝细外圈 + 径向渐变蓝玻璃球（#8AB4F8 → #1565C0）+
+  左上高光 + 中心白圆（同心双球）
+- adaptive 背景：深灰 `#1E1E1E` + 底部一道极淡蓝渐变
+- 低版本简版：`solid #1565C0` + `stroke #8AB4F8` 的蓝球
+- 五种密度 PNG 与 `mipmap-anydpi-v26/ic_launcher.xml` 一并恢复
+- 3.11~3.13 那套「A 双环 / 纯透明 / 删 adaptive 入口」全部作废
+
+### 版本与交付
+
+- `versionCode 29` / `versionName "3.8"`，包名与固定签名不变，可直接覆盖安装。
+- CI 用 `versionName` 拼 Release tag，本版自动发到 `v3.8`。
+- 静态自检：`verify_all.py` 三轮 + 新增 `verify_picker.py`（含反向验证）+
+  Java 语法 + XML/PNG 完整性；真编译以 GitHub Actions 为准，
+  交付前在包内验证新类与新资源确实编进去了。
+
 ## 3.7 · Logo 透明底补到位（versionCode 28）
 
 > 上一版虽然把 adaptive 背景层改成全透明，但 `mipmap-anydpi-v26/ic_launcher.xml`

@@ -49,6 +49,8 @@ public class ComboService extends AccessibilityService
     private BallController ball;
     private ZoomController zoom;
     private TextGrabber grabber;
+    /** 3.8：进选字态就预扫整屏，点字时纯计算命中，抓字延迟接近 0 */
+    private TextPicker picker;
 
     private WindowManager wm;
     private View overlay = null;
@@ -259,6 +261,9 @@ public class ComboService extends AccessibilityService
         if (grabber == null) {
             grabber = new TextGrabber(this);
         }
+        if (picker == null) {
+            picker = new TextPicker(this);
+        }
         if (grabThread == null) {
             grabThread = new HandlerThread("grab");
             grabThread.start();
@@ -404,6 +409,21 @@ public class ComboService extends AccessibilityService
             ball.setState(BallView.ST_PICKING);
         }
         addOverlay();
+
+        // 3.8：用户「点球 → 找字 → 点下去」总有一两秒，抢在这段时间里把
+        // 整棵无障碍树预扫成纯数据缓存。点字时只做纯计算命中，零 IPC、零线程切换。
+        if (picker != null && grabH != null) {
+            final int seq = pickSeq;
+            grabH.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (picker != null) {
+                        picker.prepare(seq);
+                    }
+                }
+            });
+        }
+
         // 3.2：进选取态不震。柔边环填实成实心球就是信号（见 Haptics 里"取词全程不震"的说明）
         h.removeCallbacks(pickTimeout);
         h.postDelayed(pickTimeout, 8000);
@@ -564,6 +584,20 @@ public class ComboService extends AccessibilityService
         h.removeCallbacks(forceStopTask);
 
         final int seq = pickSeq;
+
+        // 3.8 快路径：进选字态时已把整屏预扫成纯数据缓存，
+        // pick() 只做容差命中 + 拼串，是纯计算，主线程直接调、零 IPC、
+        // 零线程切换。点字到出声的延迟从这里降到接近 0。
+        if (picker != null) {
+            String quick = picker.pick(x, y, seq);
+            if (quick != null && quick.trim().length() > 0) {
+                Log.i("pick", "预扫命中，主线程直接朗读");
+                startSpeak(quick, seq);
+                return;
+            }
+        }
+
+        // 缓存还没就绪 / 已失效：退回原来的后台整树遍历，功能不坏
         // 抓字是一屏几千个节点、每个节点好几次跨进程调用，放主线程会 ANR
         grabH.post(new Runnable() {
             @Override
@@ -781,6 +815,10 @@ public class ComboService extends AccessibilityService
     private void abortPendingGrab(boolean byUser) {
         pickSeq++;
         pickAbortedByUser = byUser;
+        // 状态一变，上一轮预扫的内容就可能过期（窗口切走 / 用户取消 / 放大）
+        if (picker != null) {
+            picker.invalidate();
+        }
     }
 
     /**
@@ -806,15 +844,24 @@ public class ComboService extends AccessibilityService
         try {
             wm.addView(overlay, overlayLp);
             overlayAdded = true;
-            // 覆盖层是后加的，会盖住球。把球重新挂一次提到上层。
-            // 注意：不能走 hide()+show()，那会重建 BallView，
-            // 把刚设的"选取态绿色"冲掉 —— 用户点了球却看不出变化，
-            // 就会以为"点了没反应"。
-            if (ball != null) {
-                ball.bringToFront();
-                ball.reapplyState(ballStateForCurrent());
-            }
-            Log.i("pick", "覆盖层已加，球保持选取态在最上层");
+            // 3.8：bringToFront 是 removeView + addView 两次跨进程事务，
+            // 旧版同步放在 onTap() 里，点完球要等它做完才能点屏幕 ——
+            // 这就是「点球进选字延迟高」剩下的主要固定开销。
+            // 挪到下一轮消息循环：覆盖层先就位，用户立刻能点字；
+            // 球稍后重挂到上层，期间覆盖层全透明，视觉无损。
+            final int frontSeq = pickSeq;
+            h.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (!overlayAdded || frontSeq != pickSeq || ball == null) {
+                        return;
+                    }
+                    // 不能走 hide()+show()，那会重建 BallView 把选取态冲掉
+                    ball.bringToFront();
+                    ball.reapplyState(ballStateForCurrent());
+                }
+            });
+            Log.i("pick", "覆盖层已加，球稍后提到最上层（不再同步阻塞）");
         } catch (Exception e) {
             Log.e("pick", "覆盖层加不上", e);
             toIdle();

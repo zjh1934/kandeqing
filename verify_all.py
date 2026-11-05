@@ -9,6 +9,8 @@
   verify_grabber.py   —— TextGrabber 完整流程镜像（收集 / 排序 / 拼装 / 回收）
   verify_speak.py     —— TtsManager 长文本切段（4000 字上限）
   verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
+  verify_picker.py    —— 3.8 TextPicker 的纯计算镜像（容差命中 / 拼装 / 缓存 /
+                         收得更全），含「关掉容差必须 FAIL」的反向验证
 
 跑三遍，全绿才准提交。
 
@@ -24,7 +26,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["verify_structure.py", "verify_textlayout.py",
-          "verify_grabber.py", "verify_speak.py", "verify_calls.py"]
+          "verify_grabber.py", "verify_speak.py", "verify_calls.py",
+          "verify_picker.py"]
 PASSES = 3
 
 

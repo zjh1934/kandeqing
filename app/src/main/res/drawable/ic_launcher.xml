@@ -1,39 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 3.12：Android 8 以下简版，底也改成全透明。
-     保留第一个 item 只为给 layer-list 一个固有 48dp 尺寸，填充是 alpha=00。
-     图形仍是 A 双环：外白环 + 内细白环 + 极小蓝点。 -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 透明占位：只提供尺寸，不画任何底色 -->
-    <item>
-        <shape android:shape="oval">
-            <solid android:color="#00000000" />
-            <size android:width="48dp" android:height="48dp" />
-        </shape>
-    </item>
-    <!-- 外环 r≈14.8dp -->
-    <item
-        android:top="9dp" android:bottom="9dp"
-        android:left="9dp" android:right="9dp">
-        <shape android:shape="oval">
-            <solid android:color="#00000000" />
-            <stroke android:width="3dp" android:color="#FFFAFAFA" />
-        </shape>
-    </item>
-    <!-- 内细环 r≈9.1dp -->
-    <item
-        android:top="15dp" android:bottom="15dp"
-        android:left="15dp" android:right="15dp">
-        <shape android:shape="oval">
-            <solid android:color="#00000000" />
-            <stroke android:width="1.5dp" android:color="#E6FAFAFA" />
-        </shape>
-    </item>
-    <!-- 中心蓝点 r≈2.1dp -->
-    <item
-        android:top="21.5dp" android:bottom="21.5dp"
-        android:left="21.5dp" android:right="21.5dp">
-        <shape android:shape="oval">
-            <solid android:color="#FF4AA8FF" />
-        </shape>
-    </item>
-</layer-list>
+<!-- Android 8 以下不支持 adaptive icon，用这个简版：蓝球 + 浅蓝细边 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#1565C0" />
+    <stroke
+        android:width="2dp"
+        android:color="#8AB4F8" />
+    <size
+        android:width="48dp"
+        android:height="48dp" />
+</shape>
