@@ -1,0 +1,87 @@
+== 构建环境 ==
+HEAD: bd5732c5d7137bccf6932a35501592414312fac4
+11:        versionCode 29
+app/src/main/java/com/floating/combo/BallArt.java
+app/src/main/java/com/floating/combo/BallController.java
+app/src/main/java/com/floating/combo/BallPreview.java
+app/src/main/java/com/floating/combo/BallView.java
+app/src/main/java/com/floating/combo/ComboService.java
+app/src/main/java/com/floating/combo/Haptics.java
+app/src/main/java/com/floating/combo/Log.java
+app/src/main/java/com/floating/combo/MainActivity.java
+app/src/main/java/com/floating/combo/Prefs.java
+app/src/main/java/com/floating/combo/TextCompare.java
+app/src/main/java/com/floating/combo/TextGrabber.java
+app/src/main/java/com/floating/combo/TextLayout.java
+app/src/main/java/com/floating/combo/TextPicker.java
+app/src/main/java/com/floating/combo/Theme.java
+app/src/main/java/com/floating/combo/TtsManager.java
+app/src/main/java/com/floating/combo/Ui.java
+app/src/main/java/com/floating/combo/ZoomController.java
+app/src/main/java/com/floating/combo/ZoomPreview.java
+== 构建输出 ==
+版本：3.8 (versionCode 29) → apk/看得清-3.8.apk
+== 1/6 aapt2 compile ==
+== 2/6 aapt2 link ==
+== 3/6 javac ==
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:4: error: cannot find symbol
+import android.accessibilityservice.AccessibilityWindowInfo;
+                                   ^
+  symbol:   class AccessibilityWindowInfo
+  location: package android.accessibilityservice
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:475: error: cannot find symbol
+    private static int layerOf(AccessibilityWindowInfo w) {
+                               ^
+  symbol:   class AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:483: error: cannot find symbol
+    private static boolean isChrome(AccessibilityWindowInfo w) {
+                                    ^
+  symbol:   class AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:425: error: cannot find symbol
+        List<AccessibilityWindowInfo> wins = null;
+             ^
+  symbol:   class AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:434: error: cannot find symbol
+            Collections.sort(wins, new Comparator<AccessibilityWindowInfo>() {
+                                                  ^
+  symbol:   class AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:436: error: cannot find symbol
+                public int compare(AccessibilityWindowInfo a,
+                                   ^
+  symbol: class AccessibilityWindowInfo
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:437: error: cannot find symbol
+                                   AccessibilityWindowInfo b) {
+                                   ^
+  symbol: class AccessibilityWindowInfo
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:442: error: cannot find symbol
+                AccessibilityWindowInfo w = wins.get(i);
+                ^
+  symbol:   class AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:486: error: cannot find symbol
+            return t == AccessibilityWindowInfo.TYPE_SYSTEM
+                        ^
+  symbol:   variable AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:487: error: cannot find symbol
+                    || t == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                            ^
+  symbol:   variable AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:488: error: cannot find symbol
+                    || t == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER
+                            ^
+  symbol:   variable AccessibilityWindowInfo
+  location: class TextPicker
+/home/runner/work/qiuqiu/qiuqiu/.toolchain/work/src/java/com/floating/combo/TextPicker.java:489: error: cannot find symbol
+                    || t == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY;
+                            ^
+  symbol:   variable AccessibilityWindowInfo
+  location: class TextPicker
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+12 errors
