@@ -5,7 +5,8 @@ import android.graphics.drawable.GradientDrawable;
 /**
  * 看得清 3.8 · 可切换的 Design Tokens。
  *
- * 3.7 那套是「一套深色写死」。3.8 按实测反馈补了正式的深 / 浅主题：
+ * 3.7 那套是「一套深色写死」。3.8 补了正式的深 / 浅主题；
+ * 3.10 把默认改成「跟随系统」，并把深色从偏蓝的深蓝灰换成中性灰黑。
  * 「更多 → 外观」里的三段控件真正切换整套配色，不是只换一块球预览。
  *
  * 色值改成运行时可写的静态字段：所有界面代码都是「用的时候才读 Theme.XXX」，
@@ -16,30 +17,35 @@ import android.graphics.drawable.GradientDrawable;
  */
 public final class Theme {
 
-    /** 0=跟随系统，1=深色，2=浅色。默认深色，与 3.7 观感一致，不突然变白。 */
+    /**
+     * 0=跟随系统，1=深色，2=浅色。
+     * 3.10 起默认**跟随系统**（用户明确要求），不再是写死的深色。
+     * 老用户升级后界面会跟着手机当前外观走，属预期变化。
+     */
     public static final int MODE_SYSTEM = 0;
     public static final int MODE_DARK = 1;
     public static final int MODE_LIGHT = 2;
-    public static final int MODE_DEFAULT = MODE_DARK;
+    public static final int MODE_DEFAULT = MODE_SYSTEM;
 
     // ---- 运行时调色板（apply 里整体替换；逐行给初值，apply 前也读得到） ----
-    public static int BASE = 0xFF0B0E13;
-    public static int RAISED = 0xFF151B25;
-    public static int OVERLAY = 0xFF1C2330;
-    public static int PRESSED = 0xFF1E2836;
-    public static int DIVIDER = 0xFF242C39;
+    // 深色是中性灰黑，不是深蓝底。3.10 把原先 #0B0E13 / #151B25 那套蓝灰全部换掉。
+    public static int BASE = 0xFF121212;
+    public static int RAISED = 0xFF1E1E1E;
+    public static int OVERLAY = 0xFF262626;
+    public static int PRESSED = 0xFF2C2C2C;
+    public static int DIVIDER = 0xFF333333;
     public static int ACCENT = 0xFF4AA8FF;
-    public static int ACCENT_SOFT = 0xFF1B2C40;
-    public static int TRACK = 0xFF2C3544;
-    public static int BUTTON = 0xFF1E2836;
+    public static int ACCENT_SOFT = 0xFF2E2E2E;
+    public static int TRACK = 0xFF3A3A3A;
+    public static int BUTTON = 0xFF2C2C2C;
     public static int SUCCESS = 0xFF3ECF8E;
     public static int WARN = 0xFFF5A524;
     public static int DANGER = 0xFFF2545B;
-    public static int TEXT = 0xFFF2F5FA;
-    public static int TEXT_2 = 0xFF8E9AAE;
-    public static int TEXT_3 = 0xFF6B7789;
-    public static int GRADIENT_FROM = 0xFF2BD4C4;
-    public static int GRADIENT_TO = 0xFF3B82F6;
+    public static int TEXT = 0xFFF2F2F2;
+    public static int TEXT_2 = 0xFFA8A8A8;
+    public static int TEXT_3 = 0xFF777777;
+    public static int GRADIENT_FROM = 0xFF4AA8FF;
+    public static int GRADIENT_TO = 0xFF4AA8FF;
 
     // ---- 两套都不变的常量 -------------------------------------------------
     public static final int TRANSPARENT = 0x00000000;
@@ -47,12 +53,12 @@ public final class Theme {
     public static final int QR_WHITE = 0xFFFFFFFF;
 
     // ---- 旧名别名 --------------------------------------------------------
-    public static int BG = 0xFF0B0E13;
-    public static int SURFACE = 0xFF151B25;
-    public static int SURFACE_2 = 0xFF1C2330;
-    public static int BORDER = 0xFF242C39;
-    public static int TEAL = 0xFF2BD4C4;
-    public static int BLUE = 0xFF3B82F6;
+    public static int BG = 0xFF121212;
+    public static int SURFACE = 0xFF1E1E1E;
+    public static int SURFACE_2 = 0xFF262626;
+    public static int BORDER = 0xFF333333;
+    public static int TEAL = 0xFF4AA8FF;
+    public static int BLUE = 0xFF4AA8FF;
 
     // ---- 间距 / 圆角（dp，调用方换算） ------------------------------------
     public static final int GRID = 4;
@@ -67,7 +73,7 @@ public final class Theme {
     public static final int ROW_PLAIN = 44;
     public static final int ROW_SLIDER = 56;
     public static final int ROW_CHIPS = 64;          // 大色卡：38dp 球 + 名字
-    public static final int ROW_BALL_PREVIEW = 96;    // 六态球一次看完，仍保持整页一屏
+    public static final int ROW_BALL_PREVIEW = 96;    // 三态球一次看完，仍保持整页一屏
     public static final int ROW_SEGMENT = 52;
     public static final int ROW_PREVIEW = 60;
     public static final int ROW_RESET = 48;
@@ -85,23 +91,24 @@ public final class Theme {
         boolean dark = (mode == MODE_DARK)
                 || (mode == MODE_SYSTEM && systemNight);
         if (dark) {
-            BASE = 0xFF0B0E13;
-            RAISED = 0xFF151B25;
-            OVERLAY = 0xFF1C2330;
-            PRESSED = 0xFF1E2836;
-            DIVIDER = 0xFF242C39;
+            // 标准深色：中性灰黑，不带任何蓝调
+            BASE = 0xFF121212;
+            RAISED = 0xFF1E1E1E;
+            OVERLAY = 0xFF262626;
+            PRESSED = 0xFF2C2C2C;
+            DIVIDER = 0xFF333333;
             ACCENT = 0xFF4AA8FF;
-            ACCENT_SOFT = 0xFF1B2C40;
-            TRACK = 0xFF2C3544;
-            BUTTON = 0xFF1E2836;
+            ACCENT_SOFT = 0xFF2E2E2E;
+            TRACK = 0xFF3A3A3A;
+            BUTTON = 0xFF2C2C2C;
             SUCCESS = 0xFF3ECF8E;
             WARN = 0xFFF5A524;
             DANGER = 0xFFF2545B;
-            TEXT = 0xFFF2F5FA;
-            TEXT_2 = 0xFF8E9AAE;
-            TEXT_3 = 0xFF6B7789;
-            GRADIENT_FROM = 0xFF2BD4C4;
-            GRADIENT_TO = 0xFF3B82F6;
+            TEXT = 0xFFF2F2F2;
+            TEXT_2 = 0xFFA8A8A8;
+            TEXT_3 = 0xFF777777;
+            GRADIENT_FROM = 0xFF4AA8FF;
+            GRADIENT_TO = 0xFF4AA8FF;
         } else {
             BASE = 0xFFF6F8FB;
             RAISED = 0xFFFFFFFF;

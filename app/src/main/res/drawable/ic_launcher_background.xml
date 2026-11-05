@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 3.9：中性深灰底，让白色 Logo 清楚；不再带任何蓝调。 -->
+<!-- 3.10：中性灰黑底，跟深色模式一致，不带任何蓝调。
+     白色柔边环需要深色底才显出来。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -7,7 +8,7 @@
     android:viewportHeight="108">
 
     <path
-        android:fillColor="#FF2B3038"
+        android:fillColor="#FF1E1E1E"
         android:pathData="M0,0h108v108h-108z" />
 
 </vector>

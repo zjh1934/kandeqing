@@ -1,10 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="surface_base">#FF0B0E13</color>
-    <color name="surface_raised">#FF141922</color>
-    <color name="surface_overlay">#FF1C2330</color>
-    <color name="surface_pressed">#FF222B3A</color>
-    <color name="accent_solid">#FF4AA8FF</color>
-    <color name="text_primary">#FFF2F5FA</color>
-    <color name="text_secondary">#FF9AA6B8</color>
+    <!-- 3.10：默认「跟随系统」，所以这里给浅色一套、中性深色一套，
+         MainActivity 在 setContentView 之前按当前模式 setTheme 选中其一。
+         深色是纯灰黑，不是深蓝底。 -->
+    <color name="surface_base">#FFF6F8FB</color>
+    <color name="surface_raised">#FFFFFFFF</color>
+    <color name="surface_overlay">#FFEFF2F7</color>
+    <color name="surface_pressed">#FFE7EAF0</color>
+    <color name="accent_solid">#FF2F6BFF</color>
+    <color name="text_primary">#FF1A1F27</color>
+    <color name="text_secondary">#FF6B7280</color>
+
+    <color name="dark_surface_base">#FF121212</color>
+    <color name="dark_surface_raised">#FF1E1E1E</color>
+    <color name="dark_surface_overlay">#FF262626</color>
+    <color name="dark_surface_pressed">#FF2C2C2C</color>
+    <color name="dark_accent_solid">#FF4AA8FF</color>
+    <color name="dark_text_primary">#FFF2F2F2</color>
+    <color name="dark_text_secondary">#FFA8A8A8</color>
 </resources>

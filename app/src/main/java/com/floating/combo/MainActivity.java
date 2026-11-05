@@ -86,8 +86,12 @@ public class MainActivity extends Activity
         super.onCreate(b);
         prefs = new Prefs(this);
         colorIndex = prefs.colorIndex();
-        // 必须在任何 View 被创建之前换好整套配色
+        // 必须在任何 View 被创建之前换好整套配色。
+        // 默认跟随系统：系统浅色就浅色、深色就中性深色；手动选深色/浅色也照此。
+        // setTheme 让 Spinner / Switch / Toast 这些原生控件也跟着走，
+        // 否则系统浅色时手动切深色，原生控件还是白底黑字。
         Theme.apply(prefs.themeMode(), systemNight());
+        setTheme(darkMode() ? R.style.AppThemeDark : R.style.AppTheme);
 
         Log.init(getApplicationContext());
         Haptics.init(getApplicationContext(), prefs.haptics());
@@ -756,7 +760,7 @@ public class MainActivity extends Activity
                     @Override
                     public void run() {
                         colorIndex = prefs.colorIndex();
-                        // 六个状态的预览球一起换色，真球也跟着换
+                        // 三个状态的预览球一起换色，真球也跟着换
                         if (ballPreview != null) {
                             ballPreview.setColor(prefs.color());
                         }

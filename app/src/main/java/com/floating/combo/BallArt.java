@@ -2,20 +2,26 @@ package com.floating.combo;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
+import android.graphics.RadialGradient;
 import android.graphics.Shader;
 
 /**
- * 球的统一画法：真球（BallView）和界面里的全状态预览（BallPreview）共用这一份，
- * 预览里看到的和屏幕上挂的就是同一个东西，不会出现「图好看、实物不一样」。
+ * 球的统一画法：真球（BallView）、界面预览（BallPreview）、颜色色卡
+ * （Ui.BallChipView）都调这一份，保证看到的就是挂到屏幕上的那个。
  *
- * 结构对齐 iOS「缩放控制器」：一个圆 + 白细边 + 正中一个小圆 +
- * 北 / 南 / 西 / 东四个小三角箭头（像十字架）。颜色可以整块换。
+ * 3.10 按用户最终方案重做，之前几版全部作废：
+ *   · 形态是**半透明矢量感图形**，边缘用径向渐变淡出（模糊柔边），
+ *     不是硬描边、不是位图色块、不是四箭头十字。
+ *   · 三态是同一份图形的三种 alpha 分布，切态不换素材、不跳形状：
+ *       闲置 / 默认  → 半透明柔边环，中间一笔不填，底下内容透得过来，静止
+ *       点一下（选字）→ 同一个图形填实，变成实心球
+ *       再点（朗读）  → 退回框（还是环，球心仍透明），框里两条同色竖线
+ *   · 换颜色只改渐变里的颜色值，环 / 球 / 框 / 竖线全是同一个颜色，
+ *     形态完全不变 —— 白色是默认，其他颜色同一套逻辑。
  *
- * 符号颜色按底色亮度自动取深灰或白：默认那颗「苹果白」在白底页面上
- * 也能看清四个箭头，不会糊成一片白。
+ * 按住放大（ST_ACTIVE）复用「实心」这一态：正在操作 = 填实，
+ * 不额外造第四种形态。闲置淡出由调用方给的 alpha 决定。
  */
 public final class BallArt {
 
@@ -24,31 +30,39 @@ public final class BallArt {
     public static final int ST_ACTIVE = 1;
     public static final int ST_PICKING = 2;
     public static final int ST_SPEAKING = 3;
-    /** 只用于预览：闲置 / 轻点两下 / 放大后拖移 */
+    /** 预览用：闲置（与 ST_NORMAL 同形态，只是更淡） */
     public static final int ST_IDLE = 4;
     public static final int ST_DOUBLE = 5;
     public static final int ST_PAN = 6;
 
-    private static final Paint pBody = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Paint pEdge = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Paint pRim = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Paint pRing = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Paint pSym = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Paint pShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private static final Path tri = new Path();
+    private static final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final Paint pBar = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     static {
-        pEdge.setStyle(Paint.Style.STROKE);
-        pRim.setStyle(Paint.Style.STROKE);
-        pRing.setStyle(Paint.Style.STROKE);
-        pSym.setStyle(Paint.Style.FILL);
+        p.setStyle(Paint.Style.FILL);
+        pBar.setStyle(Paint.Style.FILL);
     }
 
     private BallArt() {
     }
 
+    /** 把业务状态收敛到三种形态。 */
+    private static int shape(int state) {
+        switch (state) {
+            case ST_PICKING:
+            case ST_ACTIVE:
+            case ST_DOUBLE:
+            case ST_PAN:
+                return 1;   // 实心
+            case ST_SPEAKING:
+                return 2;   // 框 + 两条竖线
+            default:
+                return 0;   // 柔边环（闲置 / 常态）
+        }
+    }
+
     /**
-     * @param color ARGB 底色（用户选的颜色）
+     * @param color ARGB 颜色（环 / 球 / 框 / 竖线全部用它）
      * @param state BallArt.ST_*
      * @param alpha 整体不透明度 0~1，闲置淡出由调用方给
      */
@@ -58,183 +72,61 @@ public final class BallArt {
             return;
         }
         alpha = Math.max(0.12f, Math.min(1f, alpha));
-        int base = color & 0xFFFFFF;
-        boolean lightOnLight = lum(base) > 168;
-        // 符号：白球用深灰，深球用白 —— 任何底色都保证 4.5:1 以上的辨识度
-        int sym = lightOnLight ? 0xFF4C5765 : 0xFFFFFFFF;
+        int rgb = color & 0xFFFFFF;
+        int shape = shape(state);
 
-        float spread = 1f;
-        boolean ring = false;
-        boolean centerFill = false;
-        boolean speaking = false;
-        boolean idle = false;
-        boolean dbl = false;
-        boolean pan = false;
-        switch (state) {
-            case ST_ACTIVE:
-                spread = 1.22f;
-                ring = true;
-                break;
-            case ST_PICKING:
-                spread = 0.90f;
-                centerFill = true;
-                ring = true;
-                break;
-            case ST_SPEAKING:
-                spread = 0.88f;
-                speaking = true;
-                ring = true;
-                break;
-            case ST_IDLE:
-                idle = true;
-                spread = 0.86f;
-                break;
-            case ST_DOUBLE:
-                dbl = true;
-                spread = 1.10f;
-                break;
-            case ST_PAN:
-                pan = true;
-                spread = 1.16f;
-                break;
-            default:
-                break;
-        }
+        // 极淡暗衬：不改变三态形态，只保证白色款在浅色内容上也有轮廓。
+        // 这也是「周围渐变模糊」的一部分，不是硬边。
+        p.setShader(new RadialGradient(cx, cy, r * 1.10f,
+                new int[]{Color.argb((int) (16 * alpha), 0, 0, 0),
+                        Color.argb((int) (22 * alpha), 0, 0, 0),
+                        Color.argb(0, 0, 0, 0)},
+                new float[]{0.35f, 0.68f, 1f}, Shader.TileMode.CLAMP));
+        c.drawCircle(cx, cy, r * 1.10f, p);
 
-        // 1. 极淡外阴影：白球落在白页面上也有一条边界
-        pShadow.setShader(null);
-        pShadow.setColor(Color.argb((int) (46 * alpha), 0, 0, 0));
-        c.drawCircle(cx, cy + r * 0.05f, r * 1.08f, pShadow);
-
-        // 2. 圆体：上亮下暗的轻渐变，不再是高饱和发光球
-        int top = shift(base, 1.07f);
-        int bot = shift(base, 0.90f);
-        LinearGradient lg = new LinearGradient(cx, cy - r, cx, cy + r,
-                new int[]{argb(alpha, top), argb(alpha, bot)},
-                null, Shader.TileMode.CLAMP);
-        pBody.setShader(lg);
-        c.drawCircle(cx, cy, r, pBody);
-        pBody.setShader(null);
-
-        // 3. 白细边（苹果那个「白边」）+ 外侧一层淡灰，浅色背景下不丢边界
-        pEdge.setColor(Color.argb((int) (225 * alpha), 255, 255, 255));
-        pEdge.setStrokeWidth(Math.max(1.5f, r * (ring ? 0.075f : 0.048f)));
-        c.drawCircle(cx, cy, r - pEdge.getStrokeWidth() / 2f, pEdge);
-        pRim.setColor(Color.argb((int) (110 * alpha), 110, 122, 138));
-        pRim.setStrokeWidth(Math.max(1f, r * 0.018f));
-        c.drawCircle(cx, cy, r, pRim);
-
-        // 4. 按住 / 点一下 / 朗读中：外环亮起，状态一眼可分
-        if (ring) {
-            pRing.setColor(withAlpha(sym, (int) (185 * alpha)));
-            pRing.setStrokeWidth(Math.max(1.5f, r * 0.075f));
-            c.drawCircle(cx, cy, r * 1.13f, pRing);
-        }
-        // 轻点两下：右侧一道倍率弧
-        if (dbl) {
-            pRing.setColor(withAlpha(sym, (int) (220 * alpha)));
-            pRing.setStrokeWidth(Math.max(2f, r * 0.085f));
-            c.drawArc(new android.graphics.RectF(cx - r * 1.20f, cy - r * 1.20f,
-                            cx + r * 1.20f, cy + r * 1.20f),
-                    -58f, 116f, false, pRing);
-        }
-
-        // 5. 四向箭头十字
-        int symA = withAlpha(sym, (int) (idle ? 150 * alpha : 245 * alpha));
-        moveGlyph(c, cx, cy, r, symA, spread, centerFill, speaking, pan);
-    }
-
-    /** 中心小圆 + 四根细杆 + 四个朝外的小三角。 */
-    private static void moveGlyph(Canvas c, float cx, float cy, float r,
-                                  int sym, float spread, boolean centerFill,
-                                  boolean speaking, boolean pan) {
-        float cr = r * 0.165f;
-        float arm = r * 0.63f * spread;
-        float stem = Math.max(1.5f, r * 0.055f);
-        float tw = r * 0.145f * spread;   // 三角半宽
-        float tl = r * 0.175f * spread;   // 三角高
-
-        pSym.setColor(sym);
-        pSym.setStrokeWidth(stem);
-
-        // 十字杆
-        pSym.setStyle(Paint.Style.STROKE);
-        for (int i = 0; i < 4; i++) {
-            float dx = (i == 0) ? -1f : (i == 1) ? 1f : 0f;
-            float dy = (i == 2) ? -1f : (i == 3) ? 1f : 0f;
-            float sx = cx + dx * cr * 1.7f;
-            float sy = cy + dy * cr * 1.7f;
-            float ex = cx + dx * (arm - tl * 0.85f);
-            float ey = cy + dy * (arm - tl * 0.85f);
-            c.drawLine(sx, sy, ex, ey, pSym);
-        }
-
-        // 四个小三角
-        pSym.setStyle(Paint.Style.FILL);
-        int[][] dirs = new int[][]{{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
-        for (int[] d : dirs) {
-            float dx = d[0], dy = d[1];
-            float tipX = cx + dx * arm, tipY = cy + dy * arm;
-            float bx = cx + dx * (arm - tl), by = cy + dy * (arm - tl);
-            tri.reset();
-            tri.moveTo(tipX, tipY);
-            if (dx != 0) {
-                tri.lineTo(bx, by - tw);
-                tri.lineTo(bx, by + tw);
-            } else {
-                tri.lineTo(bx - tw, by);
-                tri.lineTo(bx + tw, by);
-            }
-            tri.close();
-            c.drawPath(tri, pSym);
-        }
-
-        // 中心小圆：常态空心，点一下填实，朗读中变两竖
-        pSym.setStyle(Paint.Style.STROKE);
-        pSym.setStrokeWidth(Math.max(1.8f, r * 0.065f));
-        if (speaking) {
-            float bw = cr * 0.24f;
-            float bh = cr * 1.05f;
-            pSym.setStyle(Paint.Style.FILL);
-            c.drawRect(cx - cr * 0.52f - bw, cy - bh, cx - cr * 0.52f + bw, cy + bh, pSym);
-            c.drawRect(cx + cr * 0.52f - bw, cy - bh, cx + cr * 0.52f + bw, cy + bh, pSym);
-        } else if (centerFill) {
-            pSym.setStyle(Paint.Style.FILL);
-            c.drawCircle(cx, cy, cr * 0.92f, pSym);
+        if (shape == 1) {
+            // 实心球：中心平实，只有外缘一圈渐变柔化
+            p.setShader(new RadialGradient(cx, cy, r,
+                    new int[]{argb(0.90f * alpha, rgb),
+                            argb(0.90f * alpha, rgb),
+                            argb(0.46f * alpha, rgb),
+                            argb(0f, rgb)},
+                    new float[]{0f, 0.72f, 0.90f, 1f},
+                    Shader.TileMode.CLAMP));
+            c.drawCircle(cx, cy, r, p);
         } else {
-            c.drawCircle(cx, cy, cr, pSym);
-        }
+            // 柔边环：中间全透明，只在环处亮，向内外都渐变淡出
+            float ringA = (shape == 2 ? 0.94f : 0.82f) * alpha;
+            p.setShader(new RadialGradient(cx, cy, r,
+                    new int[]{argb(0f, rgb),
+                            argb(0f, rgb),
+                            argb(ringA, rgb),
+                            argb(ringA * 0.55f, rgb),
+                            argb(0f, rgb),
+                            argb(0f, rgb)},
+                    new float[]{0f, 0.50f, 0.70f, 0.81f, 0.93f, 1f},
+                    Shader.TileMode.CLAMP));
+            c.drawCircle(cx, cy, r, p);
 
-        // 放大后拖移：球内底部一条短轨迹
-        if (pan) {
-            pSym.setStyle(Paint.Style.FILL);
-            for (int k = 0; k < 3; k++) {
-                float x = cx - r * 0.20f + k * r * 0.20f;
-                c.drawCircle(x, cy + r * 0.72f, r * 0.035f, pSym);
+            if (shape == 2) {
+                // 框里两条同色竖线，带一点柔边，球心仍是透明的
+                float bw = r * 0.13f;
+                float gap = r * 0.29f;
+                float bh = r * 0.46f;
+                pBar.setColor(argb(0.95f * alpha, rgb));
+                for (int sgn = -1; sgn <= 1; sgn += 2) {
+                    float x = cx + sgn * gap;
+                    c.drawRoundRect(x - bw / 2f, cy - bh,
+                            x + bw / 2f, cy + bh,
+                            bw / 2f, bw / 2f, pBar);
+                }
             }
         }
+        p.setShader(null);
     }
 
     private static int argb(float a, int rgb) {
         int v = (int) (255 * Math.max(0f, Math.min(1f, a)));
         return Color.argb(v, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
-    }
-
-    private static int withAlpha(int argb, int a) {
-        return Color.argb(Math.max(0, Math.min(255, a)),
-                Color.red(argb), Color.green(argb), Color.blue(argb));
-    }
-
-    private static int shift(int rgb, float f) {
-        int r = (int) Math.min(255, ((rgb >> 16) & 0xFF) * f);
-        int g = (int) Math.min(255, ((rgb >> 8) & 0xFF) * f);
-        int b = (int) Math.min(255, (rgb & 0xFF) * f);
-        return (r << 16) | (g << 8) | b;
-    }
-
-    public static int lum(int rgb) {
-        return (int) (0.299 * ((rgb >> 16) & 0xFF)
-                + 0.587 * ((rgb >> 8) & 0xFF)
-                + 0.114 * (rgb & 0xFF));
     }
 }

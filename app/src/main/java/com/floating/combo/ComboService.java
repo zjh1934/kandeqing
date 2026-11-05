@@ -404,7 +404,7 @@ public class ComboService extends AccessibilityService
             ball.setState(BallView.ST_PICKING);
         }
         addOverlay();
-        // 3.2：进选取态不震。球中心填实 + 外环亮起就是信号（见 Haptics 里"取词全程不震"的说明）
+        // 3.2：进选取态不震。柔边环填实成实心球就是信号（见 Haptics 里"取词全程不震"的说明）
         h.removeCallbacks(pickTimeout);
         h.postDelayed(pickTimeout, 8000);
     }
@@ -434,9 +434,9 @@ public class ComboService extends AccessibilityService
     /**
      * 朗读看门狗。
      *
-     * 球的"两竖"= 朗读中。这个状态只有引擎回调 onDone 才会退出。
+     * 球的"框里两条竖线"= 朗读中。这个状态只有引擎回调 onDone 才会退出。
      * 但引擎是会失约的：被系统冻结、语音数据没装、第三方引擎吞掉回调……
-     * 一旦不回调，球就永远停在"两竖"，用户点它也没用（点了还是在朗读态里打转）。
+     * 一旦不回调，球就永远停在朗读态，用户点它也没用（点了还是在朗读态里打转）。
      * 所以给每次朗读按字数配一个超时，到点强制归位。
      *
      * 估计得宽一点：宁可晚几十秒，也不能把正在读的长文章截断。
@@ -634,8 +634,8 @@ public class ComboService extends AccessibilityService
         if (ball != null) {
             ball.setState(BallView.ST_SPEAKING);
         }
-        // 3.2：开始朗读不震。球中心变两竖 + 出声就是信号
-        // 引擎万一不回调，也要能从"两竖"里退出来
+        // 3.2：开始朗读不震。球退回柔边框 + 框里两竖、出声，就是信号
+        // 引擎万一不回调，也要能从"框里两竖"里退出来
         h.removeCallbacks(speakWatchdog);
         h.postDelayed(speakWatchdog, guardMs(text.length()));
     }

@@ -66,7 +66,7 @@ public class Prefs {
     private static final String K_HAPTIC = "haptic";
     /** 3.7 密码保护开关。默认关 = 照常朗读密码框；开 = 跳过 isPassword 节点 */
     private static final String K_PWD_GUARD = "pwd_guard";
-    /** 3.8 主题模式：0 跟随系统 / 1 深色 / 2 浅色。默认深色，与 3.7 观感一致 */
+    /** 主题模式：0 跟随系统 / 1 深色 / 2 浅色。3.10 起默认跟随系统 */
     private static final String K_THEME_MODE = "theme_mode";
 
     private final SharedPreferences sp;
@@ -337,7 +337,7 @@ public class Prefs {
         sp.edit().putBoolean(K_PWD_GUARD, v).apply();
     }
 
-    /** 3.8 主题模式。默认深色，老用户升级后不会突然变白。 */
+    /** 3.10 起默认跟随系统：手机是浅色就浅色，深色就中性深色。 */
     public int themeMode() {
         int v = sp.getInt(K_THEME_MODE, Theme.MODE_DEFAULT);
         if (v < 0 || v > 2) {

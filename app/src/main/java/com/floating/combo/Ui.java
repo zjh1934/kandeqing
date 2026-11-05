@@ -331,7 +331,7 @@ public final class Ui {
         return outer;
     }
 
-    /** 六态球一次看完：点色卡时整行一起换色，不再只变一个小圆点。 */
+    /** 三态球一次看完：点色卡时整行一起换色，不再只变一个小圆点。 */
     public static LinearLayout ballPreviewRow(Context c, BallPreview preview) {
         LinearLayout r = newRow(c, Theme.ROW_BALL_PREVIEW);
         LinearLayout box = new LinearLayout(c);
@@ -697,6 +697,9 @@ public final class Ui {
                 line.setStrokeWidth(Ui.dp(getContext(), 2f));
                 c.drawCircle(cx, cy, r - pad, line);
             }
+            // 统一中性底：白色默认是半透明柔边环，没有底在浅色界面上会看不见
+            fill.setColor(0xFF3C4655);
+            c.drawCircle(cx, cy, r * 0.88f, fill);
             BallArt.draw(c, cx, cy, r * 0.78f, color,
                     BallArt.ST_NORMAL, 1f);
             if (checked) {
