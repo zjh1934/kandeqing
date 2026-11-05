@@ -57,6 +57,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         # tee 落盘：CI 日志端点被网络策略拦时，还能从仓库里读到真实构建过程
         run: |
+          # Actions 默认 shell 只有 -e，不带 pipefail：
+          # `cmd | tee` 会把失败脚本的退出码吞成 tee 的 0，出现过「假成功发旧包」。
+          set -o pipefail
           echo "== 构建环境 ==" > build.log
           echo "HEAD: $(git rev-parse HEAD)" >> build.log
           grep -n versionCode app/build.gradle >> build.log

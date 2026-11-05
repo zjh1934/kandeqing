@@ -99,7 +99,7 @@ public class MainActivity extends Activity
     private int colorIndex = 0;
 
     // ---- 更多页 ----------------------------------------------------------
-    private View qrWrap;
+    private LinearLayout qrWrap;
     private TextView btnQr;
     private boolean qrOpen = false;
 
