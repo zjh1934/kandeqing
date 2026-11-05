@@ -112,7 +112,7 @@ jobs:
           # Release 资产名用 ASCII：接口会把中文字符裁掉（变成 "-3.6.apk"），
           # 仓库 apk/ 里的中文文件名保留，两者是同一个包。
           NAME="kanqing-$VER.apk"
-          NOTES="按真机实测反馈重做：删大标题与注释文字、清掉全部折叠块、每页一屏、二维码与微信号直接铺开、恢复默认改为分组内就地生效、新增正式的深/浅/跟随系统主题切换；versionCode 23 可覆盖升级。TTS、抓字、放大与悬浮球手势逻辑一行未动。详见 CHANGELOG.md。"
+          NOTES="悬浮球对齐 iOS 缩放控制器的图标结构：圆 + 白细边 + 中心小圆 + 四向三角箭头；默认颜色改为苹果那种白色，Logo 同步改白；颜色选择改成六态全预览 + 大色卡，点一下六个状态的球一起换色。常态/按住/点一下/朗读中/拖动/闲置六种视觉逐态对齐。versionCode 24 可覆盖升级。TTS、抓字、放大与悬浮球手势逻辑一行未动。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

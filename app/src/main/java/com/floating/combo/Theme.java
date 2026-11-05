@@ -66,7 +66,8 @@ public final class Theme {
     public static final int ROW_ACTION = 48;
     public static final int ROW_PLAIN = 44;
     public static final int ROW_SLIDER = 56;
-    public static final int ROW_CHIPS = 48;
+    public static final int ROW_CHIPS = 64;          // 大色卡：38dp 球 + 名字
+    public static final int ROW_BALL_PREVIEW = 96;    // 六态球一次看完，仍保持整页一屏
     public static final int ROW_SEGMENT = 52;
     public static final int ROW_PREVIEW = 60;
     public static final int ROW_RESET = 48;

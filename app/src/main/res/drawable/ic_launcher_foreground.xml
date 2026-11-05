@@ -1,49 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 3.9：Logo 也改成「苹果白」—— 和默认球同一个图标结构：
+     白圆 + 细灰边 + 中心小圆 + 北南西东四个小三角箭头。
+     白圆上的符号用深灰，保证白色壁纸下也看得清。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 外圈：细描边，让球有边界感，不是"一个圆加白边" -->
+    <!-- 白色圆 -->
+    <path
+        android:fillColor="#FFFAFAFA"
+        android:pathData="M54,54m-30,0a30,30 0,1,0 60,0a30,30 0,1,0 -60,0" />
+    <!-- 细灰边，白色壁纸下不丢边界 -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#8AB4F8"
-        android:strokeWidth="2.2"
-        android:pathData="M54,54m-31,0a31,31 0,1,0 62,0a31,31 0,1,0 -62,0" />
+        android:strokeColor="#FFB4BDC9"
+        android:strokeWidth="1.6"
+        android:pathData="M54,54m-30,0a30,30 0,1,0 60,0a30,30 0,1,0 -60,0" />
 
-    <!-- 主球：径向渐变，亮源在左上，做出玻璃球体积感 -->
-    <path
-        android:pathData="M54,54m-26,0a26,26 0,1,0 52,0a26,26 0,1,0 -52,0">
-        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt"
-            name="android:fillColor">
-            <gradient
-                android:type="radial"
-                android:centerX="0.36"
-                android:centerY="0.30"
-                android:gradientRadius="0.78">
-                <item android:offset="0.0" android:color="#FF8AB4F8" />
-                <item android:offset="0.45" android:color="#FF4A8FE7" />
-                <item android:offset="1.0" android:color="#FF1565C0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-
-    <!-- 高光：左上小椭圆 -->
-    <path
-        android:fillColor="#66FFFFFF"
-        android:pathData="M45,38.5a9.5,6.5 0,1,0 19,0a9.5,6.5 0,1,0 -19,0" />
-
-    <!-- 内球：白色小圆，形成同心双球 -->
-    <path
-        android:fillColor="#F2FFFFFF"
-        android:pathData="M54,54m-9.5,0a9.5,9.5 0,1,0 19,0a9.5,9.5 0,1,0 -19,0" />
-
-    <!-- 内球的暗边，避免白球显得贴纸一样平 -->
+    <!-- 十字杆 -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#331565C0"
-        android:strokeWidth="1.4"
-        android:pathData="M54,54m-9.5,0a9.5,9.5 0,1,0 19,0a9.5,9.5 0,1,0 -19,0" />
+        android:strokeColor="#FF4C5765"
+        android:strokeWidth="3"
+        android:pathData="M54,48 L54,36 M54,60 L54,72 M48,54 L36,54 M60,54 L72,54" />
+
+    <!-- 四个朝外的小三角 -->
+    <path
+        android:fillColor="#FF4C5765"
+        android:pathData="M54,26 L49,36 L59,36 Z M54,82 L49,72 L59,72 Z M26,54 L36,49 L36,59 Z M82,54 L72,49 L72,59 Z" />
+
+    <!-- 中心小圆（空心） -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF4C5765"
+        android:strokeWidth="3"
+        android:pathData="M54,54m-6,0a6,6 0,1,0 12,0a6,6 0,1,0 -12,0" />
 
 </vector>

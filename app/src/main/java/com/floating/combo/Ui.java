@@ -308,14 +308,14 @@ public final class Ui {
         return r;
     }
 
-    /** 颜色行：圆点 + 名称，横向可滑；右侧三点提示还有更多。 */
+    /** 颜色行：大色卡（球本体 + 名字 + 选中勾），横向可滑。 */
     public static LinearLayout chipsRow(Context c, final Prefs prefs,
                                         int selected, final Runnable onChange) {
         LinearLayout outer = new LinearLayout(c);
         outer.setOrientation(LinearLayout.HORIZONTAL);
         outer.setGravity(Gravity.CENTER_VERTICAL);
         outer.setLayoutParams(rowLp(c, Theme.ROW_CHIPS));
-        int p = dp(c, 12);
+        int p = dp(c, 8);
         outer.setPadding(p, 0, p, 0);
 
         final LinearLayout row = new LinearLayout(c);
@@ -327,14 +327,26 @@ public final class Ui {
         hs.setHorizontalScrollBarEnabled(false);
         hs.addView(row);
         outer.addView(hs, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView more = text(c, "···", 12, Theme.TEXT_3, false);
-        more.setPadding(dp(c, 6), 0, 0, 0);
-        outer.addView(more);
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
         return outer;
     }
 
-    /** 重画颜色 chip（选中态用名字加粗 + 圆点描边，三重编码）。 */
+    /** 六态球一次看完：点色卡时整行一起换色，不再只变一个小圆点。 */
+    public static LinearLayout ballPreviewRow(Context c, BallPreview preview) {
+        LinearLayout r = newRow(c, Theme.ROW_BALL_PREVIEW);
+        LinearLayout box = new LinearLayout(c);
+        box.setBackgroundDrawable(Theme.rounded(Theme.OVERLAY,
+                dp(c, Theme.CTRL_R), 0, 0));
+        box.addView(preview, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT));
+        r.addView(box, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(c, Theme.ROW_BALL_PREVIEW - 16)));
+        return r;
+    }
+
+    /** 重画颜色色卡：选中项是放大一圈的球 + 白勾 + 外环 + 名字高亮。 */
     public static void buildChips(final Context c, LinearLayout row,
                                   final Prefs prefs, final int selected,
                                   final Runnable onChange) {
@@ -343,24 +355,22 @@ public final class Ui {
             final int idx = i;
             boolean sel = (i == selected);
             LinearLayout chip = new LinearLayout(c);
-            chip.setOrientation(LinearLayout.HORIZONTAL);
-            chip.setGravity(Gravity.CENTER_VERTICAL);
+            chip.setOrientation(LinearLayout.VERTICAL);
+            chip.setGravity(Gravity.CENTER_HORIZONTAL);
             chip.setMinimumHeight(dp(c, Theme.HIT));
-            chip.setPadding(dp(c, 4), 0, dp(c, 12), 0);
+            chip.setPadding(dp(c, 6), dp(c, 4), dp(c, 6), dp(c, 2));
             chip.setContentDescription(Prefs.COLOR_NAMES[i]
                     + (sel ? "，已选中" : ""));
 
-            View dot = new View(c);
-            int sz = dp(c, 12);
-            dot.setLayoutParams(new LinearLayout.LayoutParams(sz, sz));
-            dot.setBackgroundDrawable(Theme.circle(Prefs.COLORS[i], dp(c, 6),
-                    sel ? Theme.ACCENT : Theme.DIVIDER,
-                    sel ? dp(c, 1.5f) : dp(c, 1)));
-            chip.addView(dot);
+            BallChipView ball = new BallChipView(c);
+            ball.setColor(Prefs.COLORS[i]);
+            ball.setChecked(sel);
+            chip.addView(ball, new LinearLayout.LayoutParams(
+                    dp(c, 38), dp(c, 38)));
 
             TextView n = text(c, Prefs.COLOR_NAMES[i], 11,
-                    sel ? Theme.TEXT : Theme.TEXT_2, sel);
-            n.setPadding(dp(c, 6), 0, 0, 0);
+                    sel ? Theme.ACCENT : Theme.TEXT_2, sel);
+            n.setPadding(0, dp(c, 2), 0, 0);
             chip.addView(n);
 
             chip.setOnClickListener(new View.OnClickListener() {
@@ -648,6 +658,60 @@ public final class Ui {
                     canvas.drawCircle(cx - r + k * r, cy,
                             Ui.dp(getContext(), 1.5f), fill);
                 }
+            }
+        }
+    }
+
+    /** 颜色色卡：画的就是球本体，选中加外环与右下角白勾。 */
+    public static final class BallChipView extends View {
+        private int color = 0xFFFAFAFA;
+        private boolean checked = false;
+        private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        public BallChipView(Context c) {
+            super(c);
+            line.setStyle(Paint.Style.STROKE);
+            fill.setStyle(Paint.Style.FILL);
+        }
+
+        public void setColor(int c) {
+            color = c;
+            invalidate();
+        }
+
+        /** 不叫 setSelected：那是 View 自带的方法，别覆盖它。 */
+        public void setChecked(boolean v) {
+            checked = v;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            float cx = getWidth() / 2f;
+            float cy = getHeight() / 2f;
+            float r = Math.min(getWidth(), getHeight()) / 2f;
+            float pad = Ui.dp(getContext(), 3f);
+            if (checked) {
+                line.setColor(Theme.ACCENT);
+                line.setStrokeWidth(Ui.dp(getContext(), 2f));
+                c.drawCircle(cx, cy, r - pad, line);
+            }
+            BallArt.draw(c, cx, cy, r * 0.78f, color,
+                    BallArt.ST_NORMAL, 1f);
+            if (checked) {
+                float bx = cx + r * 0.58f;
+                float by = cy + r * 0.58f;
+                float br = Ui.dp(getContext(), 8f);
+                fill.setColor(0xFFFFFFFF);
+                c.drawCircle(bx, by, br, fill);
+                line.setColor(Theme.ACCENT);
+                line.setStrokeWidth(Ui.dp(getContext(), 2f));
+                android.graphics.Path p = new android.graphics.Path();
+                p.moveTo(bx - br * 0.45f, by);
+                p.lineTo(bx - br * 0.08f, by + br * 0.38f);
+                p.lineTo(bx + br * 0.48f, by - br * 0.42f);
+                c.drawPath(p, line);
             }
         }
     }

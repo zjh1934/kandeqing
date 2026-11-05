@@ -6,18 +6,26 @@ import android.content.SharedPreferences;
 /** 全部设置的唯一出入口。所有键集中在这里，别到处散着读写。 */
 public class Prefs {
 
+    /**
+     * 3.9 配色：默认改成 iOS 缩放控制器那种「白色」，不再是蓝色。
+     * 其余六色按「半透明淡染」重新调过 —— 降饱和、统一明度、色相拉开，
+     * 深浅两种系统主题下都能一眼分出哪个被选中。
+     *
+     * 索引仍是存储值，长度保持 7，老用户存过的索引不会越界。
+     * 代价：旧表里索引 6 是「纯白」，新表 6 是石板；想要白色选第 0 项即可。
+     */
     public static final int[] COLORS = new int[]{
-            0xFF1565C0,  // 蓝
-            0xFF2E7D32,  // 绿
-            0xFFC62828,  // 红
-            0xFF6A1B9A,  // 紫
-            0xFFEF6C00,  // 橙
-            0xFF37474F,  // 墨
-            0xFFFAFAFA,  // 白
+            0xFFFAFAFA,  // 纯白（默认，苹果缩放控制器那种白）
+            0xFF4A7FD4,  // 雾蓝
+            0xFF2E9E8F,  // 松绿
+            0xFFD9963F,  // 蜜金
+            0xFFD96B6B,  // 陶红
+            0xFF8B74D6,  // 薰紫
+            0xFF5A7494,  // 石板
     };
-    /** 3.7：色块升级为带名称的 token chip，名称只用于展示，索引才是存储值。 */
+    /** 名称只用于展示，索引才是存储值。 */
     public static final String[] COLOR_NAMES = new String[]{
-            "海蓝", "草绿", "正红", "紫", "橙", "石墨", "纯白"
+            "纯白", "雾蓝", "松绿", "蜜金", "陶红", "薰紫", "石板"
     };
 
     private static final String P = "cfg";

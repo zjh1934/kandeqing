@@ -2,56 +2,40 @@ package com.floating.combo;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.RadialGradient;
-import android.graphics.Shader;
 import android.view.View;
 
 /**
- * 球本体。四态：
- *   ST_NORMAL    待命 —— 用户选的颜色
- *   ST_PICKING   选取态 —— 绿，等你点屏幕上的字
- *   ST_SPEAKING  朗读中 —— 橙 + 暂停图标
- *   ST_ACTIVE    放大中 —— 套一圈外环
+ * 球本体。3.9 起对齐 iOS 缩放控制器的图标结构：
+ * 圆 + 白细边 + 中心小圆 + 北南西东四个小三角箭头（十字架）。
  *
- * 关键：drawScale。
- * 系统全屏放大时悬浮窗会被一起放大，所以放大 s 倍时按 1/s 画，
- * 放大回来正好是设定大小，不会变大。
+ * 四个业务状态不再是「整体换底色」（那样用户选的颜色永远看不出来）：
+ *   ST_NORMAL    常态 —— 标准四箭头
+ *   ST_ACTIVE    按住放大 / 放大中 —— 箭头外扩 + 外环亮起
+ *   ST_PICKING   点一下进选字态 —— 中心圆填实 + 外环
+ *   ST_SPEAKING  朗读中 —— 中心变两竖 + 外环
+ * 用户选的颜色始终是球的颜色，换色一眼可见。
+ *
+ * 具体画法统一放在 BallArt，界面里的「全状态预览」也调同一份，
+ * 保证预览和真球长得一样。
+ *
+ * drawScale 仍在：系统全屏放大时悬浮窗会被一起放大，按 1/s 画才能
+ * 让球保持设定大小。这段是已验证过的逻辑，未改动。
  */
 public class BallView extends View {
 
-    public static final int ST_NORMAL = 0;
-    public static final int ST_ACTIVE = 1;
-    public static final int ST_PICKING = 2;
-    public static final int ST_SPEAKING = 3;
+    public static final int ST_NORMAL = BallArt.ST_NORMAL;
+    public static final int ST_ACTIVE = BallArt.ST_ACTIVE;
+    public static final int ST_PICKING = BallArt.ST_PICKING;
+    public static final int ST_SPEAKING = BallArt.ST_SPEAKING;
 
-    /** 各状态的底色，跟拾字验证过的保持一致 */
-    private static final int C_PICKING = 0xFF43A047;
-    private static final int C_SPEAKING = 0xFFFB8C00;
-
-    private final Paint pShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint pBody = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint pGloss = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint pEdge = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint pRing = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint pIcon = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-    private int color = 0xFF1565C0;
-    // 初值只在「还没设置过」的那一瞬起作用：BallController 建完 view 立刻
-    // 调 setBallAlpha(prefs.alpha())，所以这里实际看不到。
-    // 跟着 3.4 的新默认（100%）写，避免下次有人照着这个旧数字改回去。
+    /** 默认「苹果白」，与 iOS 缩放控制器的白色款一致 */
+    private int color = Prefs.COLORS[Prefs.DEF_COLOR_INDEX];
     private float alpha = 1.0f;
     private int state = ST_NORMAL;
     private float drawScale = 1f;
 
     public BallView(Context c) {
         super(c);
-        pEdge.setStyle(Paint.Style.STROKE);
-        pRing.setStyle(Paint.Style.STROKE);
-        pIcon.setColor(Color.WHITE);
-        pIcon.setStyle(Paint.Style.FILL);
     }
 
     public void setBallColor(int c) {
@@ -81,118 +65,23 @@ public class BallView extends View {
         }
     }
 
-    /** 当前实际用的底色（选取/朗读态会盖掉用户颜色） */
-    private int baseColor() {
-        if (state == ST_PICKING) {
-            return C_PICKING;
-        }
-        if (state == ST_SPEAKING) {
-            return C_SPEAKING;
-        }
-        return color;
-    }
-
     private float effAlpha() {
         float a = alpha;
+        // 选取 / 朗读是「正在干活」的状态，别被闲置淡出盖掉
         if (state == ST_PICKING || state == ST_SPEAKING) {
             a = Math.max(a, 0.94f);
-        } else if (state == ST_ACTIVE) {
-            a *= 0.72f;
         }
-        return Math.max(0.15f, Math.min(1f, a));
+        return Math.max(0.12f, Math.min(1f, a));
     }
 
     @Override
     protected void onDraw(Canvas c) {
         float w = getWidth();
         float h = getHeight();
-        if (w <= 0 || h <= 0) {
+        if (w <= 0f || h <= 0f) {
             return;
         }
-
-        float cx = w / 2f;
-        float cy = h / 2f;
-        float outer = Math.min(w, h) / 2f;
-        float r = outer * 0.80f * drawScale;
-        if (r <= 1f) {
-            return;
-        }
-
-        float a = effAlpha();
-        int base = baseColor() & 0xFFFFFF;
-
-        // 1. 外阴影
-        float shR = r * 1.22f;
-        RadialGradient g = new RadialGradient(
-                cx, cy + r * 0.10f, shR,
-                new int[]{Color.argb((int) (90 * a), 0, 0, 0), Color.argb(0, 0, 0, 0)},
-                new float[]{0.55f, 1f}, Shader.TileMode.CLAMP);
-        pShadow.setShader(g);
-        c.drawCircle(cx, cy + r * 0.08f, shR, pShadow);
-
-        // 2. 主体：上亮下暗
-        int top = shift(base, 1.18f);
-        int bot = shift(base, 0.78f);
-        LinearGradient lg = new LinearGradient(
-                cx, cy - r, cx, cy + r,
-                new int[]{argb(a, top), argb(a, bot)},
-                null, Shader.TileMode.CLAMP);
-        pBody.setShader(lg);
-        c.drawCircle(cx, cy, r, pBody);
-
-        // 3. 顶部高光
-        RadialGradient gg = new RadialGradient(
-                cx - r * 0.28f, cy - r * 0.34f, r * 0.62f,
-                new int[]{Color.argb((int) (110 * a), 255, 255, 255),
-                        Color.argb(0, 255, 255, 255)},
-                new float[]{0f, 1f}, Shader.TileMode.CLAMP);
-        pGloss.setShader(gg);
-        c.drawCircle(cx - r * 0.28f, cy - r * 0.34f, r * 0.62f, pGloss);
-
-        // 4. 描边
-        int lum = lum(base);
-        int ec = lum > 160 ? 60 : 255;
-        pEdge.setColor(Color.argb((int) (140 * a), ec, ec, ec));
-        pEdge.setStrokeWidth(Math.max(1f, r * 0.045f));
-        c.drawCircle(cx, cy, r - pEdge.getStrokeWidth() / 2f, pEdge);
-
-        // 5. 放大中：外环
-        if (state == ST_ACTIVE) {
-            pRing.setColor(argb(a * 0.9f, base));
-            pRing.setStrokeWidth(Math.max(1.5f, r * 0.10f));
-            c.drawCircle(cx, cy, r * 1.16f, pRing);
-        }
-
-        // 6. 状态图标：选取态画个靶心，朗读中画暂停
-        pIcon.setColor(Color.argb((int) (230 * a), 255, 255, 255));
-        if (state == ST_PICKING) {
-            float ir = r * 0.30f;
-            c.drawCircle(cx, cy, ir, pIcon);
-            pIcon.setColor(argb(a, base));
-            c.drawCircle(cx, cy, ir * 0.55f, pIcon);
-        } else if (state == ST_SPEAKING) {
-            float bw = r * 0.20f;
-            float bh = r * 0.52f;
-            c.drawRect(cx - bw * 1.3f, cy - bh / 2f, cx - bw * 0.3f, cy + bh / 2f, pIcon);
-            c.drawRect(cx + bw * 0.3f, cy - bh / 2f, cx + bw * 1.3f, cy + bh / 2f, pIcon);
-        }
-    }
-
-    private static int argb(float a, int rgb) {
-        int v = (int) (255 * Math.max(0f, Math.min(1f, a)));
-        return Color.argb(v, rgb >> 16 & 0xFF, rgb >> 8 & 0xFF, rgb & 0xFF);
-    }
-
-    private static int shift(int rgb, float f) {
-        int r = (int) Math.min(255, ((rgb >> 16) & 0xFF) * f);
-        int g = (int) Math.min(255, ((rgb >> 8) & 0xFF) * f);
-        int b = (int) Math.min(255, (rgb & 0xFF) * f);
-        return (r << 16) | (g << 8) | b;
-    }
-
-    private static int lum(int c) {
-        return (int) (0.299 * ((c >> 16) & 0xFF)
-                + 0.587 * ((c >> 8) & 0xFF)
-                + 0.114 * (c & 0xFF));
+        float r = Math.min(w, h) / 2f * 0.80f * drawScale;
+        BallArt.draw(c, w / 2f, h / 2f, r, color, state, effAlpha());
     }
 }

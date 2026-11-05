@@ -404,7 +404,7 @@ public class ComboService extends AccessibilityService
             ball.setState(BallView.ST_PICKING);
         }
         addOverlay();
-        // 3.2：进选取态不震。球变绿就是信号（见 Haptics 里"取词全程不震"的说明）
+        // 3.2：进选取态不震。球中心填实 + 外环亮起就是信号（见 Haptics 里"取词全程不震"的说明）
         h.removeCallbacks(pickTimeout);
         h.postDelayed(pickTimeout, 8000);
     }
@@ -634,7 +634,7 @@ public class ComboService extends AccessibilityService
         if (ball != null) {
             ball.setState(BallView.ST_SPEAKING);
         }
-        // 3.2：开始朗读不震。球变橙 + 出声就是信号
+        // 3.2：开始朗读不震。球中心变两竖 + 出声就是信号
         // 引擎万一不回调，也要能从"两竖"里退出来
         h.removeCallbacks(speakWatchdog);
         h.postDelayed(speakWatchdog, guardMs(text.length()));

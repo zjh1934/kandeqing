@@ -76,6 +76,7 @@ public class MainActivity extends Activity
 
     // ---- 放大 / 悬浮球页 --------------------------------------------------
     private ZoomPreview zoomPreview;
+    private BallPreview ballPreview;
     private int colorIndex = 0;
 
     private static final String WECHAT_ID = "Vssfsg";
@@ -747,11 +748,18 @@ public class MainActivity extends Activity
                             }
                         })), groupLp());
 
+        ballPreview = new BallPreview(this);
+        ballPreview.setColor(prefs.color());
         page.addView(Ui.group(this, "颜色",
+                Ui.ballPreviewRow(this, ballPreview),
                 Ui.chipsRow(this, prefs, colorIndex, new Runnable() {
                     @Override
                     public void run() {
                         colorIndex = prefs.colorIndex();
+                        // 六个状态的预览球一起换色，真球也跟着换
+                        if (ballPreview != null) {
+                            ballPreview.setColor(prefs.color());
+                        }
                         ComboService.refresh();
                     }
                 })), groupLp());
