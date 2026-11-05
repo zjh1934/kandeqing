@@ -65,7 +65,7 @@
 
 ### 装现成的安装包
 
-👉 **[下载 看得清（最新版）](https://github.com/zjh1934/qiuqiu/releases/latest)**
+👉 **[下载 看得清（最新版）](https://github.com/zjh1934/kan-de-qing/releases/latest)**
 
 > 点上面按钮会打开 **Releases 页面**，在「Assets」里下载 `看得清X.X.apk` 即可安装
 > （应用名是「看得清」，老名字「球球 / 明读」已弃用）。
@@ -83,7 +83,7 @@
 
 ### 自己编译
 
-源码：`git clone https://github.com/zjh1934/qiuqiu.git`
+源码：`git clone https://github.com/zjh1934/kan-de-qing.git`
 构建方式见下面「给开发者」。
 
 ---
@@ -319,8 +319,8 @@ push 到 `main` 后 GitHub Actions 会自动出包、回传 `apk/` 并发布 Rel
 | **3.8** | [看得清-3.8.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.8.apk) | 看得清 | 放大时球老实跟手（坐标口径统一）、抓字延迟接近 0（进选字态预扫）、抓到更多字（容差命中 + 补读 hint/tooltip/state）、Logo 回退到 3.6 蓝色玻璃球 |
 | **3.7** | [看得清-3.7.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.7.apk) | 看得清 | 密码保护开关（默认关）、一键推荐给朋友、固定签名密钥；球的手势一行未动 |
 | **3.6** | [看得清-3.6.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.6.apk) | 看得清 | 回退密码过滤与 250ms 抓字等待，抓字更全、点字更快；构建改走 GitHub Actions |
-| 3.5 | [Releases](https://github.com/zjh1934/qiuqiu/releases) | 看得清 | 安全与"没反应"专项：日志不记文字、密码框不读、打断有提示、TTS 状态加 volatile |
-| 3.1–3.4 | [Releases](https://github.com/zjh1934/qiuqiu/releases) | 看得清 | 触感三档化、语速默认 2.0、闲置不变淡、悬浮球重建等 |
+| 3.5 | [Releases](https://github.com/zjh1934/kan-de-qing/releases) | 看得清 | 安全与"没反应"专项：日志不记文字、密码框不读、打断有提示、TTS 状态加 volatile |
+| 3.1–3.4 | [Releases](https://github.com/zjh1934/kan-de-qing/releases) | 看得清 | 触感三档化、语速默认 2.0、闲置不变淡、悬浮球重建等 |
 | **3.0** | [看得清-3.0.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-3.0.apk) | 看得清 | 震动改走系统 UI 触感通道（小米+Android 16 上原始 Vibrator 被吞） |
 | 2.9 | [看得清-2.9.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-2.9.apk) | 看得清 | 震动改 createOneShot+无障碍音频属性，自查结果常驻；日志支持复制/自选路径/导出 md |
 | 2.8 | [看得清-2.8.apk](apk/%E7%9C%8B%E5%BE%97%E6%B8%85-2.8.apk) | 看得清 | 修震动不生效的三处静默失败；新增「试一下」自查按钮与诊断行 |
