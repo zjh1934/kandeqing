@@ -36,8 +36,16 @@ public class TextGrabber {
      * 兜底同样读不全；3.6 放宽三倍，深度上限仍保留，防爆栈的底线不动。
      */
     private static final int FALLBACK_MAX_WALK = 30000;
-    /** 一屏最多收多少段，防止一次朗读太长 */
-    private static final int MAX_SEG = 400;
+    /**
+     * 一屏最多收多少段。3.9.7 起它【只截收录、不截遍历】：
+     * 旧版在 walk() 入口一到 400 就 return true，整棵子树不再访问，
+     * 长列表（>400 段）点后半段必然丢失。AOSP 源码里预取上限
+     * （MAX_NUMBER_OF_PREFETCHED_NODES=50 / 旧版 BATCH_SIZE）从来只约束
+     * 一次请求附带的预取批次，不是应用层的树遍历预算，不能照搬成访问闸。
+     * 真正的资源闸是 MAX_WALK / MAX_DEPTH。长列表一屏常见 500+ 段，
+     * 这里放宽到 2000，同时保证触段永远豁免（见 walk()）。
+     */
+    private static final int MAX_SEG = 2000;
     /**
      * 递归深度上限。正常界面撑死几十层，这里给到 500 很宽裕；
      * 卡住是为了防病态树（几万层的链表式布局）把栈打爆 ——
@@ -71,6 +79,14 @@ public class TextGrabber {
 
     /** 从点击处开始，往后续读 */
     public String grabFrom(int x, int y) {
+        // 官方契约：getBoundsInScreen 与逐字位置 RectF 都会被放大倍率缩放、
+        // 按视口偏移调整；不受放大影响的 IN_WINDOW 逐字位置是 API 36，
+        // 本工程 compileSdk 30 够不着。所以【只在未放大态抓字】不是权宜之计，
+        // 是唯一自洽解。旧版只写在类注释里，没有断言。
+        if (magnified()) {
+            Log.w("grab", "系统处于放大态，坐标不自洽，本次不抓字");
+            return null;
+        }
         Prefs p = new Prefs(svc);
         skipPassword = p.passwordGuard();
         readScope = p.readScope();
@@ -79,6 +95,18 @@ public class TextGrabber {
             return out;
         }
         return grabAt(x, y);
+    }
+
+    /** 系统当前是否处于显示放大态（ API 24+ 的 MagnificationController ） */
+    private boolean magnified() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return false;
+        }
+        try {
+            return svc.getMagnificationController().getScale() > 1.0f;
+        } catch (Throwable ignored) {
+            return false;   // 查不到就按未放大处理，别把正常抓字挡掉
+        }
     }
 
     /**
@@ -151,18 +179,18 @@ public class TextGrabber {
             }
             if (w.requireVisible
                     && (segs.isEmpty() || w.visibleSkipped > 0)) {
-                // 有些 ROM 的 isVisibleToUser 会乱报 false。整窗收不到、
-                // 或确实有节点被这个判断过滤掉时，关掉过滤再走一遍。
-                // 清空首遍结果，避免同一段被收两次。
-                segs.clear();
-                w.pick = null;
-                w.nearest = null;
-                w.nearestDist = Long.MAX_VALUE;
-                w.nearestStart = 0;
-                w.visibleSkipped = 0;
+                // 3.9.7：官方 AccessibilityNodeInfo.java:2662-2675 写明
+                // 「API 16-29 且放大启用时 isVisibleToUser 可能错误返回 false」。
+                // 这里【重算快照，不重扫树】：被软过滤的段在遍历时已收进
+                // w.hidden（纯数据，含 charStart），合并后再比一次即可。
+                // 旧版对同一根再跑一遍 walk()，重复 getChild()、多一轮 IPC、
+                // 还有节点回收风险，正是「点字延迟」和「读一会儿抓不到字」的来源。
+                for (int h = 0; h < w.hidden.size(); h++) {
+                    TextLayout.Node hidden = w.hidden.get(h);
+                    segs.add(hidden);
+                    consider(hidden, w);
+                }
                 w.requireVisible = false;
-                w.visited = 0;
-                walk(roots.get(r), w, 0);
             }
             if (segs.isEmpty()) {
                 continue;
@@ -216,9 +244,8 @@ public class TextGrabber {
         try {
             for (int r = 0; r < roots.size(); r++) {
                 findDeepest(roots.get(r), x, y, best);
-                if (best.text != null) {
-                    break;      // 点到的窗口在最上面，命中就收工
-                }
+                // 3.9.7：与主路径一致，所有窗口都扫完再按面积取最小那块，
+                // 不再「第一个命中的窗口赢」—— 上层包裹型大节点会压住下层正文。
             }
         } finally {
             for (int r = 0; r < roots.size(); r++) {
@@ -376,8 +403,14 @@ public class TextGrabber {
          * 都 refreshWithExtraData 一遍，点字延迟会回到 3.8 那个坑。
          */
         long nearTol = Long.MAX_VALUE;
-        /** 被 isVisibleToUser 过滤掉的节点数：大于 0 才需要关过滤重扫 */
+        /** 被 isVisibleToUser 过滤掉的节点数：大于 0 才需要关过滤重算 */
         int visibleSkipped = 0;
+        /**
+         * 3.9.7：可见性只是软标记。被过滤的段照样收成纯数据放这里，
+         * 关过滤时直接合并进快照重算，不再二次遍历节点树。
+         * 每个元素都带 charStart，所以重算阶段完全不碰 AccessibilityNodeInfo。
+         */
+        final List<TextLayout.Node> hidden = new ArrayList<TextLayout.Node>();
 
         Walk(List<TextLayout.Node> out, Rect screen, int px, int py) {
             this.out = out;
@@ -413,10 +446,6 @@ public class TextGrabber {
             return false;
         }
         if (depth > MAX_DEPTH) {
-            w.truncated = true;
-            return true;
-        }
-        if (w.out.size() >= MAX_SEG) {
             w.truncated = true;
             return true;
         }
@@ -460,7 +489,9 @@ public class TextGrabber {
             Log.i("grab", "密码保护已开，跳过密码框");
             return childYielded;
         }
-        String t = nodeText(node);
+        // 3.9.7：按官方文本字段语义分层。body=true 才进连续正文串。
+        boolean[] body = new boolean[1];
+        String t = nodeText(node, body);
         if (t == null) {
             return childYielded;
         }
@@ -477,50 +508,75 @@ public class TextGrabber {
         if (r.isEmpty()) {
             return false;   // 量不到位置，没法排序，宁可不收
         }
-        // 3.9.5：触点落在这一块里，就信触点、不信 ROM 的 isVisibleToUser()。
-        // 多层分级页面里国产 ROM 常把正文误报成不可见；旧版只在「整窗
-        // 一个节点都收不到」时才关过滤重扫，窗口里只要还有个标题就会被
-        // 判成「有内容」而跳过重扫，正文整段丢掉。
-        if (w.requireVisible && !visible(node)
-                && !r.contains(w.px, w.py)) {
-            w.visibleSkipped++;
-            return false;
-        }
         if (!Rect.intersects(r, w.screen)) {
             return false;   // 整块都在屏幕外（滚出去的），不读
         }
 
-        TextLayout.Node seg = new TextLayout.Node(t, r.left, r.top, r.right, r.bottom);
-        w.out.add(seg);
+        boolean touchInside = r.contains(w.px, w.py);
+        boolean vis = visible(node);
+        // 官方源码 AccessibilityNodeInfo.java:2662-2675：API 16-29 放大时
+        // isVisibleToUser 可能误报 false。可见性只作软标记，遍历里绝不丢节点。
+        boolean softHidden = w.requireVisible && !vis && !touchInside;
+        if (softHidden) {
+            w.visibleSkipped++;
+        }
 
-        // 3.9.5：不管有没有严格命中，都记下这段离触点多远。
-        // dx / dy 是触点到矩形边界的距离（落在矩形内就是 0），y 权重加倍。
+        // 预算只截「收录」，绝不截「遍历」：子节点上面已经全部走完了，
+        // 这里到上限也只是不再往 out 放，命中段永远豁免。
+        // 旧版在【入口】一到 400 就 return true，整棵子树不再访问 ——
+        // 500 段的长列表点第 450 段会直接读不到，正是「经常抓不到字」的大头。
+        if (w.out.size() >= MAX_SEG && !touchInside) {
+            w.truncated = true;
+            return true;
+        }
+
+        // 逐字位置在树遍历阶段一次算好、存成纯数据；后续重算命中/可见性
+        // 都不再碰 AccessibilityNodeInfo（节点交给服务后即不可变，且随时 obsolete）。
+        long d = distanceTo(r, w.px, w.py);
+        int charStart = (d <= w.nearTol) ? charStartIn(node, w.px, w.py) : 0;
+        TextLayout.Node seg = new TextLayout.Node(
+                t, r.left, r.top, r.right, r.bottom, body[0], charStart);
+
+        if (softHidden) {
+            w.hidden.add(seg);      // 保留快照，关过滤时合并重算，不重扫树
+            return true;
+        }
+        w.out.add(seg);
+        consider(seg, w);
+        return true;
+    }
+
+    /** 触点到矩形边界的距离，y 权重加倍（阅读是按行走的） */
+    private static long distanceTo(Rect r, int x, int y) {
         long dx = 0, dy = 0;
-        if (w.px < r.left) {
-            dx = r.left - w.px;
-        } else if (w.px > r.right) {
-            dx = w.px - r.right;
+        if (x < r.left) {
+            dx = r.left - x;
+        } else if (x > r.right) {
+            dx = x - r.right;
         }
-        if (w.py < r.top) {
-            dy = r.top - w.py;
-        } else if (w.py > r.bottom) {
-            dy = w.py - r.bottom;
+        if (y < r.top) {
+            dy = r.top - y;
+        } else if (y > r.bottom) {
+            dy = y - r.bottom;
         }
-        long dist = dy * 2L + dx;
+        return dy * 2L + dx;
+    }
+
+    /** 纯数据比较：最近段 + 最小面积命中。不碰任何节点对象。 */
+    private void consider(TextLayout.Node seg, Walk w) {
+        Rect r = new Rect(seg.left, seg.top, seg.right, seg.bottom);
+        long dist = distanceTo(r, w.px, w.py);
         if (w.nearest == null || dist < w.nearestDist) {
             w.nearest = seg;
             w.nearestDist = dist;
-            w.nearestStart = (dist <= w.nearTol)
-                    ? charStartIn(node, w.px, w.py) : 0;
+            w.nearestStart = seg.charStart;
         }
-
-        if (r.contains(w.px, w.py)) {
-            int area = r.width() * r.height();
+        if (dist == 0) {
+            int area = (seg.right - seg.left) * (seg.bottom - seg.top);
             if (w.pick == null || area < w.pick.area) {
-                w.pick = new Pick(seg, area, charStartIn(node, w.px, w.py));
+                w.pick = new Pick(seg, area, seg.charStart);
             }
         }
-        return true;
     }
 
     private static boolean visible(AccessibilityNodeInfo node) {
@@ -554,7 +610,14 @@ public class TextGrabber {
             return s.text();
         }
         for (int i = idx + 1; i < segs.size(); i++) {
-            s.add(segs.get(i).text);
+            TextLayout.Node n = segs.get(i);
+            // 3.9.7：只有 BODY/LABEL 能进连续正文。hint / tooltip /
+            // stateDescription / paneTitle 各有官方语义，命中时可读，
+            // 但拼进正文串会把「请输入手机号」这类提示文字念成文章。
+            if (!n.body) {
+                continue;
+            }
+            s.add(n.text);
         }
         return s.text();
     }
@@ -567,6 +630,9 @@ public class TextGrabber {
             // 用 bottom 判：整段都在点击点上方才跳过。
             // 用 top 判会把"点击点落在这段中间"的那一段整个漏掉
             if (n.bottom <= y) {
+                continue;
+            }
+            if (!n.body) {
                 continue;
             }
             s.add(n.text);
@@ -673,48 +739,73 @@ public class TextGrabber {
                 return 0;
             }
 
-            // 3.9.3：早期版本这里本来就有逐字位置（二维 nearestChar），唯一
-            // 的毛病是「拿不到就 return 0」。长文只有一个文字节点时，
-            // charStart=0 让 join() 不截 head，整篇从第一个字念起 —— 这就是
-            // 「点中间一段、却从这一篇的头开始读」。
-            // 现在拿不到逐字位置时按 y 估行（x 只做行内微调），再找句读，
-            // 绝不静默退回篇头。不加新类、不加线程、不碰其它核心逻辑。
-            if (Build.VERSION.SDK_INT >= 26) {
+            // 官方契约：EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY 是昂贵数据，
+            // 请求前先查 getAvailableExtraData()；ARG_LENGTH 必须为正且 <= 20000；
+            // RectF 可为 null（字符不存在或离屏）；refreshWithExtraData 返回
+            // false 表示该 View 已不在视图树、节点 obsolete。旧版 20000/2000/500
+            // 三级退让没有官方依据，还把「catch 里 return 0」留着 —— 那个 0
+            // 就是「点中间一段却从整篇头开始读」的直接来源。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 String key = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
-                // 整段（夹到 20000）→ 2000 字 → 500 字，逐级退让
-                int[] tries = new int[]{
-                        Math.min(raw.length(), MAX_CHAR_REQ),
-                        Math.min(raw.length(), 2000),
-                        Math.min(raw.length(), 500),
-                };
-                for (int t = 0; t < tries.length; t++) {
-                    int count = tries[t];
-                    if (count <= 0) {
-                        continue;
+                if (supportsExtraData(node, key)) {
+                    int count = Math.min(raw.length(), MAX_CHAR_REQ);
+                    if (count > 0) {
+                        RectF[] rects = requestRects(node, key, 0, count);
+                        if (rects == null) {
+                            // false = 节点 obsolete / 数据不可用。不猜、不重试，
+                            // 直接降级到按行估算，绝不返回 0。
+                            Log.w("grab", "逐字位置不可用（节点可能已失效），按行估算起点");
+                        } else {
+                            int offset = nearestChar(rects, x, y);
+                            if (offset >= 0) {
+                                if (offset > raw.length()) {
+                                    offset = raw.length();
+                                }
+                                int rel = TextLayout.sentenceStart(raw, offset) - lead;
+                                if (rel < 0) {
+                                    rel = 0;
+                                }
+                                if (rel > len) {
+                                    rel = len;
+                                }
+                                return rel;
+                            }
+                        }
                     }
-                    RectF[] rects = requestRects(node, key, 0, count);
-                    if (rects == null) {
-                        continue;
-                    }
-                    int offset = nearestChar(rects, x, y);
-                    if (offset < 0) {
-                        continue;
-                    }
-                    if (offset > raw.length()) {
-                        offset = raw.length();
-                    }
-                    int rel = TextLayout.sentenceStart(raw, offset) - lead;
-                    if (rel < 0) {
-                        rel = 0;
-                    }
-                    if (rel > len) {
-                        rel = len;
-                    }
-                    return rel;
                 }
             }
             return fallbackStart(node, x, y, raw, len, lead);
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
+            // 任何异常都走降级估算，不再静默退回篇头。
+            return fallbackStartSafe(node, x, y);
+        }
+    }
+
+    /** 预检节点是否支持该额外数据 key；列表拿不到就按支持处理，别一刀切 */
+    private boolean supportsExtraData(AccessibilityNodeInfo node, String key) {
+        try {
+            java.util.List<String> keys = node.getAvailableExtraData();
+            if (keys == null) {
+                return true;
+            }
+            return keys.contains(key);
+        } catch (Throwable ignored) {
+            return true;
+        }
+    }
+
+    /** 异常路径的降级：重新取一次文本再按行估，绝不把 0 当答案 */
+    private int fallbackStartSafe(AccessibilityNodeInfo node, int x, int y) {
+        try {
+            CharSequence cs = node.getText();
+            String raw = (cs == null) ? "" : cs.toString();
+            int lead = TextLayout.leadingWhitespace(raw);
+            int len = TextLayout.trimmedLength(raw);
+            if (len <= 0) {
+                return 0;   // 空文本：本来就没内容可读，不是「从篇头读」
+            }
+            return fallbackStart(node, x, y, raw, len, lead);
+        } catch (Throwable ignored) {
             return 0;
         }
     }
@@ -867,7 +958,7 @@ public class TextGrabber {
         }
 
         if (r.contains(x, y) && !(skipPassword && isPassword(node))) {
-            String t = nodeText(node);
+            String t = nodeText(node, new boolean[1]);
             if (t != null) {
                 int area = r.width() * r.height();
                 if (best.text == null || area < best.area) {
@@ -922,10 +1013,27 @@ public class TextGrabber {
     }
 
     /**
-     * 节点的文字：正文优先，没有就退回内容描述（图标按钮靠它才有东西读）。
-     * 返回的一律是 trim 过的。
+     * 节点的文字 + 它在官方语义里的角色。返回的一律是 trim 过的。
+     *
+     * 官方 AccessibilityNodeInfo 把文本分成七种不同语义，不是七种「正文」：
+     *   getText()              节点正文                         → body=true
+     *   getContentDescription() 节点内容描述（图标按钮替代文本） → body=true
+     *   getHintText()          只对可输入文字的节点有效，是空输入框的标签
+     *   getTooltipText()       工具提示
+     *   getStateDescription()  节点状态描述
+     *   getPaneTitle()         窗格标题，不代表窗格则为 null
+     * 3.9.5 把后四类一律当正文收进连续朗读串，会念出「请输入手机号」这种
+     * 提示文字。3.9.7 起：命中该节点时照读（用户确实点了它），但 join() /
+     * joinBelow() 只接 body=true 的段。官方还明确给 EditText 设
+     * contentDescription 会干扰服务描述与导航，所以这里不把 desc 当正文之外的特殊值。
+     *
+     * @param body 出参，[0] 表示这段能不能进连续正文串
      */
-    private String nodeText(AccessibilityNodeInfo node) {
+    private String nodeText(AccessibilityNodeInfo node, boolean[] body) {
+        if (body == null || body.length == 0) {
+            body = new boolean[1];
+        }
+        body[0] = true;
         if (node == null) {
             return null;
         }
@@ -949,10 +1057,10 @@ public class TextGrabber {
             }
         } catch (Exception ignored) {
         }
-        // 3.9.5：多层分级页面里的自定义控件（输入提示、悬浮说明、状态标签、
-        // 分栏标题）常把屏幕上明明看得见的字放在这几个字段里，text 和
-        // contentDescription 都是空 → 旧版直接判定「这里没读到文字」。
+        // 多层分级页面里的自定义控件（输入提示、悬浮说明、状态标签、
+        // 分栏标题）常把屏幕上明明看得见的字放在这几个字段里。
         // 用反射取，低版本没有的方法自动跳过，不引入高 API 编译依赖。
+        body[0] = false;
         String[] extra = {"getHintText", "getTooltipText",
                 "getStateDescription", "getPaneTitle"};
         for (int i = 0; i < extra.length; i++) {

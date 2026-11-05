@@ -18,20 +18,38 @@ import java.util.List;
  */
 public final class TextLayout {
 
-    /** 一段文字 + 它在屏幕上的矩形 */
+    /**
+     * 一段文字 + 它在屏幕上的矩形。
+     *
+     * 3.9.7：按官方 AccessibilityNodeInfo 文本字段语义补了两个属性 ——
+     *   body      只有 getText() / getContentDescription() 才是正文或替代标签，
+     *             getHintText / getTooltipText / getStateDescription / getPaneTitle
+     *             各有官方语义，命中时可读，但绝不拼进连续正文串。
+     *   charStart 这个段被点中时该从第几个字读（相对 trim 后的串）。
+     *             在树遍历时一次算好存成纯数据，后面重算命中/可见性不再碰节点对象。
+     */
     public static final class Node {
         public final String text;
         public final int left;
         public final int top;
         public final int right;
         public final int bottom;
+        public final boolean body;
+        public int charStart;
 
         public Node(String text, int left, int top, int right, int bottom) {
+            this(text, left, top, right, bottom, true, 0);
+        }
+
+        public Node(String text, int left, int top, int right, int bottom,
+                    boolean body, int charStart) {
             this.text = text;
             this.left = left;
             this.top = top;
             this.right = right;
             this.bottom = bottom;
+            this.body = body;
+            this.charStart = charStart;
         }
     }
 
@@ -187,7 +205,16 @@ public final class TextLayout {
         return t.length() == 0 ? null : t;
     }
 
-    /** 往回找最近的断点，从它后面开始读。一个标点都没有就从点中的字开始 */
+    /**
+     * 往回找最近的断点，从它后面开始读。
+     *
+     * 3.9.7：回扫设上限。一整段里几百字没有一个句末标点时，
+     * 一路扫到段首会让「点中间那段」听起来还是像从很远的地方读起。
+     * 超出上限就直接用命中字附近作起点 —— 绝不退回篇头（offset<=0 除外，
+     * 那本来就是篇头）。官方没有中文断句规范，160 字是工程取值。
+     */
+    private static final int SENTENCE_LOOKBACK = 160;
+
     public static int sentenceStart(String text, int offset) {
         if (text == null) {
             return 0;
@@ -198,26 +225,35 @@ public final class TextLayout {
         if (offset > text.length()) {
             offset = text.length();
         }
-        int s = scanBack(text, offset, "。！？；\n.!?");
+        int floor = Math.max(0, offset - SENTENCE_LOOKBACK);
+        int s = scanBack(text, offset, "。！？；\n.!?", floor);
         if (s > 0) {
             return s;
         }
-        s = scanBack(text, offset, "，、：,:");
+        s = scanBack(text, offset, "，、：,:", floor);
         if (s > 0) {
             return s;
         }
         return offset;
     }
 
-    /** 从 offset-1 往前扫，找到 puncts 里任意一个标点，返回它后面第一个非空字符的下标 */
+    /** 三参重载：从段首找起（给用例和兼容调用用） */
     public static int scanBack(String text, int offset, String puncts) {
+        return scanBack(text, offset, puncts, 0);
+    }
+
+    /** 从 offset-1 往前扫到 floor，找到 puncts 里任意标点，返回它后面第一个非空字符的下标 */
+    public static int scanBack(String text, int offset, String puncts, int floor) {
         if (text == null || puncts == null) {
             return 0;
         }
         if (offset > text.length()) {
             offset = text.length();
         }
-        for (int i = offset - 1; i >= 0; i--) {
+        if (floor < 0) {
+            floor = 0;
+        }
+        for (int i = offset - 1; i >= floor; i--) {
             if (puncts.indexOf(text.charAt(i)) < 0) {
                 continue;
             }

@@ -1,5 +1,46 @@
 # 更新记录
 
+## 3.9.7 · 抓字链路按 Android 官方无障碍树契约重做（versionCode 37）
+
+> 只走 `AccessibilityNodeInfo` 树。OCR / 截图 / MediaProjection / 像素识别整条排除。
+> 依据：官方 API 参考 + 亲自取回的 AOSP 源码原文（见
+> 《看得清_抓字链路_官方契约适配设计.md》《看得清_官方原文核验补录.md》）。
+
+### 改了什么
+
+- **放大态断言**：`grabFrom()` 用 `MagnificationController.getScale()` 显式拒绝放大态抓字。
+  官方源码写明 `getBoundsInScreen` 与逐字位置 `RectF` 都会被放大倍率缩放、按视口
+  偏移调整；不受影响的 IN_WINDOW key 是 API 36，本工程 `compileSdk 30` 够不着。
+- **预算只截收录、不截遍历**：`MAX_SEG` 400 → 2000，且不再是 `walk()` 入口的访问闸。
+  旧版一到 400 就整棵子树不再访问，500 段长列表点第 450 段必然抓不到。AOSP 源码里
+  预取上限只约束一次请求附带的批次，不是应用层的树遍历预算。
+- **文本按官方语义分角色**：`getText()` / `getContentDescription()` 才进连续正文串；
+  `getHintText` / `getTooltipText` / `getStateDescription` / `getPaneTitle` 命中时照读，
+  但不再拼进正文（不会把「请输入手机号」念成文章）。
+- **逐字位置按契约取**：先查 `getAvailableExtraData()`，只对命中段请求一次，长度夹在
+  20000；`refreshWithExtraData` 返回 false（节点 obsolete）或 `RectF` 全 null 一律降级
+  按行估算，**任何失败路径都不返回 0**（0 = 从篇头读）。删掉没有官方依据的
+  2000 / 500 三级退让。
+- **可见性重算不重扫树**：`isVisibleToUser()` 在 API 16–29 放大时可能误报 false
+  （官方源码原文）；被软过滤的段收进纯数据快照，关过滤时合并重算，不再对同一根
+  二次 `walk()` —— 重复 `getChild()` + 多一轮 IPC 正是点字延迟的来源之一。
+- **兜底跨窗口全局比较**：`grabAt` 删掉「第一个命中窗口就 break」。
+- **句读回扫设上限**：160 字内找不到标点就从命中字附近读，不再退到段首。
+- 逐字位置在遍历阶段一次算好存进段数据，后续全是纯计算，快照之后不再碰节点对象。
+
+### 范围
+
+只改 `TextGrabber.java` / `TextLayout.java` 两个 Java 文件，外加两个自检镜像脚本。
+`BallController`（移动）、`ComboService`（状态机）、`TtsManager`、`ZoomController`、
+`Prefs`、UI、主题、3.6 蓝球 Logo **一行没动**；没加类、没加线程。
+
+### 验证
+
+`verify_all.py` 5 个 suite 跑三轮全绿，新增 3.9.7 验收用例 11 项（长列表后半段命中、
+提示文字不进正文、逐字位置三条失败路径、可见性重算 `getChild` 次数恒定、兜底跨窗口、
+放大态拒绝、长文中段不从篇头读等）。真编译与真机手感需装机确认 —— 本地沙盒无
+JDK / Android SDK，构建与发版由 CI 完成。
+
 ## 3.9.6 · 一 / 二级目录层级重做，选中标记换成蓝色竖条（versionCode 36）
 
 > 用户实机截图：「1级目录和2级目录，不明显」；通过后补一句

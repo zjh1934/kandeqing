@@ -53,12 +53,14 @@ def clean(s):
     return None if len(t) == 0 else t
 
 
-def scan_back(text, offset, puncts):
+def scan_back(text, offset, puncts, floor=0):
     if text is None or puncts is None:
         return 0
     if offset > len(text):
         offset = len(text)
-    for i in range(offset - 1, -1, -1):
+    if floor < 0:
+        floor = 0
+    for i in range(offset - 1, floor - 1, -1):
         if puncts.find(text[i]) < 0:
             continue
         s = i + 1
@@ -78,26 +80,32 @@ def sentence_start(text, offset):
         return 0
     if offset > len(text):
         offset = len(text)
-    s = scan_back(text, offset, "。！？；\n.!?")
+    floor = max(0, offset - SENTENCE_LOOKBACK)
+    s = scan_back(text, offset, "。！？；\n.!?", floor)
     if s > 0:
         return s
-    s = scan_back(text, offset, "，、：,:")
+    s = scan_back(text, offset, "，、：,:", floor)
     if s > 0:
         return s
-    return offset
+    return offset      # 命中字附近，绝不退回篇头
 
 
 # ---------- 阅读顺序 ----------
 
-class Node(object):
-    __slots__ = ('text', 'left', 'top', 'right', 'bottom')
+SENTENCE_LOOKBACK = 160      # 镜像 TextLayout.SENTENCE_LOOKBACK
 
-    def __init__(self, text, left, top, right, bottom):
+
+class Node(object):
+    __slots__ = ('text', 'left', 'top', 'right', 'bottom', 'body', 'charStart')
+
+    def __init__(self, text, left, top, right, bottom, body=True, charStart=0):
         self.text = text
         self.left = left
         self.top = top
         self.right = right
         self.bottom = bottom
+        self.body = body
+        self.charStart = charStart
 
     def __repr__(self):
         return "Node(%r,%d,%d,%d,%d)" % (
@@ -211,10 +219,13 @@ def fallback_start(bounds, x, y, raw, length, lead):
     return max(0, min(length, rel))
 
 
-def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None):
+def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None, available=True):
     """
-    镜像 TextGrabber.charStartIn：
-    句读下标在【原文】上算，再减掉前导空白长度，换算到 trim 之后的串上。
+    3.9.7 镜像 TextGrabber.charStartIn：
+      · 先预检 getAvailableExtraData()（available）
+      · 只对命中段请求【一次】，长度 min(len, 20000)，不再三级退让
+      · 请求失败 / 节点 obsolete / RectF 全 null → 降级按行估算，绝不返回 0
+      · 句读下标在【原文】上算，再减前导空白换算到 trim 串
     rects_of(count) -> RectF 列表 或 None
     bounds=(l,t,r,b) 给降级估算用；None 表示连 bounds 都量不到。
     """
@@ -225,24 +236,17 @@ def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None):
     if length <= 0:
         return 0
 
-    if sdk >= 26:
-        for count in (min(len(raw), MAX_CHAR_REQ), min(len(raw), 2000), min(len(raw), 500)):
-            if count <= 0:
-                continue
+    if sdk >= 26 and available:
+        count = min(len(raw), MAX_CHAR_REQ)
+        if count > 0:
             rects = rects_of(count)
-            if not rects:
-                continue
-            offset = nearest_char(rects, x, y)
-            if offset < 0:
-                continue
-            if offset > len(raw):
-                offset = len(raw)
-            rel = sentence_start(raw, offset) - lead
-            if rel < 0:
-                rel = 0
-            if rel > length:
-                rel = length
-            return rel
+            if rects:
+                offset = nearest_char(rects, x, y)
+                if offset >= 0:
+                    if offset > len(raw):
+                        offset = len(raw)
+                    rel = sentence_start(raw, offset) - lead
+                    return max(0, min(length, rel))
     return fallback_start(bounds, x, y, raw, length, lead)
 
 
@@ -360,22 +364,46 @@ def case_sentence_no_punct():
     return rel == 5, rel
 
 
-def case_sentence_fallback_to_500():
-    """
-    整段(3000)和 2000 字两档都拿不到位置，退到 500 字那一档也要能算出结果。
-    文本："甲乙丙丁。" 重复 500 次 = 3000 字，句号落在下标 %5==4。
-    """
-    raw = "甲乙丙丁。" * 500
+def case_single_request_no_fallback_chain():
+    """3.9.7：预检通过后只请求一次，长度夹到 20000，不再 2000/500 逐级退让。"""
+    raw = "甲乙丙丁。" * 500       # 3000 字
     full = make_rects(raw)
+    seen = []
 
     def rects_of(count):
-        if count > 500:
-            return None
+        seen.append(count)
         return full[:count]
 
-    x, y = center_of(100)        # 正好是某个"甲"
+    x, y = center_of(100)
     rel = char_start_in(raw, rects_of, x, y)
-    return rel == 100, rel
+    ok = (len(seen) == 1 and seen[0] == min(len(raw), MAX_CHAR_REQ)
+          and rel == 100)
+    return ok, (seen, rel)
+
+
+def case_extra_data_unavailable_not_zero():
+    """getAvailableExtraData 不含该 key：降级按行估算，绝不从篇头读"""
+    raw = _long_text()
+    bounds = (0, 0, 1000, 1600)
+    rel = char_start_in(raw, lambda c: None, 100, 800,
+                        bounds=bounds, available=False)
+    return rel > 0.25 * len(raw), rel
+
+
+def case_obsolete_node_not_zero():
+    """refreshWithExtraData 返回 false（节点 obsolete）：同样降级，不返回 0"""
+    raw = _long_text()
+    bounds = (0, 0, 1000, 1600)
+    rel = char_start_in(raw, lambda c: None, 100, 800, bounds=bounds)
+    return rel > 0.25 * len(raw), rel
+
+
+def case_lookback_limits_start():
+    """3.9.7：几百字没有标点时，句起点不许一路退到段首"""
+    raw = "甲" * 900
+    offset = 700
+    got = sentence_start(raw, offset)
+    return got >= offset - SENTENCE_LOOKBACK, (got, offset)
 
 
 def case_char_req_capped():
@@ -467,7 +495,10 @@ CASES = [
     ("无前导空白断句", case_sentence_plain),
     ("有前导空白断句（关键回归）", case_sentence_leading_ws),
     ("无标点时从点中的字开始", case_sentence_no_punct),
-    ("请求长度逐级退让", case_sentence_fallback_to_500),
+    ("3.9.7 单次请求、不做三级退让", case_single_request_no_fallback_chain),
+    ("3.9.7 额外数据不可用时不退篇头", case_extra_data_unavailable_not_zero),
+    ("3.9.7 节点失效时不退篇头", case_obsolete_node_not_zero),
+    ("3.9.7 句读回扫设上限", case_lookback_limits_start),
     ("超长文本请求夹到 20000", case_char_req_capped),
     ("3.9.3 降级按 y 估行，不从篇头读", case_fallback_y_mid_not_head),
     ("3.9.3 短段降级仍从段首", case_fallback_short_from_head),
