@@ -32,11 +32,6 @@ public class TextGrabber {
     /** 一趟最多走多少个节点。超长列表之类的病态树会把主线程拖死（同行方案经验值 10000） */
     private static final int MAX_WALK = 10000;
     /**
-     * 兜底路径的节点预算。3.5 给兜底也套了 MAX_WALK，结果是主路径被截断后
-     * 兜底同样读不全；3.6 放宽三倍，深度上限仍保留，防爆栈的底线不动。
-     */
-    private static final int FALLBACK_MAX_WALK = 30000;
-    /**
      * 一屏最多收多少段。3.9.7 起它【只截收录、不截遍历】：
      * 旧版在 walk() 入口一到 400 就 return true，整棵子树不再访问，
      * 长列表（>400 段）点后半段必然丢失。AOSP 源码里预取上限
@@ -49,7 +44,7 @@ public class TextGrabber {
     /**
      * 递归深度上限。正常界面撑死几十层，这里给到 500 很宽裕；
      * 卡住是为了防病态树（几万层的链表式布局）把栈打爆 ——
-     * 触顶时这一趟收不到东西，grabFrom 会退回 grabAt 兜底。
+     * 触顶时这一趟收不到东西，直接回空，不再二次遍历整棵树。
      */
     private static final int MAX_DEPTH = 500;
     /**
@@ -92,9 +87,6 @@ public class TextGrabber {
         return out;
     }
 
-    /** 本次抓字发出的逐字位置请求次数，只用于日志；grab 是单线程串行，安全 */
-    private int rectReqTotal = 0;
-
     private final AccessibilityService svc;
 
     /**
@@ -118,18 +110,18 @@ public class TextGrabber {
             return null;
         }
         long t0 = System.nanoTime();
-        rectReqTotal = 0;
         Prefs p = new Prefs(svc);
         readScope = p.readScope();
+        // 一趟扫完即定：精确命中 / 容差最近 / 点击高度以下续读 全在同一份快照上做。
+        // 旧版这里还会退回 grabAt 再 roots()+findDeepest 全树重扫一遍（上限 30000 节点），
+        // 抓不到字时反而最慢，且读到的只是「一块文本」，不排序、不切句、不接后续段。
         String out = grabFromWindows(x, y);
         if (out != null && out.length() > 0) {
             long ms = (System.nanoTime() - t0) / 1000000L;
-            // 只记耗时 / 字数 / 请求次数，绝不写读到的文字（见隐私约定）
-            Log.i("grab", "抓字 " + ms + "ms / " + out.length() + " 字 / 逐字请求 "
-                    + rectReqTotal + " 次");
-            return out;
+            // 只记耗时 / 字数，绝不写读到的文字（见隐私约定）
+            Log.i("grab", "抓字 " + ms + "ms / " + out.length() + " 字");
         }
-        return grabAt(x, y);
+        return out;
     }
 
     /** 系统当前是否处于显示放大态（ API 24+ 的 MagnificationController ） */
@@ -176,7 +168,7 @@ public class TextGrabber {
 
             // 单次扫描即可：可见性误判由 walk 里「触点落在块内就收下」兜住，
             // 不再整窗重扫一遍（重复 getChild 有回收风险，也会拖慢点字）。
-            return scanWindows(x, y, true, roots, screen, tol, true);
+            return scanWindows(x, y, roots, screen, tol);
         } finally {
             for (int r = 0; r < roots.size(); r++) {
                 try {
@@ -188,9 +180,8 @@ public class TextGrabber {
     }
 
     /** 扫一遍所有窗口，返回按触点坐标选出的结果；没选中返回 null。 */
-    private String scanWindows(int x, int y, boolean requireVisible,
-                               List<AccessibilityNodeInfo> roots, Rect screen,
-                               long tol, boolean allowFallback) {
+    private String scanWindows(int x, int y, List<AccessibilityNodeInfo> roots,
+                               Rect screen, long tol) {
         int bestArea = Integer.MAX_VALUE;
         Pick bestPick = null;
         List<TextLayout.Node> bestSegs = null;
@@ -205,7 +196,6 @@ public class TextGrabber {
         for (int r = 0; r < roots.size(); r++) {
             List<TextLayout.Node> segs = new ArrayList<TextLayout.Node>();
             Walk w = new Walk(segs, screen, x, y);
-            w.requireVisible = requireVisible;
             w.nearTol = tol;
             walk(roots.get(r), w, 0);
             if (w.truncated) {
@@ -258,39 +248,14 @@ public class TextGrabber {
             return join(bestNearSegs,
                     new Pick(bestNearNode, area, bestNearStart));
         }
-        if (allowFallback) {
-            // 连容差内都没有：用「离触点最近的那个窗口」，而不是最上层窗口
-            List<TextLayout.Node> fb = (bestNearSegs != null)
-                    ? bestNearSegs : firstSegs;
-            if (fb != null) {
-                return joinBelow(fb, y);
-            }
+        // 连容差内都没有：用「离触点最近的那个窗口」从点击高度往下接，
+        // 而不是最上层窗口。全部决策都在这同一份快照上完成，不再重扫树。
+        List<TextLayout.Node> fb = (bestNearSegs != null)
+                ? bestNearSegs : firstSegs;
+        if (fb != null) {
+            return joinBelow(fb, y);
         }
         return null;
-    }
-
-    /** 兜底：直接读命中的那一块，不切句 */
-    public String grabAt(int x, int y) {
-        List<AccessibilityNodeInfo> roots = roots();
-        if (roots.isEmpty()) {
-            return null;
-        }
-        Best best = new Best();
-        try {
-            for (int r = 0; r < roots.size(); r++) {
-                findDeepest(roots.get(r), x, y, best);
-                // 3.9.7：与主路径一致，所有窗口都扫完再按面积取最小那块，
-                // 不再「第一个命中的窗口赢」—— 上层包裹型大节点会压住下层正文。
-            }
-        } finally {
-            for (int r = 0; r < roots.size(); r++) {
-                try {
-                    roots.get(r).recycle();
-                } catch (Exception ignored) {
-                }
-            }
-        }
-        return best.text;
     }
 
     // ---------- 窗口 ----------
@@ -625,7 +590,6 @@ public class TextGrabber {
         if (d <= w.nearTol && (takePick || takeNear)) {
             if (w.rectReq < MAX_RECT_REQ_PER_WINDOW) {
                 w.rectReq++;
-                rectReqTotal++;
                 seg.charStart = charStartIn(node, w.px, w.py);
             } else {
                 // 硬上限：不再跨进程，纯计算按行估算，绝不退回段首
@@ -972,86 +936,6 @@ public class TextGrabber {
             }
         }
         return best;
-    }
-
-    // ---------- 兜底用的最深命中 ----------
-
-    private void findDeepest(AccessibilityNodeInfo node, int x, int y, Best best) {
-        findDeepest(node, x, y, best, 0);
-    }
-
-    /**
-     * 兜底用的最深命中。
-     *
-     * 以前这里既没有深度上限也没有节点预算，只有递归：
-     * 病态深的树（嵌套滚动容器、某些网页转成的节点树）会一路递归到
-     * StackOverflowError。而调用方把 Throwable 一律吞成"这里没读到文字"，
-     * 用户看到的就是"点了没反应"，日志里也只留一句抓字抛异常。
-     *
-     * 3.5 给兜底补了闸；3.6 保留 MAX_DEPTH 防爆栈，把节点预算放宽到
-     * FALLBACK_MAX_WALK —— 偏偏正是主路径被闸断掉的时候才会走到兜底，
-     * 不能再让兜底也读不全。
-     */
-    private void findDeepest(AccessibilityNodeInfo node, int x, int y,
-                             Best best, int depth) {
-        if (node == null) {
-            return;
-        }
-        if (depth > MAX_DEPTH) {
-            Log.w("grab", "兜底路径超深，不再往下找 depth=" + depth);
-            return;
-        }
-        if (best.visited >= FALLBACK_MAX_WALK) {
-            Log.w("grab", "兜底路径节点太多，收工 visited=" + best.visited);
-            return;
-        }
-        best.visited++;
-        Rect r = new Rect();
-        try {
-            node.getBoundsInScreen(r);
-        } catch (Exception e) {
-            return;
-        }
-
-        if (r.contains(x, y)) {
-            String t = nodeText(node, new boolean[1]);
-            if (t != null) {
-                int area = r.width() * r.height();
-                if (best.text == null || area < best.area) {
-                    best.text = t;
-                    best.area = area;
-                }
-            }
-        }
-
-        int count;
-        try {
-            count = node.getChildCount();
-        } catch (Exception e) {
-            return;
-        }
-        for (int i = 0; i < count; i++) {
-            AccessibilityNodeInfo child;
-            try {
-                child = node.getChild(i);
-            } catch (Exception e) {
-                continue;
-            }
-            if (child != null) {
-                findDeepest(child, x, y, best, depth + 1);
-                try {
-                    child.recycle();
-                } catch (Exception ignored) {
-                }
-            }
-        }
-    }
-
-    private static class Best {
-        String text = null;
-        int area = Integer.MAX_VALUE;
-        /** 兜底路径也要有节点预算，否则深树会递归到爆栈 */
-        int visited = 0;
     }
 
     // ---------- 取文本 ----------

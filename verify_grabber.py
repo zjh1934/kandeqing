@@ -423,8 +423,8 @@ MAX_RECT_REQ_PER_WINDOW = 3   # 3.9.9：每窗口逐字位置请求硬上限
 RECT_REQ_TOTAL = [0]          # 本次抓字实际发出的请求数，用于断言上界
 
 
-def scan_windows(roots, x, y, screen, require_visible, allow_fallback):
-    """3.9.5 镜像：扫完所有窗口再按触点坐标全局选段，不再「第一个窗口赢」"""
+def scan_windows(roots, x, y, screen):
+    """3.9.10 镜像：一趟扫完，全部决策复用同一份快照，不再二次遍历"""
     best_area = float('inf')
     best_pick = None
     best_segs = None
@@ -437,7 +437,6 @@ def scan_windows(roots, x, y, screen, require_visible, allow_fallback):
     for root in roots:
         segs = []
         w = Walk(segs, screen, x, y)
-        w.requireVisible = require_visible
         w.nearTol = TOL
         walk(root, w, 0)
         if w.requireVisible and (not segs or w.visibleSkipped > 0):
@@ -468,10 +467,9 @@ def scan_windows(roots, x, y, screen, require_visible, allow_fallback):
                 * (best_near_node.bottom - best_near_node.top))
         return join(best_near_segs,
                     Pick(best_near_node, area, best_near_start))
-    if allow_fallback:
-        fb = best_near_segs if best_near_segs is not None else first_segs
-        if fb is not None:
-            return join_below(fb, y)
+    fb = best_near_segs if best_near_segs is not None else first_segs
+    if fb is not None:
+        return join_below(fb, y)
     return None
 
 
@@ -483,18 +481,10 @@ def grab_from_windows(roots, x, y, screen, magnified=False):
     if not roots:
         return None
     try:
-        return scan_windows(roots, x, y, screen, True, True)
+        return scan_windows(roots, x, y, screen)
     finally:
         for r in roots:
             r.recycle()
-
-
-def grab_at(roots, x, y):
-    """镜像 TextGrabber.grabAt：所有窗口扫完再按面积取最小，不再第一个窗口赢"""
-    best = Best()
-    for r in roots:
-        find_deepest(r, x, y, best)
-    return best.text
 
 
 def _tall_screen():
@@ -670,87 +660,34 @@ def case_deep_tree_ok():
 
 def case_too_deep_guarded():
     """
-    超深树（远超 MAX_DEPTH）：两条路都在上限处停住，读不到东西 —— 但不许崩。
-
-    3.5 之前兜底路径 findDeepest 没有深度上限，这个用例断言它能一路摸到
-    4000 层底下的文字。那个断言其实是**假能力**：
-      · 它之所以能在这里跑通，是因为脚本开头 sys.setrecursionlimit(20000)；
-        Python 默认 1000 层就 RecursionError 了。
-      · 真机上是 Java，findDeepest 每层还要 new 一个 Rect，
-        4000 层几乎必然 StackOverflowError；
-        而 readAt 把 Throwable 一律吞成"这里没读到文字" ——
-        用户看到的就是"点了没反应"，日志里也只留一句"抓字抛异常"。
-
-    所以现在的正确契约是：兜底同样受 MAX_DEPTH 约束，到不了底就到不了底，
-    干干净净返回 None，而不是把爆栈掩盖成"没读到文字"。
-    真实界面节点深度远小于这个上限（常见 <100），不影响正常使用。
+    超深树（远超 MAX_DEPTH）在深度上限处干净停住，返回空且不崩、不二次遍历。
+    真机上 4000 层递归几乎必然 StackOverflowError，被吞成「点了没反应」；
+    真实界面深度常见 <100，不受影响。
     """
     tree = _chain(4000, "最底")
-    got = grab_from_windows([tree], 5, 5, SCREEN)
-    ok_window_pass = (got is None)
-
-    best = Best()
     try:
-        find_deepest(tree, 5, 5, best)
+        got = grab_from_windows([tree], 5, 5, SCREEN)
     except RecursionError:
-        return False, "兜底路径递归爆了 —— 上限没生效"
+        return False, "主路径递归爆了 —— 深度上限没生效"
+    # 到不了底，但也不能崩；且只走一趟，getChild 次数不因兜底而翻倍
+    ok = (got is None) and tree.child_calls <= MAX_WALK
+    return ok, (got, tree.child_calls)
 
-    # 到不了底，但也不能崩；同时确认它确实是在上限处停的，不是提前放弃
-    ok_fallback = (best.text is None) and best.visited <= MAX_WALK
-    return (ok_window_pass and ok_fallback), (got, best.text, best.visited)
 
-
-def case_fallback_still_finds_normal_deep():
+def case_no_second_walk_on_miss():
     """
-    上限不能误伤：正常深树（400 层，仍小于 MAX_DEPTH）兜底照样能摸到底。
+    3.9.10：整屏一个字都没有时，只走一趟树就返回空。
 
-    上面那条把兜底也加了闸，这条守住"闸别关太紧"。
+    旧版主路径返回 None 后会再 roots()+findDeepest 全树重扫一遍，
+    「抓不到字」反而最慢。现在没有第二套遍历，getChild 次数恒定。
     """
-    tree = _chain(400, "最底")
-    best = Best()
-    find_deepest(tree, 5, 5, best)
-    return best.text == "最底", best.text
-
-
-class Best(object):
-    def __init__(self):
-        self.text = None
-        self.area = 1 << 30
-        self.visited = 0
-
-
-def find_deepest(node, x, y, best, depth=0):
-    """镜像 TextGrabber.findDeepest（含 3.5 新加的深度上限与节点预算）"""
-    if node is None:
-        return
-    if depth > MAX_DEPTH:
-        return
-    if best.visited >= MAX_WALK:
-        return
-    best.visited += 1
-    r = Rect()
-    try:
-        node.getBoundsInScreen(r)
-    except Exception:
-        return
-    if r.contains(x, y):
-        t, _body = node_text(node)
-        if t is not None:
-            area = r.width() * r.height()
-            if best.text is None or area < best.area:
-                best.text = t
-                best.area = area
-    try:
-        count = node.getChildCount()
-    except Exception:
-        return
-    for i in range(count):
-        try:
-            child = node.getChild(i)
-        except Exception:
-            continue
-        if child is not None:
-            find_deepest(child, x, y, best, depth + 1)
+    leaf = n(bounds=(0, 0, 100, 40))
+    mid = n(children=[leaf, n(bounds=(0, 40, 100, 80))])
+    root = n(children=[mid, n(bounds=(100, 0, 200, 80))])
+    got = grab_from_windows([root], 50, 20, SCREEN)
+    # root 1 次 + mid 1 次 = 2；二次遍历会变成 4
+    ok = (got is None) and root.child_calls == 2
+    return ok, (got, root.child_calls)
 
 
 def case_all_nodes_recycled():
@@ -1060,10 +997,10 @@ def case_visibility_no_rescan():
 
 
 def case_fallback_all_windows():
-    """兜底路径跨窗口全局比面积：上层大节点不能压住下层真正那行。"""
+    """主路径跨窗口全局比面积：上层大节点不能压住下层真正那行。"""
     top = _nd('整张卡片', (0, 0, 1080, 800))
     bottom = _nd('真正那行', (0, 560, 1080, 620))
-    got = grab_at([top, bottom], 540, 590)
+    got = grab_from_windows([top, bottom], 540, 590, SCREEN)
     return got == '真正那行', got
 
 
@@ -1088,7 +1025,7 @@ CASES = [
     ("3.9.7 提示文字不进正文串", case_hint_not_in_body),
     ("3.9.7 逐字位置失效都不退篇头", case_extra_data_paths_not_zero),
     ("3.9.7 可见性重算不重扫树", case_visibility_no_rescan),
-    ("3.9.7 兜底跨窗口全局比较", case_fallback_all_windows),
+    ("3.9.7 主路径跨窗口全局比较", case_fallback_all_windows),
     ("3.9.7 放大态拒绝抓字", case_magnified_rejected),
     ("3.9.7 长文中段不从篇头读", case_long_text_mid_not_head),
     ("3.9.5 多层留白命中最近行", case_layered_gap_hit),
@@ -1114,7 +1051,7 @@ CASES = [
     ("超宽树在上限处停住", case_budget_does_not_explode),
     ("正常深树不被误伤", case_deep_tree_ok),
     ("超深树不爆栈、干净返回空", case_too_deep_guarded),
-    ("兜底上限不误伤正常深树", case_fallback_still_finds_normal_deep),
+    ("没抓到时也不二次遍历整棵树", case_no_second_walk_on_miss),
     ("节点全部回收无泄漏", case_all_nodes_recycled),
     ("密集页面逐字请求有硬上界", case_rect_requests_hard_cap),
     ("超上限后起点仍不退段首", case_over_budget_still_not_paragraph_head),

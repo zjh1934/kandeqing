@@ -583,7 +583,7 @@ public class ComboService extends AccessibilityService
             public void run() {
                 String got;
                 try {
-                    // grabFrom 内部已经兜过 grabAt
+                    // grabFrom 一趟扫完，主路径与兜底共用同一份快照
                     got = grabber.grabFrom(x, y);
                 } catch (Throwable t) {
                     Log.e("grab", "抓字抛异常", t);

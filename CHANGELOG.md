@@ -4,6 +4,39 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.10 · 抓字代码做减法：只留一趟遍历（versionCode 40）
+
+> 方向：不再往抓字器上加层。该删的删，以「点了马上出声、点哪读哪、复杂页面也抓得到」为唯一标准。
+
+### 删掉的东西（净减约 110 行）
+
+- **`grabAt()` / `findDeepest()`（两个重载）/ `Best` 类 / `FALLBACK_MAX_WALK=30000` 整套删除。**
+  旧版 `grabFrom()` 主路径返回空后，会再 `roots()` 取一次所有窗口、`findDeepest()` 全树重扫，
+  且给它单独一套 30000 节点预算。这是「越堆越厚」最典型的一处：
+  - 抓不到字时反而要再扫一遍树才告诉用户「这里没读到文字」，**这时候最慢**
+  - 它读到的只是**一块文本**：不排序、不切句、不接后续段、不认「读多少」
+  - 主路径 `walk()` 已经收了同一棵树，等于同一件事做两遍
+- `scanWindows()` 的 `requireVisible` / `allowFallback` 两个参数**永远传 true**（只有一个调用点），删除
+- `rectReqTotal` 全局计数与日志里的「逐字请求 K 次」删除，日志简化成「抓字 Nms / M 字」
+- `ComboService` 里「grabFrom 内部已经兜过 grabAt」的陈旧注释同步改掉
+
+### 现在一趟扫完就定
+
+`grabFromWindows` → `scanWindows` 一次 `walk`，快照上依次做：
+精确命中跨窗口比面积最小 → 48dp 容差最近段 → 点击高度以下续读；
+可见性误报用 `w.hidden` 纯数据合并重算，**不重扫树**。
+
+### 明确没动（所以行为不退化）
+
+`MAX_WALK=10000` / `MAX_SEG=2000` 只截收录不截遍历 / `MAX_DEPTH=500`、
+`EXTRA_TEXT_GETTERS` 反射缓存、逐字位置每窗口上限 3 次且失败按 y 落行估算、
+放大态显式断言、文本按官方语义分角色、两级句读 + 160 字上限、读多少三档、
+后台单线程 + 0ms 等待 + 加载转圈 + 失败反馈、`BallController` / `ZoomController` /
+`TtsManager` / UI / 主题 / 3.6 蓝球 Logo。
+
+`verify_grabber.py` 同步删除镜像，三个依赖 `findDeepest` 的用例改成验主路径等价能力，
+并新增「没抓到时也不二次遍历」断言。`verify_all` 5 suite 三轮全绿。
+
 ## 3.9.9 · 抓得更深、读得更快（versionCode 39）
 
 > 只走官方无障碍树，OCR / 截图整条排除。本版**一行都没砍覆盖率**，
