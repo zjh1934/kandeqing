@@ -59,6 +59,42 @@ public class TextGrabber {
      */
     private static final int MAX_CHAR_REQ = 20000;
 
+    /**
+     * 3.9.9：每个窗口最多发几次「逐字位置」跨进程请求。
+     * refreshWithExtraData 要对方 App 现场算出整段每个字符的 RectF 再回传，
+     * 是整条链路最贵的一步。旧版对 48dp 容差内的每一段都发一次，密集页面
+     * 十几段就是十几轮。实际上 join() 最终只用命中段或最近段其中一个起点，
+     * 其余全属浪费。超过上限改用纯计算按行估算，绝不退回段首。
+     */
+    private static final int MAX_RECT_REQ_PER_WINDOW = 3;
+
+    /**
+     * hint / tooltip / stateDescription / paneTitle 的 getter 用反射取
+     * （避免高 API 编译依赖）。旧版在 nodeText() 里对每个【没有文字的容器节点】
+     * 都跑 Class.getMethod ×4 —— 一屏上千节点就是几千次方法查找与异常捕获，
+     * 全在抓字热路径上。这里进程内解析一次，找不到的方法置 null 直接跳过，
+     * 行为与旧版完全一致（旧版也是每次 catch 掉继续）。
+     */
+    private static final java.lang.reflect.Method[] EXTRA_TEXT_GETTERS =
+            resolveExtraTextGetters();
+
+    private static java.lang.reflect.Method[] resolveExtraTextGetters() {
+        String[] names = {"getHintText", "getTooltipText",
+                "getStateDescription", "getPaneTitle"};
+        java.lang.reflect.Method[] out = new java.lang.reflect.Method[names.length];
+        for (int i = 0; i < names.length; i++) {
+            try {
+                out[i] = AccessibilityNodeInfo.class.getMethod(names[i]);
+            } catch (Throwable ignored) {
+                out[i] = null;
+            }
+        }
+        return out;
+    }
+
+    /** 本次抓字发出的逐字位置请求次数，只用于日志；grab 是单线程串行，安全 */
+    private int rectReqTotal = 0;
+
     private final AccessibilityService svc;
 
     /**
@@ -81,10 +117,16 @@ public class TextGrabber {
             Log.w("grab", "系统处于放大态，坐标不自洽，本次不抓字");
             return null;
         }
+        long t0 = System.nanoTime();
+        rectReqTotal = 0;
         Prefs p = new Prefs(svc);
         readScope = p.readScope();
         String out = grabFromWindows(x, y);
         if (out != null && out.length() > 0) {
+            long ms = (System.nanoTime() - t0) / 1000000L;
+            // 只记耗时 / 字数 / 请求次数，绝不写读到的文字（见隐私约定）
+            Log.i("grab", "抓字 " + ms + "ms / " + out.length() + " 字 / 逐字请求 "
+                    + rectReqTotal + " 次");
             return out;
         }
         return grabAt(x, y);
@@ -404,6 +446,8 @@ public class TextGrabber {
          * 每个元素都带 charStart，所以重算阶段完全不碰 AccessibilityNodeInfo。
          */
         final List<TextLayout.Node> hidden = new ArrayList<TextLayout.Node>();
+        /** 本窗口已发出的逐字位置请求数，硬上限见 MAX_RECT_REQ_PER_WINDOW */
+        int rectReq = 0;
 
         Walk(List<TextLayout.Node> out, Rect screen, int px, int py) {
             this.out = out;
@@ -517,10 +561,10 @@ public class TextGrabber {
 
         // 逐字位置在树遍历阶段一次算好、存成纯数据；后续重算命中/可见性
         // 都不再碰 AccessibilityNodeInfo（节点交给服务后即不可变，且随时 obsolete）。
-        long d = distanceTo(r, w.px, w.py);
-        int charStart = (d <= w.nearTol) ? charStartIn(node, w.px, w.py) : 0;
+        // 3.9.9：只对会成为 hit / nearest 的段发请求，且每窗口有硬上限。
         TextLayout.Node seg = new TextLayout.Node(
-                t, r.left, r.top, r.right, r.bottom, body[0], charStart);
+                t, r.left, r.top, r.right, r.bottom, body[0], 0);
+        fillCharStart(node, r, t, seg, w);
 
         if (softHidden) {
             w.hidden.add(seg);      // 保留快照，关过滤时合并重算，不重扫树
@@ -560,6 +604,33 @@ public class TextGrabber {
             int area = (seg.right - seg.left) * (seg.bottom - seg.top);
             if (w.pick == null || area < w.pick.area) {
                 w.pick = new Pick(seg, area, seg.charStart);
+            }
+        }
+    }
+
+    /**
+     * 3.9.9：逐字位置只给「最终会被使用的那段」请求。
+     *
+     * 后序遍历保证子节点先于父节点出现，同一位置的嵌套节点面积更大，
+     * 所以「面积比当前 pick 更小」只会命中真正最靠下的那块文字；
+     * 「比当前 nearest 更近」只在最近段被刷新时成立。
+     * 两者之外的段，join() 永远不会用到它的 charStart，不必跨进程去问。
+     */
+    private void fillCharStart(AccessibilityNodeInfo node, Rect r, String t,
+                               TextLayout.Node seg, Walk w) {
+        long d = distanceTo(r, w.px, w.py);
+        int area = r.width() * r.height();
+        boolean takePick = (d == 0) && (w.pick == null || area < w.pick.area);
+        boolean takeNear = (w.nearest == null || d < w.nearestDist);
+        if (d <= w.nearTol && (takePick || takeNear)) {
+            if (w.rectReq < MAX_RECT_REQ_PER_WINDOW) {
+                w.rectReq++;
+                rectReqTotal++;
+                seg.charStart = charStartIn(node, w.px, w.py);
+            } else {
+                // 硬上限：不再跨进程，纯计算按行估算，绝不退回段首
+                seg.charStart = fallbackStart(node, w.px, w.py, t,
+                        TextLayout.trimmedLength(t), 0);
             }
         }
     }
@@ -1034,12 +1105,13 @@ public class TextGrabber {
         // 分栏标题）常把屏幕上明明看得见的字放在这几个字段里。
         // 用反射取，低版本没有的方法自动跳过，不引入高 API 编译依赖。
         body[0] = false;
-        String[] extra = {"getHintText", "getTooltipText",
-                "getStateDescription", "getPaneTitle"};
-        for (int i = 0; i < extra.length; i++) {
+        for (int i = 0; i < EXTRA_TEXT_GETTERS.length; i++) {
+            java.lang.reflect.Method m = EXTRA_TEXT_GETTERS[i];
+            if (m == null) {
+                continue;
+            }
             try {
-                CharSequence cs = (CharSequence) AccessibilityNodeInfo.class
-                        .getMethod(extra[i]).invoke(node);
+                CharSequence cs = (CharSequence) m.invoke(node);
                 if (cs != null) {
                     String s = cs.toString().trim();
                     if (s.length() > 0) {

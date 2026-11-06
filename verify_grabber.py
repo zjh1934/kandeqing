@@ -135,6 +135,8 @@ class Walk(object):
         self.visibleSkipped = 0
         # 3.9.7：被可见性软过滤的段收成纯数据，关过滤时合并重算，不重扫树
         self.hidden = []
+        # 3.9.9：本窗口已发出的逐字位置请求数
+        self.rectReq = 0
 
 
 class Pick(object):
@@ -193,6 +195,7 @@ def visible(node):
 
 def char_start_in(node, x, y, sdk=26):
     """镜像 TextGrabber.charStartIn（不含 Bundle/refresh，只算偏移）"""
+    RECT_REQ_TOTAL[0] += 1
     if node is None:
         return 0
     try:
@@ -247,6 +250,22 @@ def consider(seg, w):
         area = (seg.right - seg.left) * (seg.bottom - seg.top)
         if w.pick is None or area < w.pick.area:
             w.pick = Pick(seg, area, seg.charStart)
+
+
+def fill_char_start(node, r, t, seg, w):
+    """3.9.9 镜像：只给会成为 pick / nearest 的段发请求，且每窗口有硬上限。"""
+    d = distance_to(r, w.px, w.py)
+    area = (r.right - r.left) * (r.bottom - r.top)
+    take_pick = (d == 0) and (w.pick is None or area < w.pick.area)
+    take_near = (w.nearest is None or d < w.nearestDist)
+    if d <= w.nearTol and (take_pick or take_near):
+        if w.rectReq < MAX_RECT_REQ_PER_WINDOW:
+            w.rectReq += 1
+            seg.charStart = char_start_in(node, w.px, w.py)
+        else:
+            # 超上限：纯计算按行估算，绝不退回段首
+            seg.charStart = fallback_start(node.bounds, w.px, w.py, t,
+                                          trimmed_length(t), 0)
 
 
 def walk(node, w, depth=0):
@@ -308,10 +327,8 @@ def walk(node, w, depth=0):
         w.truncated = True
         return True
 
-    dist = distance_to(r, w.px, w.py)
-    char_start = (char_start_in(node, w.px, w.py)
-                  if dist <= w.nearTol else 0)
-    seg = Node(t, r.left, r.top, r.right, r.bottom, body, char_start)
+    seg = Node(t, r.left, r.top, r.right, r.bottom, body, 0)
+    fill_char_start(node, r, t, seg, w)
     if soft_hidden:
         w.hidden.append(seg)
         return True
@@ -402,6 +419,8 @@ def join_below(segs, y):
 
 
 TOL = 144      # 48dp @3x，镜像 TextGrabber 的容差
+MAX_RECT_REQ_PER_WINDOW = 3   # 3.9.9：每窗口逐字位置请求硬上限
+RECT_REQ_TOTAL = [0]          # 本次抓字实际发出的请求数，用于断言上界
 
 
 def scan_windows(roots, x, y, screen, require_visible, allow_fallback):
@@ -755,6 +774,35 @@ def case_all_nodes_recycled():
     return ok, (got, len(leaked))
 
 
+# ---------- 3.9.9：快而深 ----------
+
+def case_rect_requests_hard_cap():
+    """密集页面逐字位置请求有硬上界，不随容差内段数线性增长。"""
+    RECT_REQ_TOTAL[0] = 0
+    kids = [n("第%d段文字" % i, bounds=(i * 10, 0, i * 10 + 10, 40))
+            for i in range(30)]
+    root = n(children=kids)
+    got = grab_from_windows([root], 100, 20, SCREEN)
+    used = RECT_REQ_TOTAL[0]
+    ok = got is not None and len(got) > 0 and used <= MAX_RECT_REQ_PER_WINDOW
+    return ok, "requests=%d got=%s" % (used, got)
+
+
+def case_over_budget_still_not_paragraph_head():
+    """请求打满上限后改用按行估算，长文仍从中间句读，不退到段首。"""
+    raw = "第一句内容写在这里。" * 12      # 带句读的长文，120 字
+    node = n(raw, bounds=(0, 0, 1000, 800))
+    w = Walk([], SCREEN, 500, 400)
+    w.nearTol = TOL
+    w.rectReq = MAX_RECT_REQ_PER_WINDOW   # 额度已用尽
+    r = Rect()
+    r.left, r.top, r.right, r.bottom = 0, 0, 1000, 800
+    seg = Node(raw, 0, 0, 1000, 800, True, 0)
+    fill_char_start(node, r, raw, seg, w)
+    ok = 0 < seg.charStart < len(raw)
+    return ok, "charStart=%d" % seg.charStart
+
+
 # ---------- 3.9.4「读多少」 ----------
 
 SCOPE_RAW = "第一句。第二句。第三句。"
@@ -1068,6 +1116,8 @@ CASES = [
     ("超深树不爆栈、干净返回空", case_too_deep_guarded),
     ("兜底上限不误伤正常深树", case_fallback_still_finds_normal_deep),
     ("节点全部回收无泄漏", case_all_nodes_recycled),
+    ("密集页面逐字请求有硬上界", case_rect_requests_hard_cap),
+    ("超上限后起点仍不退段首", case_over_budget_still_not_paragraph_head),
 ]
 
 
