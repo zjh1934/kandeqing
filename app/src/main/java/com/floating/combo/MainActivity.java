@@ -616,9 +616,10 @@ public class MainActivity extends Activity
                 if (TtsManager.isFailed()) {
                     Ui.toast(MainActivity.this, "引擎初始化失败，换一个试试", false);
                 }
-                if (voices.isEmpty()) {
-                    reloadVoices();
-                }
+                // 换引擎后旧音色列表已经失效，必须无条件刷新。
+                // 原来只在 voices 为空时刷，导致切引擎后仍显示旧引擎的音色名，
+                // 保存的 voice 在新引擎里不存在，applyVoice 静默退回中文，界面却显示「已选中」。
+                reloadVoices();
             }
         });
     }

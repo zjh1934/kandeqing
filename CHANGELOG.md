@@ -4,6 +4,51 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.11 · 自主代码审查：修 3 个真 bug（versionCode 41）
+
+> 本轮把 3.9.10 落地后的全部 Java（17 个约 7000 行）、Manifest、无障碍配置、
+> CI 脚本重新读了一遍。**只修 bug、不加功能、不往抓字链路加层**。
+
+### 1. 放大时球不在手指下面（P0，最早那个问题一直没根治）
+
+`MotionEvent.getRawX/Y()` 给的是**物理显示区**坐标（含状态栏 / 导航栏），
+而 `BallController.measure()` 用 `getMetrics()` 取**应用区**尺寸，
+`ComboService` 又把这个值原样传给 `ZoomController.setScreen()`。
+
+数值模拟（物理高 2400 / 应用区 2280、倍率 3.0）：中部**恒定偏 60px**，
+靠底部被 `clampCenter()` 放大到 **200px**。球的窗口位置本身没错，
+错的是放大中心的 `S/2`，所以看起来「球不在手指下面」。
+
+修法：`ComboService.refreshZoomScreen()` 单独用 `getRealMetrics()` 给放大用；
+**拖球的 `clampX/clampY` 仍用原来的应用区尺寸，一行没动**。
+换回物理尺寸后，模拟各位置偏移全部为 0。旋转 / 折叠屏展开那条路径同步改。
+
+### 2. 换语音引擎后音色列表不刷新（P1）
+
+`onEngineReady()` 原来只在 `voices.isEmpty()` 时才 `reloadVoices()`。
+切引擎后 `rebind` 完成，列表却还是旧引擎的音色：界面显示旧名字，
+保存的 voice 在新引擎里不存在，`applyVoice()` 静默退回中文，用户还以为「已选中」。
+改成**无条件刷新**（列表很小，多次回调重建无感）。
+
+### 3. 系统弹窗被当成「用户切走」（P1）
+
+配置是 `typeAllMask`，状态栏下拉 / 通知 / 输入法 / 锁屏都会发
+`TYPE_WINDOW_STATE_CHANGED`。旧逻辑只排除自己包名，于是一次通知就作废朗读，
+还因为标了「不是用户造成的」弹「这次没读成，再点一下」——用户什么都没做错。
+现在识别系统 UI 事件后仍收掉全屏覆盖层（不然系统弹窗点不动），
+但**静默退出、不补误导提示**；真正切到别的应用仍保留原提示。
+
+### 复核过、确认不用改的
+
+- `MAX_SEG=2000` 已带 `!touchInside`，只截收录不截遍历（3.9.7 已修）
+- `startSpeak` 成功后 `pickTimeout` 虽未显式取消，但 run 里 `state != ST_PICKING` 会直接返回，8 秒后不会打断朗读
+- 日志全程只记字数 / 耗时 / 状态，不记读到的任何文字
+- `TtsManager.onChunkEnd` 对 `sessionOf(id)==-1` 无条件 `notifyEnd`：这是「球永远卡在两竖」与「偶尔早一帧收尾」之间的显式取舍，**本轮不动**，避免又改乱朗读状态机
+
+只改 `ComboService.java`、`MainActivity.java`、版本与文档。
+`TextGrabber` / `BallController` / `ZoomController` / `TtsManager` / UI / 主题 / 3.6 蓝球 Logo 一行没动。
+`verify_all` 5 suite 三轮全绿。
+
 ## 3.9.10 · 抓字代码做减法：只留一趟遍历（versionCode 40）
 
 > 方向：不再往抓字器上加层。该删的删，以「点了马上出声、点哪读哪、复杂页面也抓得到」为唯一标准。

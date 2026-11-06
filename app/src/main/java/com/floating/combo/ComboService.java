@@ -194,10 +194,26 @@ public class ComboService extends AccessibilityService
         if (pkg != null && getPackageName().contentEquals(pkg)) {
             return;     // 是我们自己的界面（比如打开了 App），不动
         }
-        Log.i("pick", "窗口切走了，退出选字态");
-        abortPendingGrab(false);      // 不是用户点的，得让他知道这次没读成
+        // 状态栏下拉 / 通知 / 输入法 / 锁屏也都是 TYPE_WINDOW_STATE_CHANGED，
+        // 但用户什么都没做错。仍要收掉全屏覆盖层（不然系统弹窗点不动），
+        // 但不该补那记长震和「这次没读成，再点一下」的误导提示。
+        boolean systemUi = isSystemUiEvent(event, pkg);
+        Log.i("pick", systemUi ? "系统弹窗，静默退出选字态" : "窗口切走了，退出选字态");
+        abortPendingGrab(systemUi);
         removeOverlay();
         toIdle();
+    }
+
+    /** 系统界面 / 输入法 / 通知栏 / 锁屏：不是用户切到别的应用 */
+    private static boolean isSystemUiEvent(AccessibilityEvent e, CharSequence pkg) {
+        String p = (pkg == null) ? "" : pkg.toString();
+        if (p.startsWith("com.android.systemui") || p.equals("android")) {
+            return true;
+        }
+        CharSequence cls = e.getClassName();
+        String c = (cls == null) ? "" : cls.toString().toLowerCase(java.util.Locale.ROOT);
+        return c.contains("inputmethod") || c.contains("notification")
+                || c.contains("statusbar") || c.contains("keyguard");
     }
 
     @Override
@@ -212,9 +228,7 @@ public class ComboService extends AccessibilityService
             return;
         }
         ball.remeasure();
-        if (zoom != null) {
-            zoom.setScreen(ball.screenW(), ball.screenH());
-        }
+        refreshZoomScreen();
         ball.applyPrefs();
     }
 
@@ -268,8 +282,35 @@ public class ComboService extends AccessibilityService
         }
         if (ball == null) {
             ball = new BallController(this, prefs, zoom, this);
-            zoom.setScreen(ball.screenW(), ball.screenH());
+            refreshZoomScreen();
         }
+    }
+
+    /**
+     * 放大中心的尺寸必须和手指坐标同源。
+     *
+     * 手指来自 MotionEvent.getRawX/Y()（物理显示区，含状态栏与导航栏），
+     * 而 BallController.measure() 用的是 getMetrics()（应用区，不含系统装饰）——
+     * 那个值给【拖球贴边】用是对的，给放大中心的 S/2 用就错了：
+     * 中部恒定偏 60px，靠底部被 clampCenter 放大到 200px，看起来就是
+     * 「按住球放大，球不在手指下面」。这里单独取真实显示区尺寸给放大用，
+     * 拖球的 clamp 一个字节都不动。
+     */
+    private void refreshZoomScreen() {
+        if (zoom == null || wm == null) {
+            return;
+        }
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        try {
+            wm.getDefaultDisplay().getRealMetrics(dm);
+        } catch (Throwable ignored) {
+            try {
+                wm.getDefaultDisplay().getMetrics(dm);
+            } catch (Throwable ignored2) {
+                return;
+            }
+        }
+        zoom.setScreen(dm.widthPixels, dm.heightPixels);
     }
 
     /** 给界面显示当前到底卡在哪一步 */
