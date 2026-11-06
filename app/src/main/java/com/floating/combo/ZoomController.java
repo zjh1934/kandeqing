@@ -92,21 +92,6 @@ public class ZoomController {
         curCy = Math.max(hh, Math.min(screenH - hh, curCy));
     }
 
-    /** 屏幕坐标 → 内容坐标 */
-    public float screenToContentX(float px) {
-        if (!zoomOn || curScale <= 1.01f) {
-            return px;
-        }
-        return curCx + (px - screenW / 2f) / curScale;
-    }
-
-    public float screenToContentY(float py) {
-        if (!zoomOn || curScale <= 1.01f) {
-            return py;
-        }
-        return curCy + (py - screenH / 2f) / curScale;
-    }
-
     private MagnificationController mag() {
         try {
             return svc.getMagnificationController();
