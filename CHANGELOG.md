@@ -4,6 +4,17 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.8 · 彻底拔掉密码保护整套（versionCode 38）
+
+- 删除 `Prefs.K_PWD_GUARD` / `passwordGuard()` / `setPasswordGuard()`
+- 删除 `TextGrabber.skipPassword` 字段、`grabFrom()` 里每次点字的开关重读、
+  `walk()` 与 `findDeepest()` 里的 `isPassword()` 判断，以及 `isPassword()` 方法本身
+- 删除「更多 → 隐私」页的「密码框不朗读」开关
+- 自检镜像 `verify_grabber.py` 同步删除两个密码用例与镜像判断
+- 理由：不联网、数据不出本地、日志不记录读到的内容；密码特判既没有隐私收益，
+  又会误伤验证码 / 金额 / 普通输入框，开启时还给每个节点多一次跨进程 `isPassword()` 调用
+- 抓字链路其余部分一行未动：遍历、逐字位置、断句、读多少、放大、移动、TTS 全部原样
+
 ## 3.9.7 · 抓字链路按 Android 官方无障碍树契约重做（versionCode 37）
 
 > 只走 `AccessibilityNodeInfo` 树。OCR / 截图 / MediaProjection / 像素识别整条排除。

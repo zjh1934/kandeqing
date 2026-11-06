@@ -75,9 +75,6 @@ class FakeNode(object):
     def getContentDescription(self):
         return self._desc
 
-    def isPassword(self):
-        return self.password
-
     def getBoundsInScreen(self, out):
         out.left, out.top, out.right, out.bottom = self.bounds
         return out
@@ -228,16 +225,6 @@ def char_start_in(node, x, y, sdk=26):
             return 0
 
 
-def is_password(node):
-    """镜像 TextGrabber.isPassword"""
-    if node is None:
-        return False
-    try:
-        return node.isPassword()
-    except Exception:
-        return False
-
-
 def distance_to(seg_or_rect, x, y):
     """触点到矩形边界的距离，y 权重加倍（镜像 TextGrabber.distanceTo）"""
     l = seg_or_rect.left
@@ -293,10 +280,6 @@ def walk(node, w, depth=0):
             c.recycle()
         except Exception:
             pass
-
-    # 镜像 TextGrabber.walk 里的密码框判断：密码框一个字都不收
-    if is_password(node):
-        return child_yielded
 
     t, body = node_text(node)
     if t is None:
@@ -731,7 +714,7 @@ def find_deepest(node, x, y, best, depth=0):
         node.getBoundsInScreen(r)
     except Exception:
         return
-    if r.contains(x, y) and not is_password(node):
+    if r.contains(x, y):
         t, _body = node_text(node)
         if t is not None:
             area = r.width() * r.height()
@@ -770,41 +753,6 @@ def case_all_nodes_recycled():
     leaked = [x for x in all_nodes(root) if not x.recycled]
     ok = (got is not None) and not leaked
     return ok, (got, len(leaked))
-
-
-def case_password_skipped_in_walk():
-    """
-    主路径（walk）：点在密码框上，密码一个字都不能被读出来。
-
-    Android 只保证"不把密码放进无障碍事件里广播"，并不阻止服务遍历节点取文本
-    —— 所以这条只能靠我们自己判 isPassword()。
-    """
-    root = n(children=[
-        n("账号", bounds=(0, 0, 200, 40)),
-        n("mima123456", bounds=(0, 40, 200, 80), password=True),
-        n("登录", bounds=(0, 80, 200, 120)),
-    ])
-    got = grab_from_windows([root], 50, 60, SCREEN)
-    ok = (got is not None) and ("mima123456" not in got) and ("登录" in got)
-    return ok, got
-
-
-def case_password_skipped_in_find_deepest():
-    """
-    兜底路径（findDeepest）也得挡住。
-
-    主路径被上限截断或整棵树没收上来时会退到这里，
-    漏掉这第二条路就等于没挡 —— 所以必须单独验。
-    """
-    root = n(children=[
-        n("账号", bounds=(0, 0, 200, 40)),
-        n("mima123456", bounds=(0, 40, 200, 80), password=True),
-        n("登录", bounds=(0, 80, 200, 120)),
-    ])
-    best = Best()
-    find_deepest(root, 50, 60, best)     # 点正好落在密码框里
-    ok = best.text != "mima123456"
-    return ok, best.text
 
 
 # ---------- 3.9.4「读多少」 ----------
@@ -1120,8 +1068,6 @@ CASES = [
     ("超深树不爆栈、干净返回空", case_too_deep_guarded),
     ("兜底上限不误伤正常深树", case_fallback_still_finds_normal_deep),
     ("节点全部回收无泄漏", case_all_nodes_recycled),
-    ("密码框不读（主路径 walk）", case_password_skipped_in_walk),
-    ("密码框不读（兜底 findDeepest）", case_password_skipped_in_find_deepest),
 ]
 
 

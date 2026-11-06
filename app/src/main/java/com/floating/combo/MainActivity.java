@@ -849,17 +849,7 @@ public class MainActivity extends Activity
                 })), groupLp());
 
         page.addView(Ui.group(this, "隐私",
-                Ui.plainRow(this, "本地处理 · 不联网 · 不上传"),
-                Ui.switchRow(this, "密码框不朗读", prefs.passwordGuard(),
-                        new OnToggle() {
-                            @Override
-                            public void on(boolean on) {
-                                prefs.setPasswordGuard(on);
-                                Ui.iconToast(MainActivity.this,
-                                        on ? "已开启：密码框不再朗读"
-                                                : "已关闭：恢复点哪读哪");
-                            }
-                        })), groupLp());
+                Ui.plainRow(this, "本地处理 · 不联网 · 不上传")), groupLp());
 
         page.addView(Ui.group(this, "分享",
                 Ui.actionRow(this, "一键推荐给家人朋友", Ui.GlyphView.SHARE,

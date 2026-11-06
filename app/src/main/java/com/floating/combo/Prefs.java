@@ -79,8 +79,6 @@ public class Prefs {
     private static final String K_ALPHA_MIG_34 = "alpha_mig_34";
     private static final String K_PITCH = "pitch";
     private static final String K_HAPTIC = "haptic";
-    /** 3.7 密码保护开关。默认关 = 照常朗读密码框；开 = 跳过 isPassword 节点 */
-    private static final String K_PWD_GUARD = "pwd_guard";
     /** 主题模式：0 跟随系统 / 1 深色 / 2 浅色。3.10 起默认跟随系统 */
     private static final String K_THEME_MODE = "theme_mode";
     /** 3.9.4 读多少：0 只读一句 / 1 读到段末 / 2 读到屏底 */
@@ -335,23 +333,6 @@ public class Prefs {
 
     public void setHaptics(boolean v) {
         sp.edit().putBoolean(K_HAPTIC, v).apply();
-    }
-
-    /**
-     * 3.7 密码保护开关。
-     *
-     * 默认关：3.6 按维护者要求撤掉了 isPassword() 过滤，验证码 / 金额 /
-     * 自定义输入框不再被误判成密码而读不到，恢复早期"点哪读哪"的完整度。
-     *
-     * 打开后回到 3.5 的行为：主路径与兜底路径都跳过密码框，
-     * 公共场合避免把明文念出来。想保护隐私的人自己开，不影响默认体验。
-     */
-    public boolean passwordGuard() {
-        return sp.getBoolean(K_PWD_GUARD, false);
-    }
-
-    public void setPasswordGuard(boolean v) {
-        sp.edit().putBoolean(K_PWD_GUARD, v).apply();
     }
 
     /** 3.10 起默认跟随系统：手机是浅色就浅色，深色就中性深色。 */

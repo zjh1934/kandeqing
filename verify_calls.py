@@ -3,7 +3,7 @@
 补上 verify_structure.py 没盖住的一类编译错误：**不带点号的方法调用**。
 
 verify_structure 只查 `Haptics.error()` 这种「类名.方法」的形式，
-对 `toast(...)`、`abortPendingGrab(...)`、`isPassword(...)` 这种直接调用
+对 `toast(...)`、`abortPendingGrab(...)` 这种直接调用
 是完全不看的。而环境里没有 javac，拼错一个方法名只有等打包时才炸 ——
 对不会写代码的人来说，那是一条走不通的排查路。
 
