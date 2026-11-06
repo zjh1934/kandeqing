@@ -72,6 +72,8 @@ public class BallController implements View.OnTouchListener {
     private float downRawX, downRawY;
     private float lastFx, lastFy;
     private boolean faded = false;
+    /** lp 坐标系原点相对 getRawX/Y 原点的实测差值（状态栏 / ROM 装饰），DOWN 时测一次 */
+    private int originDx = 0, originDy = 0;
 
     private int screenW = 0, screenH = 0;
     private ValueAnimator settleAnim = null;
@@ -101,6 +103,7 @@ public class BallController implements View.OnTouchListener {
         lp.x = clampX(lp.x, lp.width);
         lp.y = clampY(lp.y, lp.height);
         commit();
+        measureOrigin();        // 旋转 / 折叠屏后原点差会变
         if (cb != null) {
             cb.onMoved(lp.x, lp.y);
         }
@@ -336,6 +339,7 @@ public class BallController implements View.OnTouchListener {
                 lastFy = fy;
                 offsetX = fx - lp.x;
                 offsetY = fy - lp.y;
+                measureOrigin();
                 state = ST_PENDING;
                 h.removeCallbacks(holdTask);
                 h.postDelayed(holdTask, prefs.holdMs());
@@ -405,11 +409,10 @@ public class BallController implements View.OnTouchListener {
                         }
                     }
                 } else if (st == ST_ZOOMING) {
-                    // 放大松手：球留在手指最后的位置，只做边界收拢。
-                    // 同样用按下时的偏移相对直写，别用「fx - 半宽」把球中心硬拽到手指，
-                    // 否则松手这一下球会突然跳一下（3.9.1 在拖球上踩过同一个坑）。
-                    lp.x = clampX((int) (fx - offsetX), lp.width);
-                    lp.y = clampY((int) (fy - offsetY), lp.height);
+                    // 放大松手：球中心仍留在手指处，只做边界收拢。
+                    // 放大期间球中心已经对齐手指，这里用同一个公式，松手不会跳。
+                    lp.x = clampX((int) (fx - lp.width / 2f - originDx), lp.width);
+                    lp.y = clampY((int) (fy - lp.height / 2f - originDy), lp.height);
                     commit();
                     if (cb != null) {
                         cb.onMoved(lp.x, lp.y);
@@ -434,23 +437,52 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 手指挪多少，球就挪多少：和闲置拖球完全同一套「按下时记偏移」的相对直写。
+        // 放大态：球【中心】对齐手指，并把 lp 原点差实测扣掉。
         //
-        // 原来写死 lp.x = fx - 宽/2，是把球中心【绝对】对齐手指。这要求
-        // WindowManager 的 lp 坐标原点与 MotionEvent.getRawX/Y 完全一致，但
-        // TYPE_ACCESSIBILITY_OVERLAY 在不少 ROM 上是以应用区为原点（差状态栏高度 D），
-        // 于是球恒定偏 D px —— 模拟：D=72/100/120/168 时，偏 72/100/120/168 px，
-        // 与手指位置、放大倍率都无关，正是「按住放大后球不在手指下面」。
-        // 相对写法不需要知道原点在哪，任意 D 下偏移恒为 0；而且按住时手指本来就
-        // 按在球上，球保持不动就正好在手底下，不会突然跳一下。
-        lp.x = (int) (fx - offsetX);
-        lp.y = (int) (fy - offsetY);
+        // 3.9.11 写死 fx - 半宽，没扣原点差 D → 固定向下偏 D（倍率下 s·D）。
+        // 3.9.12 改成「保持按下偏移」的相对直写，固定偏消了，但手指按在球的
+        // 哪一侧，球就往哪一侧偏 δ0（倍率下 s·δ0）—— 于是变成有时向上、
+        // 有时向左向右，正是这次反馈的现象。闲置拖球要保持按下偏移，放大态不要。
+        //
+        // 这一式两种情形都恒等于手指：
+        //   窗口不随放大变换：显示中心 = lp + D + 半宽 = fx
+        //   窗口随放大变换  ：显示中心 = S/2 + s·(lp + D + 半宽 − K) = fx
+        // （K = fx − (fx − S/2)/s，D 与 K 在式内抵消；clampCenter 对 raw 范围内
+        //  的手指从不触发，数值模拟已验）。按偏量、倍率、原点差全部无关。
+        lp.x = (int) (fx - lp.width / 2f - originDx);
+        lp.y = (int) (fy - lp.height / 2f - originDy);
         if (zooming() && prefs.compensate()) {
             view.setDrawScale(1f / zoom.scale());
         } else {
             view.setDrawScale(1f);
         }
         commit();
+    }
+
+    /**
+     * 用 View 的真实屏幕位置反推 lp 坐标系原点差。
+     * 不猜状态栏高度、不猜 ROM 行为：DOWN 时未放大，getLocationOnScreen 可靠。
+     */
+    private void measureOrigin() {
+        if (view == null || lp == null || view.getParent() == null) {
+            return;
+        }
+        int[] loc = new int[2];
+        try {
+            view.getLocationOnScreen(loc);
+        } catch (Throwable ignored) {
+            return;
+        }
+        if (loc[0] == 0 && loc[1] == 0) {
+            return;     // 拿不到就别乱补，退回 0
+        }
+        int dx = loc[0] - lp.x;
+        int dy = loc[1] - lp.y;
+        if (Math.abs(dx) > screenW || Math.abs(dy) > screenH) {
+            return;     // 异常值兜底
+        }
+        originDx = dx;
+        originDy = dy;
     }
 
     private void placeBallKeepOffset(float fx, float fy) {
