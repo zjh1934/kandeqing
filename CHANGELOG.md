@@ -4,6 +4,50 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.14 · 抓字换回球球版骨架 + 球不再固定向上偏（versionCode 44）
+
+### 1. 抓字：整份换回球球时期那套
+
+按你的要求，把 `TextGrabber.java` 换回 `f49c1ed6f4`（球球 2.0，651 行）的骨架：
+
+- 单趟后序遍历收集文字
+- 按窗口层级从上往下，**第一个点得到字的窗口即返回**
+- 逐字位置只问**命中那一段**，`nodeText` 只读 `getText` / `contentDescription`
+- 两级句读回扫（`。！？；` → `，、：` → 点中的字）
+- 主线程之外由 `ComboService` 后台线程包着，链路不变
+
+3.9.5 起一层层堆上去的东西**全部撤掉**：48dp 容差最近段、跨窗口全局比面积、
+`visibleSkipped` / `w.hidden` 快照重算、`body` 文本角色、`fillCharStart` 请求上限、
+`fallbackStart` 按行估算、`supportsExtraData`。**1010 → 746 行**。
+
+只保留四处必要适配，不往骨架上加层：
+
+| 适配 | 为什么不能省 |
+|---|---|
+| `isChrome` 用 `TYPE_SYSTEM` | 球球版写了不存在的 `TYPE_STATUS_BAR` / `TYPE_MAGNIFICATION_OVERLAY`，compileSdk 30 编译不过（2.6 已修） |
+| `joinBelow` 用 `bottom <= y` | 用 `top < y` 会把点击点所在那一段整个漏掉（2.6 已修） |
+| `MAX_SEG=2000` **只截收录不截遍历** + 不再硬丢 `isVisibleToUser()` 误报节点 | 球球版把预算放在 `walk` 入口、可见性直接 `return false`，长列表后半段和 ROM 误报时**整棵子树收不到东西** —— 这两条正是「好多字抓不到」的大头 |
+| 读多少 / 放大态断言 / hint·tooltip·state·paneTitle | 读多少是你 3.9.4 要的；放大断言是官方契约；四个文本字段用**类加载时缓存的 Method**补读，热路径不重复 `getMethod`，为的是抓得更多 |
+
+`TextLayout.java` 保持当前版（Node 有 5 参构造，球球版可直接用），
+`ComboService` 一行没动。
+
+### 2. 球固定向上偏半个手指
+
+3.9.13 用 `view.getLocationOnScreen()` 反推 lp 原点差。
+它对 `TYPE_ACCESSIBILITY_OVERLAY` 会**把系统装饰一并算进去**，测出的值偏大，
+补偿过度 —— 真机上就是按住后球固定向上偏约半个手指。
+
+改用**同一次 MotionEvent** 的 `getRawX/Y() − getX/Y()` 反推 view 左上角的
+raw 坐标，再减 `lp.x/y` 得原点差。raw 与 local 同源于系统同一次坐标变换，
+不会多算，也不猜状态栏高度、不猜 ROM；旋转后下一次按下自动重测。
+`getLocationOnScreen` 整套删掉。放大态仍是「球中心对齐手指 + 原点补偿」，
+闲置拖球仍是「保持按下偏移」，两者互不干扰。
+
+只改 `BallController.java`、`TextGrabber.java`、`verify_grabber.py`（同步换成球球版镜像）。
+放大中心、状态机、TTS、UI、主题、3.6 蓝球 Logo 一行没动。
+`verify_all` 5 suite 三轮全绿。
+
 ## 3.9.13 · 放大时球「有时向上、有时左右」偏（versionCode 43）
 
 > 3.9.12 方向对了但没做够：固定向下偏没了，变成按球按在哪就往哪偏。

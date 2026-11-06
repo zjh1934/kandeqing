@@ -72,7 +72,7 @@ public class BallController implements View.OnTouchListener {
     private float downRawX, downRawY;
     private float lastFx, lastFy;
     private boolean faded = false;
-    /** lp 坐标系原点相对 getRawX/Y 原点的实测差值（状态栏 / ROM 装饰），DOWN 时测一次 */
+    /** lp 坐标系原点相对 getRawX/Y 原点的差值，DOWN 时由同一次 MotionEvent 反推 */
     private int originDx = 0, originDy = 0;
 
     private int screenW = 0, screenH = 0;
@@ -103,7 +103,7 @@ public class BallController implements View.OnTouchListener {
         lp.x = clampX(lp.x, lp.width);
         lp.y = clampY(lp.y, lp.height);
         commit();
-        measureOrigin();        // 旋转 / 折叠屏后原点差会变
+        // 原点差每次 ACTION_DOWN 用 MotionEvent 自洽反推，旋转后下一次按下自动重测
         if (cb != null) {
             cb.onMoved(lp.x, lp.y);
         }
@@ -339,7 +339,18 @@ public class BallController implements View.OnTouchListener {
                 lastFy = fy;
                 offsetX = fx - lp.x;
                 offsetY = fy - lp.y;
-                measureOrigin();
+                // 用同一次 MotionEvent 的 raw 与 view 内坐标反推 lp 原点差：
+                //   view 左上角的 raw 坐标 = e.getRawX() - e.getX()，再减 lp.x 即原点差。
+                // 3.9.13 用 getLocationOnScreen() 测，它对 TYPE_ACCESSIBILITY_OVERLAY
+                // 会把系统装饰一并算进去，实测值偏大，补偿过度 —— 真机上表现为
+                // 按住后球【固定向上偏约半个手指】。raw / local 同源于系统同一次
+                // 坐标变换，不会多算，也不猜状态栏高度、不猜 ROM。
+                originDx = (int) (e.getRawX() - e.getX()) - lp.x;
+                originDy = (int) (e.getRawY() - e.getY()) - lp.y;
+                if (Math.abs(originDx) > screenW || Math.abs(originDy) > screenH) {
+                    originDx = 0;
+                    originDy = 0;
+                }
                 state = ST_PENDING;
                 h.removeCallbacks(holdTask);
                 h.postDelayed(holdTask, prefs.holdMs());
@@ -457,32 +468,6 @@ public class BallController implements View.OnTouchListener {
             view.setDrawScale(1f);
         }
         commit();
-    }
-
-    /**
-     * 用 View 的真实屏幕位置反推 lp 坐标系原点差。
-     * 不猜状态栏高度、不猜 ROM 行为：DOWN 时未放大，getLocationOnScreen 可靠。
-     */
-    private void measureOrigin() {
-        if (view == null || lp == null || view.getParent() == null) {
-            return;
-        }
-        int[] loc = new int[2];
-        try {
-            view.getLocationOnScreen(loc);
-        } catch (Throwable ignored) {
-            return;
-        }
-        if (loc[0] == 0 && loc[1] == 0) {
-            return;     // 拿不到就别乱补，退回 0
-        }
-        int dx = loc[0] - lp.x;
-        int dy = loc[1] - lp.y;
-        if (Math.abs(dx) > screenW || Math.abs(dy) > screenH) {
-            return;     // 异常值兜底
-        }
-        originDx = dx;
-        originDy = dy;
     }
 
     private void placeBallKeepOffset(float fx, float fy) {

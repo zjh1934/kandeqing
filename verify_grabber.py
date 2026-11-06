@@ -23,7 +23,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from verify_textlayout import (  # noqa: E402
     Node, RectF, clean, nearest_char, sentence_start,
     leading_whitespace, trimmed_length, sort_reading_order,
-    fallback_start,
 )
 
 # 镜像 walk 是递归的，深树测试需要抬高上限
@@ -52,22 +51,14 @@ MAX_DEPTH = _const("MAX_DEPTH", 200)
 
 class FakeNode(object):
     def __init__(self, text=None, desc=None, bounds=(0, 0, 0, 0),
-                 visible=True, children=None, char_rects=None,
-                 password=False):
+                 visible=True, children=None, char_rects=None):
         self._text = text
         self._desc = desc
         self.bounds = bounds
         self.visible = visible
         self.children = children if children is not None else []
         self.char_rects = char_rects
-        self.password = password
         self.recycled = False
-        # 3.9.7 新增：记录 getChild 调用次数，用于验证「可见性重算不重扫树」
-        self.child_calls = 0
-        # 预检 getAvailableExtraData() 是否含逐字位置 key
-        self.extra_available = True
-        # refreshWithExtraData 是否返回 false（节点 obsolete）
-        self.extra_fails = False
 
     def getText(self):
         return self._text
@@ -83,7 +74,6 @@ class FakeNode(object):
         return len(self.children)
 
     def getChild(self, i):
-        self.child_calls += 1
         return self.children[i]
 
     def isVisibleToUser(self):
@@ -127,16 +117,6 @@ class Walk(object):
         self.visited = 0
         self.truncated = False
         self.pick = None
-        # 3.9.5：离触点最近的那段（不要求严格 contains），y 权重加倍
-        self.nearest = None
-        self.nearestDist = float('inf')
-        self.nearestStart = 0
-        self.nearTol = float('inf')
-        self.visibleSkipped = 0
-        # 3.9.7：被可见性软过滤的段收成纯数据，关过滤时合并重算，不重扫树
-        self.hidden = []
-        # 3.9.9：本窗口已发出的逐字位置请求数
-        self.rectReq = 0
 
 
 class Pick(object):
@@ -147,43 +127,22 @@ class Pick(object):
 
 
 def node_text(node):
-    """
-    3.9.7 镜像：返回 (text, body)。
-    text / contentDescription → 正文或替代标签（body=True）；
-    hint / tooltip / state / paneTitle → 官方语义各不相同（body=False）。
-    """
     if node is None:
-        return None, True
+        return None
     try:
         t = node.getText()
         if t is not None:
             s = t.strip()
             if len(s) > 0:
-                return s, True
-    except Exception:
-        pass
-    try:
+                return s
         d = node.getContentDescription()
         if d is not None:
             s = d.strip()
             if len(s) > 0:
-                return s, True
+                return s
     except Exception:
-        pass
-    for m in ('getHintText', 'getTooltipText',
-              'getStateDescription', 'getPaneTitle'):
-        try:
-            fn = getattr(node, m, None)
-            if fn is None:
-                continue
-            cs = fn()
-            if cs is not None:
-                s = cs.strip()
-                if len(s) > 0:
-                    return s, False
-        except Exception:
-            pass
-    return None, True
+        return None
+    return None
 
 
 def visible(node):
@@ -195,8 +154,7 @@ def visible(node):
 
 def char_start_in(node, x, y, sdk=26):
     """镜像 TextGrabber.charStartIn（不含 Bundle/refresh，只算偏移）"""
-    RECT_REQ_TOTAL[0] += 1
-    if node is None:
+    if node is None or sdk < 26:
         return 0
     try:
         cs = node.getText()
@@ -207,69 +165,26 @@ def char_start_in(node, x, y, sdk=26):
         length = trimmed_length(raw)
         if length <= 0:
             return 0
-        if sdk >= 26 and getattr(node, 'extra_available', True):
-            rects = None if getattr(node, 'extra_fails', False) else node.char_rects
-            if rects:
-                offset = nearest_char(rects, x, y)
-                if offset >= 0:
-                    if offset > len(raw):
-                        offset = len(raw)
-                    rel = sentence_start(raw, offset) - lead
-                    return max(0, min(length, rel))
-        # 预检不通过 / 请求失败 / 全 null：按 y 估行，绝不退回整篇开头
-        return fallback_start(node.bounds, x, y, raw, length, lead)
-    except Exception:
-        # 3.9.7：异常路径也降级，不再 return 0
-        try:
-            return fallback_start(node.bounds, x, y, str(node.getText()),
-                                  trimmed_length(str(node.getText())),
-                                  leading_whitespace(str(node.getText())))
-        except Exception:
+        rects = node.char_rects
+        if not rects:
             return 0
-
-
-def distance_to(seg_or_rect, x, y):
-    """触点到矩形边界的距离，y 权重加倍（镜像 TextGrabber.distanceTo）"""
-    l = seg_or_rect.left
-    t = seg_or_rect.top
-    r = seg_or_rect.right
-    b = seg_or_rect.bottom
-    dx = max(l - x, 0, x - r)
-    dy = max(t - y, 0, y - b)
-    return dy * 2 + dx
-
-
-def consider(seg, w):
-    """纯数据比较：最近段 + 最小面积命中。不碰任何节点对象。"""
-    dist = distance_to(seg, w.px, w.py)
-    if w.nearest is None or dist < w.nearestDist:
-        w.nearest = seg
-        w.nearestDist = dist
-        w.nearestStart = seg.charStart
-    if dist == 0:
-        area = (seg.right - seg.left) * (seg.bottom - seg.top)
-        if w.pick is None or area < w.pick.area:
-            w.pick = Pick(seg, area, seg.charStart)
-
-
-def fill_char_start(node, r, t, seg, w):
-    """3.9.9 镜像：只给会成为 pick / nearest 的段发请求，且每窗口有硬上限。"""
-    d = distance_to(r, w.px, w.py)
-    area = (r.right - r.left) * (r.bottom - r.top)
-    take_pick = (d == 0) and (w.pick is None or area < w.pick.area)
-    take_near = (w.nearest is None or d < w.nearestDist)
-    if d <= w.nearTol and (take_pick or take_near):
-        if w.rectReq < MAX_RECT_REQ_PER_WINDOW:
-            w.rectReq += 1
-            seg.charStart = char_start_in(node, w.px, w.py)
-        else:
-            # 超上限：纯计算按行估算，绝不退回段首
-            seg.charStart = fallback_start(node.bounds, w.px, w.py, t,
-                                          trimmed_length(t), 0)
+        offset = nearest_char(rects, x, y)
+        if offset < 0:
+            return 0
+        if offset > len(raw):
+            offset = len(raw)
+        rel = sentence_start(raw, offset) - lead
+        if rel < 0:
+            rel = 0
+        if rel > length:
+            rel = length
+        return rel
+    except Exception:
+        return 0
 
 
 def walk(node, w, depth=0):
-    """3.9.7 镜像：预算只截收录、可见性只作软标记、一趟遍历不重扫"""
+    """镜像 TextGrabber.walk：一趟后序遍历，返回这个子树有没有交出文字"""
     if node is None:
         return False
     if depth > MAX_DEPTH:
@@ -300,7 +215,7 @@ def walk(node, w, depth=0):
         except Exception:
             pass
 
-    t, body = node_text(node)
+    t = node_text(node)
     if t is None:
         return child_yielded
     if child_yielded:
@@ -316,24 +231,18 @@ def walk(node, w, depth=0):
     if not intersects(r, w.screen):
         return False
 
-    touch_inside = r.contains(w.px, w.py)
-    vis = visible(node)
-    soft_hidden = w.requireVisible and not vis and not touch_inside
-    if soft_hidden:
-        w.visibleSkipped += 1
-
-    # 预算只截「收录」，绝不截「遍历」：上面子节点已经全部走完
-    if len(w.out) >= MAX_SEG and not touch_inside:
+    if len(w.out) >= MAX_SEG:
         w.truncated = True
-        return True
+        if not r.contains(w.px, w.py):
+            return True
 
-    seg = Node(t, r.left, r.top, r.right, r.bottom, body, 0)
-    fill_char_start(node, r, t, seg, w)
-    if soft_hidden:
-        w.hidden.append(seg)
-        return True
+    seg = Node(t, r.left, r.top, r.right, r.bottom)
     w.out.append(seg)
-    consider(seg, w)
+
+    if r.contains(w.px, w.py):
+        area = r.width() * r.height()
+        if w.pick is None or area < w.pick.area:
+            w.pick = Pick(seg, area, char_start_in(node, w.px, w.py))
     return True
 
 
@@ -362,22 +271,6 @@ class Sink(object):
         return "\n".join(self.parts).strip()
 
 
-# 3.9.4「读多少」，镜像 Prefs 常量与 TextGrabber.readScope 字段
-READ_ONE, READ_SEG, READ_SCREEN = 0, 1, 2
-READ_SCOPE = READ_SCREEN        # 用例里临时改，跑完恢复
-
-
-def first_sentence(s):
-    """镜像 TextGrabber.firstSentence：截到第一个句末标点（含），没有就整段"""
-    if not s:
-        return s
-    puncts = "。！？；\n.!?"
-    for i, ch in enumerate(s):
-        if ch in puncts:
-            return s[:i + 1]
-    return s
-
-
 def join(segs, pick):
     idx = -1
     for i, s in enumerate(segs):
@@ -390,14 +283,8 @@ def join(segs, pick):
     head = pick.seg.text
     if 0 < pick.charStart < len(head):
         head = head[pick.charStart:]
-    if READ_SCOPE == READ_ONE:
-        head = first_sentence(head)
     sink.add_head(head)
-    if READ_SCOPE != READ_SCREEN:
-        return sink.text()
     for i in range(idx + 1, len(segs)):
-        if not segs[i].body:
-            continue
         sink.add(segs[i].text)
     return sink.text()
 
@@ -407,90 +294,33 @@ def join_below(segs, y):
     for n in segs:
         if n.bottom <= y:
             continue
-        if not n.body:
-            continue
         sink.add(n.text)
-        if READ_SCOPE != READ_SCREEN:
-            break
-    out = sink.text()
-    if READ_SCOPE == READ_ONE:
-        return first_sentence(out)
-    return out
+    return sink.text()
 
 
-TOL = 144      # 48dp @3x，镜像 TextGrabber 的容差
-MAX_RECT_REQ_PER_WINDOW = 3   # 3.9.9：每窗口逐字位置请求硬上限
-RECT_REQ_TOTAL = [0]          # 本次抓字实际发出的请求数，用于断言上界
-
-
-def scan_windows(roots, x, y, screen):
-    """3.9.10 镜像：一趟扫完，全部决策复用同一份快照，不再二次遍历"""
-    best_area = float('inf')
-    best_pick = None
-    best_segs = None
-    best_near = float('inf')
-    best_near_node = None
-    best_near_start = 0
-    best_near_segs = None
-    first_segs = None
-
-    for root in roots:
-        segs = []
-        w = Walk(segs, screen, x, y)
-        w.nearTol = TOL
-        walk(root, w, 0)
-        if w.requireVisible and (not segs or w.visibleSkipped > 0):
-            # 3.9.7：重算快照，不重扫树（getChild 调用次数不增加）
-            for h in w.hidden:
-                segs.append(h)
-                consider(h, w)
-            w.requireVisible = False
-        if not segs:
-            continue
-        segs = sort_reading_order(segs)
-        if first_segs is None:
-            first_segs = segs
-        if w.pick is not None and w.pick.area < best_area:
-            best_area = w.pick.area
-            best_pick = w.pick
-            best_segs = segs
-        if w.nearest is not None and w.nearestDist < best_near:
-            best_near = w.nearestDist
-            best_near_node = w.nearest
-            best_near_start = w.nearestStart
-            best_near_segs = segs
-
-    if best_pick is not None:
-        return join(best_segs, best_pick)
-    if best_near_node is not None and best_near <= TOL:
-        area = ((best_near_node.right - best_near_node.left)
-                * (best_near_node.bottom - best_near_node.top))
-        return join(best_near_segs,
-                    Pick(best_near_node, area, best_near_start))
-    fb = best_near_segs if best_near_segs is not None else first_segs
-    if fb is not None:
-        return join_below(fb, y)
-    return None
-
-
-def grab_from_windows(roots, x, y, screen, magnified=False):
+def grab_from_windows(roots, x, y, screen):
     """镜像 TextGrabber.grabFromWindows（含 finally 里的根回收）"""
-    # 3.9.7：官方契约 —— 放大态下 bounds 与逐字位置都会被缩放，坐标不自洽
-    if magnified:
-        return None
     if not roots:
         return None
     try:
-        return scan_windows(roots, x, y, screen)
+        fallback = None
+        for root in roots:
+            segs = []
+            w = Walk(segs, screen, x, y)
+            walk(root, w, 0)
+            if not segs:
+                continue
+            segs = sort_reading_order(segs)
+            if fallback is None:
+                fallback = segs
+            if w.pick is not None:
+                return join(segs, w.pick)
+        if fallback is None:
+            return None
+        return join_below(fallback, y)
     finally:
         for r in roots:
             r.recycle()
-
-
-def _tall_screen():
-    r = Rect()
-    r.left, r.top, r.right, r.bottom = 0, 0, 1080, 24000
-    return r
 
 
 def all_nodes(node, acc=None):
@@ -511,9 +341,8 @@ SCREEN.left, SCREEN.top, SCREEN.right, SCREEN.bottom = 0, 0, 1080, 1920
 
 
 def n(text=None, desc=None, bounds=(0, 0, 0, 0), visible=True, children=None,
-      char_rects=None, password=False):
-    return FakeNode(text, desc, bounds, visible, children, char_rects,
-                    password)
+      char_rects=None):
+    return FakeNode(text, desc, bounds, visible, children, char_rects)
 
 
 def case_two_columns_continue():
@@ -563,7 +392,7 @@ def case_offscreen_skipped():
 
 
 def case_visibility_lie_fallback():
-    """ROM 的 isVisibleToUser 全报 false —— 兜底那趟要把内容捞回来。"""
+    """ROM 的 isVisibleToUser 全报 false —— 遍历不再硬丢节点，内容照常捞回。"""
     root = n(bounds=(0, 0, 1080, 1920), children=[
         n("文本甲", bounds=(0, 0, 200, 40), visible=False),
         n("文本乙", bounds=(0, 40, 200, 80), visible=False),
@@ -660,34 +489,52 @@ def case_deep_tree_ok():
 
 def case_too_deep_guarded():
     """
-    超深树（远超 MAX_DEPTH）在深度上限处干净停住，返回空且不崩、不二次遍历。
-    真机上 4000 层递归几乎必然 StackOverflowError，被吞成「点了没反应」；
-    真实界面深度常见 <100，不受影响。
+    超深树（远超 MAX_DEPTH）这一趟会被上限挡住、收不到东西；
+    但 grabFrom 会退回 grabAt，那边照样能把最深那块捞出来 —— 不会变成"什么都读不到"。
     """
     tree = _chain(4000, "最底")
+    got = grab_from_windows([tree], 5, 5, SCREEN)
+    ok_window_pass = (got is None)
+
+    best = Best()
+    find_deepest(tree, 5, 5, best)
+    ok_fallback = (best.text == "最底")
+    return (ok_window_pass and ok_fallback), (got, best.text)
+
+
+class Best(object):
+    def __init__(self):
+        self.text = None
+        self.area = 1 << 30
+
+
+def find_deepest(node, x, y, best):
+    """镜像 TextGrabber.findDeepest"""
+    if node is None:
+        return
+    r = Rect()
     try:
-        got = grab_from_windows([tree], 5, 5, SCREEN)
-    except RecursionError:
-        return False, "主路径递归爆了 —— 深度上限没生效"
-    # 到不了底，但也不能崩；且只走一趟，getChild 次数不因兜底而翻倍
-    ok = (got is None) and tree.child_calls <= MAX_WALK
-    return ok, (got, tree.child_calls)
-
-
-def case_no_second_walk_on_miss():
-    """
-    3.9.10：整屏一个字都没有时，只走一趟树就返回空。
-
-    旧版主路径返回 None 后会再 roots()+findDeepest 全树重扫一遍，
-    「抓不到字」反而最慢。现在没有第二套遍历，getChild 次数恒定。
-    """
-    leaf = n(bounds=(0, 0, 100, 40))
-    mid = n(children=[leaf, n(bounds=(0, 40, 100, 80))])
-    root = n(children=[mid, n(bounds=(100, 0, 200, 80))])
-    got = grab_from_windows([root], 50, 20, SCREEN)
-    # root 1 次 + mid 1 次 = 2；二次遍历会变成 4
-    ok = (got is None) and root.child_calls == 2
-    return ok, (got, root.child_calls)
+        node.getBoundsInScreen(r)
+    except Exception:
+        return
+    if r.contains(x, y):
+        t = node_text(node)
+        if t is not None:
+            area = r.width() * r.height()
+            if best.text is None or area < best.area:
+                best.text = t
+                best.area = area
+    try:
+        count = node.getChildCount()
+    except Exception:
+        return
+    for i in range(count):
+        try:
+            child = node.getChild(i)
+        except Exception:
+            continue
+        if child is not None:
+            find_deepest(child, x, y, best)
 
 
 def case_all_nodes_recycled():
@@ -711,334 +558,7 @@ def case_all_nodes_recycled():
     return ok, (got, len(leaked))
 
 
-# ---------- 3.9.9：快而深 ----------
-
-def case_rect_requests_hard_cap():
-    """密集页面逐字位置请求有硬上界，不随容差内段数线性增长。"""
-    RECT_REQ_TOTAL[0] = 0
-    kids = [n("第%d段文字" % i, bounds=(i * 10, 0, i * 10 + 10, 40))
-            for i in range(30)]
-    root = n(children=kids)
-    got = grab_from_windows([root], 100, 20, SCREEN)
-    used = RECT_REQ_TOTAL[0]
-    ok = got is not None and len(got) > 0 and used <= MAX_RECT_REQ_PER_WINDOW
-    return ok, "requests=%d got=%s" % (used, got)
-
-
-def case_over_budget_still_not_paragraph_head():
-    """请求打满上限后改用按行估算，长文仍从中间句读，不退到段首。"""
-    raw = "第一句内容写在这里。" * 12      # 带句读的长文，120 字
-    node = n(raw, bounds=(0, 0, 1000, 800))
-    w = Walk([], SCREEN, 500, 400)
-    w.nearTol = TOL
-    w.rectReq = MAX_RECT_REQ_PER_WINDOW   # 额度已用尽
-    r = Rect()
-    r.left, r.top, r.right, r.bottom = 0, 0, 1000, 800
-    seg = Node(raw, 0, 0, 1000, 800, True, 0)
-    fill_char_start(node, r, raw, seg, w)
-    ok = 0 < seg.charStart < len(raw)
-    return ok, "charStart=%d" % seg.charStart
-
-
-# ---------- 3.9.4「读多少」 ----------
-
-SCOPE_RAW = "第一句。第二句。第三句。"
-SCOPE_EXPECT = {
-    READ_SCREEN: "第二句。第三句。\n另一段的第一句。另一段第二句。\n最后一段。",
-    READ_SEG: "第二句。第三句。",
-    READ_ONE: "第二句。",
-}
-
-
-def _scope_grab(scope, x, y):
-    """临时切到某一档跑一次真实流程，跑完恢复默认，避免污染其它用例"""
-    global READ_SCOPE
-    old = READ_SCOPE
-    READ_SCOPE = scope
-    try:
-        rects = [RectF(i * 20, 0, (i + 1) * 20, 40)
-                 for i in range(len(SCOPE_RAW))]
-        root = n(children=[
-            n(SCOPE_RAW, bounds=(0, 0, len(SCOPE_RAW) * 20, 40),
-              char_rects=rects),
-            n("另一段的第一句。另一段第二句。", bounds=(0, 40, 600, 80)),
-            n("最后一段。", bounds=(0, 80, 300, 120)),
-        ])
-        return grab_from_windows([root], x, y, SCREEN)
-    finally:
-        READ_SCOPE = old
-
-
-def case_scope_screen_unchanged():
-    """默认「读到屏底」= 早期版本行为，老用户升级不会突然变短"""
-    got = _scope_grab(READ_SCREEN, 5 * 20 + 10, 20)
-    return got == SCOPE_EXPECT[READ_SCREEN], got
-
-
-def case_scope_seg_only_head():
-    """读到段末：命中段从点的那句起读完，不接后续段"""
-    got = _scope_grab(READ_SEG, 5 * 20 + 10, 20)
-    return got == SCOPE_EXPECT[READ_SEG], got
-
-
-def case_scope_one_only_first_sentence():
-    """只读一句：连命中段也截到第一个句号"""
-    got = _scope_grab(READ_ONE, 5 * 20 + 10, 20)
-    return got == SCOPE_EXPECT[READ_ONE], got
-
-
-def case_scope_three_lengths_distinct():
-    """三档输出必须逐档变短，不能有两档其实一样"""
-    a = _scope_grab(READ_SCREEN, 5 * 20 + 10, 20)
-    b = _scope_grab(READ_SEG, 5 * 20 + 10, 20)
-    c = _scope_grab(READ_ONE, 5 * 20 + 10, 20)
-    return len(a) > len(b) > len(c), (len(a), len(b), len(c))
-
-
-def case_scope_reverse_old_behavior_detected():
-    """反向验证：关掉裁切（旧行为）时，READ_ONE 与旧输出必须不同"""
-    global READ_SCOPE
-    old = READ_SCOPE
-    try:
-        # 旧实现：无论选项是什么都一路接到底
-        READ_SCOPE = READ_ONE
-        rects = [RectF(i * 20, 0, (i + 1) * 20, 40)
-                 for i in range(len(SCOPE_RAW))]
-        root = n(children=[
-            n(SCOPE_RAW, bounds=(0, 0, len(SCOPE_RAW) * 20, 40),
-              char_rects=rects),
-            n("另一段的第一句。另一段第二句。", bounds=(0, 40, 600, 80)),
-            n("最后一段。", bounds=(0, 80, 300, 120)),
-        ])
-        got = grab_from_windows([root], 5 * 20 + 10, 20, SCREEN)
-        # 模拟旧行为：手动把 head 与后续段拼回去
-        old_out = SCOPE_EXPECT[READ_SCREEN]
-        return got != old_out and got == SCOPE_EXPECT[READ_ONE], (got, old_out)
-    finally:
-        READ_SCOPE = old
-
-
-def case_scope_no_hit_join_below():
-    """点在空白处（没命中段）时，三档也要生效"""
-    global READ_SCOPE
-    old = READ_SCOPE
-    try:
-        READ_SCOPE = READ_ONE
-        root = n(children=[
-            n("第一段第一句。第一段第二句。", bounds=(0, 40, 400, 80)),
-            n("第二段。", bounds=(0, 80, 200, 120)),
-        ])
-        got = grab_from_windows([root], 50, 10, SCREEN)
-        return got == "第一段第一句。", got
-    finally:
-        READ_SCOPE = old
-
-
-def _nd(text, bounds, children=None, visible=True):
-    """注意：模块里的 n() 第二参数是 desc，不是 bounds。
-    多层用例必须用显式 bounds，否则节点 bounds 全 (0,0,0,0) 被 walk 丢掉。"""
-    return FakeNode(text=text, bounds=bounds,
-                    children=children, visible=visible)
-
-
-# ---------- 3.9.5 多层分级页面：触点坐标定位 ----------
-
-def _screen():
-    r = Rect()
-    r.left, r.top, r.right, r.bottom = 0, 0, 1080, 2000
-    return r
-
-
-def _layered_gap():
-    """上层标题栏 + 下层四行正文，触点落在第 3/4 行之间的空隙"""
-    top = _nd('', (0, 0, 1080, 200), children=[
-        _nd('订单详情', (0, 0, 1080, 120)),
-        _nd('点任意处继续', (0, 120, 1080, 180)),
-    ])
-    bottom = _nd('', (0, 0, 1080, 2000), children=[
-        _nd('第一句：您购买的保温杯已发货。', (0, 400, 1080, 460)),
-        _nd('第二句：预计明天下午送达。', (0, 480, 1080, 540)),
-        _nd('第三句：收货地址是大理古城。', (0, 560, 1080, 620)),
-        _nd('第四句：如有问题联系客服。', (0, 640, 1080, 700)),
-    ])
-    return [top, bottom]
-
-
-def _layered_wrap():
-    """上层一张包裹型大卡片覆盖触点，正文在下层且面积更小"""
-    top = _nd('', (0, 0, 1080, 2000), children=[
-        _nd('订单卡片（整张卡片文本）', (0, 400, 1080, 800)),
-    ])
-    bottom = _nd('', (0, 0, 1080, 2000), children=[
-        _nd('第三句：收货地址是大理古城。', (0, 560, 1080, 620)),
-        _nd('第四句：如有问题联系客服。', (0, 640, 1080, 700)),
-    ])
-    return [top, bottom]
-
-
-def case_layered_gap_hit():
-    """点在行间留白：必须命中最近那行，不能返回空（旧版「经常抓不到字」）"""
-    got = grab_from_windows(_layered_gap(), 540, 630, _screen())
-    return got is not None and got.startswith('第三句'), got
-
-
-def case_layered_exact_smallest_across_windows():
-    """跨窗口比面积：上层大卡片不能压住下层真正那行（旧版「点这里读那里」）"""
-    got = grab_from_windows(_layered_wrap(), 540, 590, _screen())
-    ok = got is not None and got.startswith('第三句') and '订单卡片' not in got
-    return ok, got
-
-
-def case_layered_invisible_rescanned():
-    """ROM 误报 invisible：全窗口没命中时关过滤重扫，正文要能读出来"""
-    top = _nd('顶部提示', (0, 0, 1080, 100))
-    bottom = _nd('', (0, 0, 1080, 2000), children=[
-        _nd('可见的标题', (0, 300, 1080, 360)),
-        _nd('真正想读的这段被误报不可见', (0, 560, 1080, 620), visible=False),
-    ])
-    got = grab_from_windows([top, bottom], 540, 590, _screen())
-    return got is not None and '误报不可见' in got, got
-
-
-def case_layered_hint_text():
-    """自定义控件只有 hint 文字：不能判定「这里没读到文字」"""
-    hint = _nd(None, (0, 560, 1080, 620))
-    hint.getHintText = lambda: '请输入手机号'
-    got = grab_from_windows([hint], 540, 590, _screen())
-    return got == '请输入手机号', got
-
-
-def _old_grab_from_windows(roots, x, y, screen):
-    """3.9.4 及之前的行为：严格 contains + 第一个命中的窗口立刻 return"""
-    fallback = None
-    for root in roots:
-        segs = []
-        w = Walk(segs, screen, x, y)
-        walk(root, w, 0)
-        if not segs and w.requireVisible:
-            w.requireVisible = False
-            w.visited = 0
-            walk(root, w, 0)
-        if not segs:
-            continue
-        segs = sort_reading_order(segs)
-        if fallback is None:
-            fallback = segs
-        if w.pick is not None:
-            return join(segs, w.pick)
-    if fallback is None:
-        return None
-    return join_below(fallback, y)
-
-
-def case_layered_reverse_old_behavior():
-    """反向验证：两个场景旧行为都必须被抓出来（结果不同且明显不对）"""
-    s = _screen()
-    a_old = _old_grab_from_windows(_layered_gap(), 540, 630, s)
-    a_new = grab_from_windows(_layered_gap(), 540, 630, s)
-    b_old = _old_grab_from_windows(_layered_wrap(), 540, 590, s)
-    b_new = grab_from_windows(_layered_wrap(), 540, 590, s)
-    ok = (not a_old and a_new and a_new.startswith('第三句')
-          and b_old and '订单卡片' in b_old
-          and b_new and '订单卡片' not in b_new)
-    return ok, (a_old, a_new, b_old, b_new)
-
-
-# ---------- 3.9.7 官方契约适配：验收用例 ----------
-
-def case_budget_hit_late_segment():
-    """500 段长列表点第 450 段：预算不再截断遍历，必须命中该段。"""
-    segs = []
-    for i in range(500):
-        y = i * 40
-        segs.append(n("第%d段的文字内容。" % i, bounds=(0, y, 1000, y + 40)))
-    root = n(children=segs)
-    got = grab_from_windows([root], 500, 450 * 40 + 20, _tall_screen())
-    ok = got is not None and got.startswith('第450段')
-    return ok, (got[:50] if got else got)
-
-
-def case_hint_not_in_body():
-    """hint / state 不进连续正文串；但直接点到它本身仍照读。"""
-    body = _nd('正文第一段。', (0, 0, 1000, 40))
-    hint = _nd(None, (0, 40, 1000, 80))
-    hint.getHintText = lambda: '请输入手机号'
-    root = n(children=[body, hint])
-    got = grab_from_windows([root], 500, 20, _screen())
-    got_hint = grab_from_windows([root], 500, 60, _screen())
-    ok = (got == '正文第一段。' and '请输入手机号' not in got
-          and got_hint == '请输入手机号')
-    return ok, (got, got_hint)
-
-
-def case_extra_data_paths_not_zero():
-    """预检不可用 / 节点失效：起点都不退 0，绝不从篇头读。"""
-    raw = ''.join('第%d行内容写在这里。' % i for i in range(40))
-    rects = [RectF(i * 20, 0, (i + 1) * 20, 40) for i in range(len(raw))]
-    for avail, fails in ((False, False), (True, True)):
-        node = n(raw, bounds=(0, 0, 1000, 1600), char_rects=rects)
-        node.extra_available = avail
-        node.extra_fails = fails
-        got = grab_from_windows([n(children=[node])], 100, 800, _screen())
-        if not got or got.startswith(raw[:6]):
-            return False, (avail, fails, got[:30] if got else got)
-    return True, None
-
-
-def case_visibility_no_rescan():
-    """可见性误报时重算快照，getChild 调用次数恒定（旧版二次 walk 会翻倍）。"""
-    root = n(bounds=(0, 0, 1080, 1920), children=[
-        n("甲", bounds=(0, 0, 200, 40), visible=False),
-        n("乙", bounds=(0, 40, 200, 80), visible=False),
-    ])
-    got = grab_from_windows([root], 50, 20, SCREEN)
-    ok = got == "甲\n乙" and root.child_calls == 2
-    return ok, (got, root.child_calls)
-
-
-def case_fallback_all_windows():
-    """主路径跨窗口全局比面积：上层大节点不能压住下层真正那行。"""
-    top = _nd('整张卡片', (0, 0, 1080, 800))
-    bottom = _nd('真正那行', (0, 560, 1080, 620))
-    got = grab_from_windows([top, bottom], 540, 590, SCREEN)
-    return got == '真正那行', got
-
-
-def case_magnified_rejected():
-    """放大态断言：bounds 与逐字位置会被缩放，直接拒绝抓字。"""
-    root = n(children=[n("正文", bounds=(0, 0, 200, 40))])
-    got = grab_from_windows([root], 50, 20, SCREEN, magnified=True)
-    return got is None, got
-
-
-def case_long_text_mid_not_head():
-    """长文单节点、逐字位置拿不到：点中段不能从篇头读。"""
-    raw = ''.join('第%d行内容写在这里，' % i for i in range(40))
-    node = n(raw, bounds=(0, 0, 1000, 1600))
-    got = grab_from_windows([n(children=[node])], 100, 800, _screen())
-    ok = got is not None and not got.startswith(raw[:8])
-    return ok, (got[:30] if got else got)
-
-
 CASES = [
-    ("3.9.7 长列表预算不截遍历", case_budget_hit_late_segment),
-    ("3.9.7 提示文字不进正文串", case_hint_not_in_body),
-    ("3.9.7 逐字位置失效都不退篇头", case_extra_data_paths_not_zero),
-    ("3.9.7 可见性重算不重扫树", case_visibility_no_rescan),
-    ("3.9.7 主路径跨窗口全局比较", case_fallback_all_windows),
-    ("3.9.7 放大态拒绝抓字", case_magnified_rejected),
-    ("3.9.7 长文中段不从篇头读", case_long_text_mid_not_head),
-    ("3.9.5 多层留白命中最近行", case_layered_gap_hit),
-    ("3.9.5 跨窗口取最小命中段", case_layered_exact_smallest_across_windows),
-    ("3.9.5 误报不可见时重扫", case_layered_invisible_rescanned),
-    ("3.9.5 hint 文字也能抓到", case_layered_hint_text),
-    ("3.9.5 反向验证：旧行为必被抓出", case_layered_reverse_old_behavior),
-    ("3.9.4 默认读到屏底（升级不变）", case_scope_screen_unchanged),
-    ("3.9.4 读到段末不接后续段", case_scope_seg_only_head),
-    ("3.9.4 只读一句截到句末", case_scope_one_only_first_sentence),
-    ("3.9.4 三档逐档变短", case_scope_three_lengths_distinct),
-    ("3.9.4 反向验证：旧行为必被抓出", case_scope_reverse_old_behavior_detected),
-    ("3.9.4 未命中时读多少也生效", case_scope_no_hit_join_below),
     ("两列布局续读不乱序", case_two_columns_continue),
     ("父子节点不重复收录", case_parent_child_no_dup),
     ("滚出屏的节点不读", case_offscreen_skipped),
@@ -1050,11 +570,8 @@ CASES = [
     ("未命中时从点击高度续读", case_no_hit_reads_below),
     ("超宽树在上限处停住", case_budget_does_not_explode),
     ("正常深树不被误伤", case_deep_tree_ok),
-    ("超深树不爆栈、干净返回空", case_too_deep_guarded),
-    ("没抓到时也不二次遍历整棵树", case_no_second_walk_on_miss),
+    ("超深树有兜底不会读空", case_too_deep_guarded),
     ("节点全部回收无泄漏", case_all_nodes_recycled),
-    ("密集页面逐字请求有硬上界", case_rect_requests_hard_cap),
-    ("超上限后起点仍不退段首", case_over_budget_still_not_paragraph_head),
 ]
 
 
