@@ -72,8 +72,6 @@ public class BallController implements View.OnTouchListener {
     private float downRawX, downRawY;
     private float lastFx, lastFy;
     private boolean faded = false;
-    /** 按下时手指相对球中心的偏心量（View 内部坐标，与任何屏幕原点无关） */
-    private float grabDx = 0f, grabDy = 0f;
 
     private int screenW = 0, screenH = 0;
     private ValueAnimator settleAnim = null;
@@ -337,13 +335,8 @@ public class BallController implements View.OnTouchListener {
                 downRawY = fy;
                 lastFx = fx;
                 lastFy = fy;
-                offsetX = fx - lp.x;
+                offsetX = fx - lp.x;   // 只给闲置拖球用
                 offsetY = fy - lp.y;
-                // 手指按在球的哪个位置（相对球中心）。这是 View 内部坐标，
-                // 不涉及 lp 原点、状态栏、ROM 装饰，是唯一可以直接信的量。
-                // 按下即变实心：手在球上操作 = 控制态。
-                grabDx = e.getX() - lp.width / 2f;
-                grabDy = e.getY() - lp.height / 2f;
                 view.setState(BallView.ST_ACTIVE);
                 state = ST_PENDING;
                 h.removeCallbacks(holdTask);
@@ -418,10 +411,9 @@ public class BallController implements View.OnTouchListener {
                         }
                     }
                 } else if (st == ST_ZOOMING) {
-                    // 放大松手：与放大期间同一套相对直写，球中心仍留在手指处，
-                    // 只做边界收拢，松手不会跳一下。
-                    lp.x = clampX((int) (fx - offsetX), lp.width);
-                    lp.y = clampY((int) (fy - offsetY), lp.height);
+                    // 松手仍是球心 = 触点，只收边界，不跳。
+                    lp.x = clampX((int) (fx - lp.width / 2f), lp.width);
+                    lp.y = clampY((int) (fy - lp.height / 2f), lp.height);
                     commit();
                     if (cb != null) {
                         cb.onMoved(lp.x, lp.y);
@@ -446,9 +438,9 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 球中心 = 触点。offset 是按下时量好的固定偏移，拖到哪都成立。
-        lp.x = (int) (fx - offsetX);
-        lp.y = (int) (fy - offsetY);
+        // 球心 = 触点。就这一行，没有第二件事。
+        lp.x = (int) (fx - lp.width / 2f);
+        lp.y = (int) (fy - lp.height / 2f);
         if (zooming() && prefs.compensate()) {
             view.setDrawScale(1f / zoom.scale());
         } else {
@@ -538,9 +530,6 @@ public class BallController implements View.OnTouchListener {
             }
             state = ST_ZOOMING;
             Log.gesture("按住够久 → 判定为放大");
-            // 球中心对齐触点：把按下时的偏心量扣掉即可。
-            offsetX -= grabDx;
-            offsetY -= grabDy;
             if (cb != null) {
                 // 先让上层把朗读停掉：放大就只干放大，不交叉
                 cb.onZoomStart(lastFx, lastFy);

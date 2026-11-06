@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-球的定位与形态自检（3.9.15）。
+球的定位与形态自检（3.9.17）。
 
-沙盒没有 Android 运行时，所以用两件事兜底：
-  1) 静态断言：产品代码里必须/必须不出现哪些写法（防「又改回测 D」）
-  2) 数值模拟：两种窗口放大模型下，放大态球显示中心必须恒等于手指
+沙盒没有 Android 运行时，用两件事兜底：
+  1) 静态断言：放大态定位必须是「球心 = 触点」那一行，且不许再出现任何补偿
+  2) 数值断言：同原点下球心恒等于触点；反向用例证明带 offset 的写法必偏
+
+3.9.11~3.9.16 反复加原点差测量、偏心量扣减、相对直写，越堆越厚还一直偏。
+3.9.17 全部删掉。这里的断言就是为了防「以后又偷偷加回去」。
 
 跑两遍，全绿才算过。
 """
@@ -36,32 +39,56 @@ def read(p):
 
 # ---------------------------------------------------------------- 静态断言
 
-@case("放大态用相对直写，不测原点差")
-def c_relative():
+def body_of(t, signature):
+    i = t.find(signature)
+    if i < 0:
+        return ""
+    j = t.find("\n    }", i)
+    return t[i:j]
+
+
+@case("放大态只有「球心 = 触点」，没有任何补偿")
+def c_absolute_align():
     t = read(BC)
-    must = ["lp.x = (int) (fx - offsetX);",
-            "lp.y = (int) (fy - offsetY);",
-            "offsetX -= grabDx;",
-            "offsetY -= grabDy;",
-            "grabDx = e.getX() - lp.width / 2f;",
-            "grabDy = e.getY() - lp.height / 2f;"]
-    banned = ["originDx", "originDy", "getLocationOnScreen",
-              "getRawX() - e.getX()", "fx - lp.width / 2f -"]
+    must = ["lp.x = (int) (fx - lp.width / 2f);",
+            "lp.y = (int) (fy - lp.height / 2f);",
+            "lp.x = clampX((int) (fx - lp.width / 2f), lp.width);",
+            "lp.y = clampY((int) (fy - lp.height / 2f), lp.height);"]
+    # 全局不许再出现的花活
+    banned_global = ["grabDx", "grabDy", "originDx", "originDy",
+                     "getLocationOnScreen", "measureOrigin",
+                     "getRawX() - e.getX()", "offsetX -=", "offsetY -="]
     miss = [x for x in must if x not in t]
-    left = [x for x in banned if x in t]
-    return (not miss and not left), ("缺=%r 残留=%r" % (miss, left))
+    left = [x for x in banned_global if x in t]
+    # 放大态函数体里不许碰 offset / 内容坐标换算（拖球里用 offset 是合法的）
+    zoom_body = body_of(t, "private void placeBallAtFinger")
+    bad_zoom = [x for x in ["offsetX", "offsetY", "screenToContent"]
+                if x in zoom_body]
+    return (not miss and not left and not bad_zoom), \
+        ("缺=%r 全局残留=%r 放大态残留=%r" % (miss, left, bad_zoom))
+
+
+@case("闲置拖球仍保持按下偏移，没被放大态牵连")
+def c_drag_untouched():
+    t = read(BC)
+    # placeBallKeepOffset 必须还是 fx - offsetX
+    i = t.find("private void placeBallKeepOffset")
+    j = t.find("\n    }", i)
+    body = t[i:j]
+    ok = ("lp.x = (int) (fx - offsetX);" in body
+          and "lp.y = (int) (fy - offsetY);" in body
+          and "offsetX = fx - lp.x;" in t)
+    return ok, body.strip()[:120]
 
 
 def shape_map():
-    """从 BallArt.shape() 源码里解出每个 case 的返回值，防止只靠字符串蒙混。
-    连续 case（case A: case B: return 1;）共享同一个 return，从后往前传播。"""
+    """从 BallArt.shape() 源码里解出每个 case 的返回值，连续 case 共享 return。"""
     t = read(BA)
     i = t.find("private static int shape(int state)")
     j = t.find("\n    }", i)
     body = t[i:j]
     parts = re.split(r"case\s+(\w+):", body)
-    names = parts[1::2]
-    chunks = parts[2::2]
+    names, chunks = parts[1::2], parts[2::2]
     vals = []
     for ch in chunks:
         r = re.search(r"return\s+(\d+)\s*;", ch)
@@ -81,7 +108,6 @@ def c_shape():
     want = {"ST_NORMAL": 1, "ST_ACTIVE": 1, "ST_SPEAKING": 2,
             "ST_DOUBLE": 1, "ST_PAN": 1, "ST_IDLE": 1}
     bad = {k: (m.get(k), v) for k, v in want.items() if m.get(k) != v}
-    # 点一下 / 加载转圈必须走 default（空心环 0），不能混进实心分支
     d = re.search(r"default:\s*return\s+(\d+)\s*;", body)
     ok_default = (d is not None and d.group(1) == "0"
                   and "ST_PICKING" not in m and "ST_LOADING" not in m)
@@ -98,78 +124,43 @@ def c_down_up():
     t = read(BC)
     ok = ("view.setState(BallView.ST_ACTIVE);" in t
           and "view.setState(BallView.ST_NORMAL);" in t)
-    # 恢复必须排在 cb.onTap() 之前，否则会冲掉选字态
     i_restore = t.find("view.setState(BallView.ST_NORMAL);")
     i_tap = t.find("cb.onTap();")
     order = 0 < i_restore < i_tap
     return (ok and order), ("有=%s 顺序=%s" % (ok, order))
 
 
-# ---------------------------------------------------------------- 数值模拟
+# ---------------------------------------------------------------- 数值断言
 
-SY = 2400
 SIZE = 144
-POINTS_Y = [200, 600, 900, 1200, 1800, 2200, 2350]
+POINTS = [200, 600, 900, 1200, 1800, 2200, 2350]
 
 
-def center_k(f, s):
-    """ZoomController.panTo 的不动点公式 + clampCenter"""
-    ideal = f - (f - SY / 2) / s
-    hw = SY / (2 * s)
-    return max(hw, min(SY - hw, ideal))
-
-
-def shown_center_y(D, lpy, fy, s, model):
-    """球窗口在屏幕上的显示中心 y"""
-    c_content = D + lpy + SIZE / 2
-    if model == 1:                       # 悬浮窗不随系统放大变换
-        return c_content
-    return SY / 2 + s * (c_content - center_k(fy, s))   # 随放大变换
-
-
-def simulate(D, delta0, s, model):
-    """
-    按下：手指在球中心偏 delta0 处（e.getY()-SIZE/2）
-      downRawY = D + lp_down + SIZE/2 + delta0
-      offsetY  = downRawY - lp_down = D + SIZE/2 + delta0
-    holdTask：offsetY -= delta0  →  D + SIZE/2
-    放大态：lp.y = fy - offsetY
-    """
-    f_down = 900
-    lp_down = f_down - D - SIZE / 2 - delta0
-    off = f_down - lp_down
-    off -= delta0
-    worst = 0.0
-    for fy in POINTS_Y:
-        lpy = fy - off
-        got = shown_center_y(D, lpy, fy, s, model)
-        worst = max(worst, abs(got - fy))
-    return worst
-
-
-@case("两种窗口模型 / D / 偏心量 / 倍率下偏差恒为 0")
+@case("球心 = 触点：手指在哪、按球哪个位置，都恒等")
 def c_numeric():
+    # 放大态 lp = f - 半宽；球显示中心 = lp + 半宽。
+    # 不引入原点差、不引入倍率、不引入按下偏移 —— 这一式里根本没有别的量。
     bad = []
-    for D in [0, 72, 100, 120, 168]:
-        for d0 in [0, 40, -40, 35, -45, 20]:
-            for s in [1.0, 1.5, 2.0, 3.0, 5.0, 8.0]:
-                for model in [1, 2]:
-                    err = simulate(D, d0, s, model)
-                    if err > 1e-6:
-                        bad.append((D, d0, s, model, round(err, 3)))
+    for f in POINTS:
+        for delta0 in [0, 40, -40, 35, -45, 20]:
+            lp = f - SIZE / 2
+            center = lp + SIZE / 2
+            if abs(center - f) > 1e-6:
+                bad.append((f, delta0, center - f))
     return (not bad), bad[:6]
 
 
-@case("反向验证：不扣偏心量必被测出（旧 3.9.12 行为）")
+@case("反向验证：带 offset 的旧写法必被测出偏差")
 def c_reverse():
-    # 故意不扣 delta0，偏差应等于 |delta0| 或 s*|delta0|，必须非 0
-    D, d0, s = 100, 40, 3.0
-    off = D + SIZE / 2 + d0
+    # 3.9.15/3.9.16 的 lp = f - offsetX，offset 里含按下偏心量 δ0
+    # （D=0 时 offset = 半宽 + δ0 - δ0 之外的残留 / 或含 D），
+    # 只要不是纯粹的「半宽」，球心就会偏离触点。
     errs = []
-    for fy in POINTS_Y:
-        lpy = fy - off
-        errs.append(abs(shown_center_y(D, lpy, fy, s, 1) - fy))
-        errs.append(abs(shown_center_y(D, lpy, fy, s, 2) - fy))
+    for f in POINTS:
+        for delta0 in [40, -35, 20]:
+            off = SIZE / 2 + delta0
+            lp = f - off
+            errs.append(abs(lp + SIZE / 2 - f))
     ok = max(errs) > 10
     return ok, max(errs)
 
