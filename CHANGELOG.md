@@ -4,6 +4,62 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.12 · 按住放大后球不在触点上（versionCode 42）
+
+> 3.9.11 改错了地方：那次修的是**放大内容的中心**（`ZoomController.setScreen`），
+> 跟**球自己的窗口位置**是两套东西，所以装上还是偏。这回直接修球。
+
+### 根因：绝对坐标写法依赖一个不成立的假设
+
+`BallController.placeBallAtFinger()` 从球球版起一直写死：
+
+```
+lp.x = fx - lp.width / 2f;   lp.y = fy - lp.height / 2f;
+```
+
+这是把球中心**绝对**对齐手指，前提是 `WindowManager.LayoutParams` 的 x/y 原点
+与 `MotionEvent.getRawX/Y()` 完全一致。但 `TYPE_ACCESSIBILITY_OVERLAY` 在不少 ROM 上
+以**应用区**为原点（差一个状态栏高度 D），于是球恒定偏 D px。
+
+数值模拟（球边长 144、D=100、倍率任意）：
+
+| 手指 rawY | 绝对写法球显示中心 | 偏移 | 相对写法 | 偏移 |
+|---|---:|---:|---:|---:|
+| 900 | 1000 | +100 | 900 | 0 |
+| 1400 | 1500 | +100 | 1400 | 0 |
+| 2200 | 2300 | +100 | 2200 | 0 |
+
+D 取 72 / 100 / 120 / 168 时，绝对写法分别偏 72 / 100 / 120 / 168 px，
+**与手指位置、放大倍率都无关**。这也解释了为什么闲置拖球一直是好的：
+拖球用的是相对偏移 `fx - offsetX`，D 在相对运动里被抵消了；只有放大态
+这条「绝对对齐」路径把 D 暴露出来。从球球版到 3.9.11 一直没根治，就是因为
+大家都在调放大中心，没人动球的位置。
+
+### 修法：和闲置拖球共用一套相对直写
+
+放大态球定位改成 `lp.x = fx - offsetX; lp.y = fy - offsetY;`。
+**相对位移不需要知道坐标系原点在哪**，任意 D 下偏移恒为 0；而且按住时
+手指本来就按在球上，球保持不动就正好在手底下，不会突然跳一下。
+
+顺带做减法：
+- 删掉 `placeBallKeepOffset` 里 `screenToContentX/Y` 那半套换算 —— 它与
+  `placeBallAtFinger` 对「球窗口会不会被系统放大」的假设**正好相反**。
+  且 `ST_DRAG_BALL` 是按下即移动、`holdTask` 已被 remove，`zooming()` 恒 false，
+  这半套从球球版起就从未走到过
+- 删掉 `dragOffsetCx / dragOffsetCy` 两个字段与 `ACTION_MOVE` 里的计算
+- `ACTION_UP` 的 `ST_ZOOMING` 落位也改相对，松手不再弹一下
+- `BallController.java`：删掉 2 个死字段、`ACTION_MOVE` 里 8 行换算计算、
+  `placeBallKeepOffset` 里 6 行换算分支，3 处绝对写法改相对；
+  补了根因注释后文件 592 → 590 行（净减 2 行，逻辑净减约 16 行）
+
+### 没动
+
+`prefs.compensate()` 的绘制缩放语义、放大中心 `refreshZoomScreen()` 的
+`getRealMetrics()`（3.9.11 修的内容不动点，是对的）、抓字链路、
+状态机、TTS、UI、主题、3.6 蓝球 Logo —— 一行没碰。
+
+`verify_all` 5 suite 三轮全绿。
+
 ## 3.9.11 · 自主代码审查：修 3 个真 bug（versionCode 41）
 
 > 本轮把 3.9.10 落地后的全部 Java（17 个约 7000 行）、Manifest、无障碍配置、

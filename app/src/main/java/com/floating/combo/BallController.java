@@ -71,7 +71,6 @@ public class BallController implements View.OnTouchListener {
     private float offsetX, offsetY;
     private float downRawX, downRawY;
     private float lastFx, lastFy;
-    private float dragOffsetCx, dragOffsetCy;
     private boolean faded = false;
 
     private int screenW = 0, screenH = 0;
@@ -352,13 +351,10 @@ public class BallController implements View.OnTouchListener {
                     h.removeCallbacks(holdTask);
                     state = ST_DRAG_BALL;
                     Log.gesture("手指动了 → 判定为拖球");
-                    if (zooming()) {
-                        dragOffsetCx = zoom.screenToContentX(downRawX) - (lp.x + lp.width / 2f);
-                        dragOffsetCy = zoom.screenToContentY(downRawY) - (lp.y + lp.height / 2f);
-                    } else {
-                        dragOffsetCx = offsetX - lp.width / 2f;
-                        dragOffsetCy = offsetY - lp.height / 2f;
-                    }
+                    // 按下时已经记好 offsetX/offsetY，拖动就直接相对直写。
+                    // 原来这里还按「球窗口会不会被系统放大」分两套坐标算 dragOffset，
+                    // 但 ST_DRAG_BALL 是按下即移动、holdTask 已被 remove，此时根本没放大，
+                    // zooming() 恒 false —— 那半套 screenToContent 换算从来走不到。
                 }
 
                 if (state == ST_DRAG_BALL) {
@@ -409,12 +405,11 @@ public class BallController implements View.OnTouchListener {
                         }
                     }
                 } else if (st == ST_ZOOMING) {
-                    // 放大松手：球留在手指最后的位置。
-                    // 原来这里会退回放大前的位置，用户松手后球自己"跑掉"了 ——
-                    // 而他刚才是用手指把球拖过来的，球留在手底下才符合直觉。
-                    // 只做边界收拢，别让它停在屏幕外。
-                    lp.x = clampX((int) (fx - lp.width / 2f), lp.width);
-                    lp.y = clampY((int) (fy - lp.height / 2f), lp.height);
+                    // 放大松手：球留在手指最后的位置，只做边界收拢。
+                    // 同样用按下时的偏移相对直写，别用「fx - 半宽」把球中心硬拽到手指，
+                    // 否则松手这一下球会突然跳一下（3.9.1 在拖球上踩过同一个坑）。
+                    lp.x = clampX((int) (fx - offsetX), lp.width);
+                    lp.y = clampY((int) (fy - offsetY), lp.height);
                     commit();
                     if (cb != null) {
                         cb.onMoved(lp.x, lp.y);
@@ -439,8 +434,17 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        lp.x = (int) (fx - lp.width / 2f);
-        lp.y = (int) (fy - lp.height / 2f);
+        // 手指挪多少，球就挪多少：和闲置拖球完全同一套「按下时记偏移」的相对直写。
+        //
+        // 原来写死 lp.x = fx - 宽/2，是把球中心【绝对】对齐手指。这要求
+        // WindowManager 的 lp 坐标原点与 MotionEvent.getRawX/Y 完全一致，但
+        // TYPE_ACCESSIBILITY_OVERLAY 在不少 ROM 上是以应用区为原点（差状态栏高度 D），
+        // 于是球恒定偏 D px —— 模拟：D=72/100/120/168 时，偏 72/100/120/168 px，
+        // 与手指位置、放大倍率都无关，正是「按住放大后球不在手指下面」。
+        // 相对写法不需要知道原点在哪，任意 D 下偏移恒为 0；而且按住时手指本来就
+        // 按在球上，球保持不动就正好在手底下，不会突然跳一下。
+        lp.x = (int) (fx - offsetX);
+        lp.y = (int) (fy - offsetY);
         if (zooming() && prefs.compensate()) {
             view.setDrawScale(1f / zoom.scale());
         } else {
@@ -453,17 +457,11 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        if (zooming() && prefs.compensate()) {
-            float cx = zoom.screenToContentX(fx) - dragOffsetCx;
-            float cy = zoom.screenToContentY(fy) - dragOffsetCy;
-            lp.x = (int) (cx - lp.width / 2f);
-            lp.y = (int) (cy - lp.height / 2f);
-            view.setDrawScale(1f / zoom.scale());
-        } else {
-            lp.x = (int) (fx - offsetX);
-            lp.y = (int) (fy - offsetY);
-            view.setDrawScale(1f);
-        }
+        // 拖球与放大态球定位现在共用同一套相对直写，不再一个按屏幕坐标、
+        // 一个按内容坐标（两条路径对「球窗口会不会被放大」的假设原本是反的）。
+        lp.x = (int) (fx - offsetX);
+        lp.y = (int) (fy - offsetY);
+        view.setDrawScale(1f);
         commit();
     }
 
