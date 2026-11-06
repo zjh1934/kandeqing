@@ -11,21 +11,16 @@ import android.os.SystemClock;
  * 球的统一画法：真球（BallView）、界面预览（BallPreview）、颜色色卡
  * （Ui.BallChipView）都调这一份，保证看到的就是挂到屏幕上的那个。
  *
- * 3.10 按用户最终方案重做，之前几版全部作废：
- *   · 形态是**半透明矢量感图形**，边缘用径向渐变淡出（模糊柔边），
- *     不是硬描边、不是位图色块、不是四箭头十字。
- *   · 形态只有两种，按「手在不在球上」分，不给每个业务态造一种图形：
- *       控制（按住 / 拖球 / 放大 / 选字）→ 同一个图形填实，实心球
- *       读（朗读中）                    → 柔边环，球心透明，不画任何竖线
- *       闲置                            → 同一个柔边环，只是淡出
- *   · 换颜色只改渐变里的颜色值，环 / 球全是同一个颜色，形态完全不变。
+ * 3.9.16 按用户给的四种状态，原样：
+ *   闲置                → 实心球
+ *   点一下（选字）      → 空心柔边环，球心透明
+ *   还没读出来          → 空心环 + 环内 8 个小点转圈
+ *   朗读中              → 空心柔边环 + 环里两条同色竖线
+ *   按住球放大          → 保持实心，球中心贴着触点
  *
- * 3.9.15 按用户要求：读的时候是空心球，去掉了原来朗读态那两条竖线。
- * 闲置淡出由调用方给的 alpha 决定；朗读态 effAlpha 不低于 0.94，是清晰空心环。
- *
- * 3.9.2：新增 ST_LOADING —— 点字后到出声前，球里一排小点转圈，
- * 表示「正在找字 / 正在等引擎」，不是呆在那里。仍是同一个柔边环，
- * 只在环内多画转圈的点，不换形态、不换素材。
+ * 形态只有三种，全是同一份柔边矢量图形的 alpha / 局部笔画变化，
+ * 切态不换素材、不跳形状。换颜色只改渐变里的颜色值。
+ * 3.9.15 把闲置做成空心、朗读竖线删了，是理解反了，本版改回。
  */
 public final class BallArt {
 
@@ -52,21 +47,23 @@ public final class BallArt {
     private BallArt() {
     }
 
-    /** 业务状态只收敛到两种形态：手在球上=实心，球在替你读=空心。 */
     private static int shape(int state) {
         switch (state) {
-            case ST_PICKING:
+            case ST_NORMAL:
             case ST_ACTIVE:
             case ST_DOUBLE:
             case ST_PAN:
-                return 1;   // 实心
+            case ST_IDLE:
+                return 1;   // 实心：闲置 / 按住放大
+            case ST_SPEAKING:
+                return 2;   // 空心环 + 两条竖线
             default:
-                return 0;   // 柔边环：闲置 / 朗读 / 加载
+                return 0;   // 空心环：点一下选字 / 加载转圈
         }
     }
 
     /**
-     * @param color ARGB 颜色（环 / 球全部用它）
+     * @param color ARGB 颜色（环 / 球 / 竖线全部用它）
      * @param state BallArt.ST_*
      * @param alpha 整体不透明度 0~1，闲置淡出由调用方给
      */
@@ -100,7 +97,7 @@ public final class BallArt {
             c.drawCircle(cx, cy, r, p);
         } else {
             // 柔边环：中间全透明，只在环处亮，向内外都渐变淡出
-            float ringA = 0.82f * alpha;
+            float ringA = (shape == 2 ? 0.94f : 0.82f) * alpha;
             p.setShader(new RadialGradient(cx, cy, r,
                     new int[]{argb(0f, rgb),
                             argb(0f, rgb),
@@ -111,6 +108,20 @@ public final class BallArt {
                     new float[]{0f, 0.50f, 0.70f, 0.81f, 0.93f, 1f},
                     Shader.TileMode.CLAMP));
             c.drawCircle(cx, cy, r, p);
+
+            if (shape == 2) {
+                // 朗读中：空心环里两条同色竖线，球心仍然透明
+                float bw = r * 0.13f;
+                float gap = r * 0.29f;
+                float bh = r * 0.46f;
+                pBar.setColor(argb(0.95f * alpha, rgb));
+                for (int sgn = -1; sgn <= 1; sgn += 2) {
+                    float x = cx + sgn * gap;
+                    c.drawRoundRect(x - bw / 2f, cy - bh,
+                            x + bw / 2f, cy + bh,
+                            bw / 2f, bw / 2f, pBar);
+                }
+            }
         }
         p.setShader(null);
 

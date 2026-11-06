@@ -446,15 +446,7 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 手指挪多少，球挪多少。offset 已在 holdTask 里扣掉偏心量，
-        // 所以这一式同时做到「球中心贴着手指」和「原点差 D 自动抵消」。
-        //
-        // 两种窗口模型下都严格等于手指（见 verify_ball.py 数值断言）：
-        //   窗口不随系统放大：显示中心 = D + lp + 半宽 = fx
-        //   窗口随系统放大  ：显示中心 = S/2 + s·(D + lp + 半宽 − K) = fx
-        // 不测 D、不猜状态栏、不猜 ROM、不猜窗口会不会被放大。
-        // 3.9.11 绝对写法差 D，3.9.12 差 δ0，3.9.13/14 去测 D 又测不准 ——
-        // 四版都偏，这版是唯一不需要任何未知量的写法。
+        // 球中心 = 触点。offset 是按下时量好的固定偏移，拖到哪都成立。
         lp.x = (int) (fx - offsetX);
         lp.y = (int) (fy - offsetY);
         if (zooming() && prefs.compensate()) {
@@ -546,12 +538,7 @@ public class BallController implements View.OnTouchListener {
             }
             state = ST_ZOOMING;
             Log.gesture("按住够久 → 判定为放大");
-            // 放大态要的是【球中心贴着手指】，闲时拖球才要【保持按下偏移】。
-            // offset 里含着偏心量 δ0，扣掉它，相对直写就等价于中心对齐：
-            //   offset = D + 半宽 + δ0  →  扣后 = D + 半宽
-            //   lp = f − offset  →  显示中心 = D + lp + 半宽 = f
-            // D（lp 原点差）被 DOWN 时的实测隐含，从来不需要显式测量 ——
-            // 3.9.13 / 3.9.14 都是去测 D，测不准就固定向上或向下偏。
+            // 球中心对齐触点：把按下时的偏心量扣掉即可。
             offsetX -= grabDx;
             offsetY -= grabDy;
             if (cb != null) {

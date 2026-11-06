@@ -5,10 +5,11 @@ import android.graphics.Canvas;
 import android.view.View;
 
 /**
- * 球本体。3.9.15：只有两种形态，按「手在不在球上」分。
- *   ST_ACTIVE / ST_PICKING   控制中（按住、拖球、放大、选字）—— 实心球
- *   ST_SPEAKING              朗读中 —— 空心柔边环，球心透明
- *   ST_NORMAL / ST_LOADING   闲置 / 加载 —— 同一个柔边环（加载时环内转点）
+ * 球本体。3.9.16 四种状态：
+ *   ST_NORMAL / ST_ACTIVE   闲置、按住放大 —— 实心球
+ *   ST_PICKING              点一下选字 —— 空心柔边环
+ *   ST_LOADING              还没读出来 —— 空心环 + 环内转圈点
+ *   ST_SPEAKING             朗读中 —— 空心环 + 两条竖线
  * 换颜色只改渐变里的颜色值，形态不变。
  *
  * 具体画法统一放在 BallArt，界面里的三态预览和色卡也调同一份。

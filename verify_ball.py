@@ -11,6 +11,7 @@
 
 import io
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -51,16 +52,45 @@ def c_relative():
     return (not miss and not left), ("缺=%r 残留=%r" % (miss, left))
 
 
-@case("控制时实心、朗读时空心")
-def c_shape():
+def shape_map():
+    """从 BallArt.shape() 源码里解出每个 case 的返回值，防止只靠字符串蒙混。
+    连续 case（case A: case B: return 1;）共享同一个 return，从后往前传播。"""
     t = read(BA)
-    # shape() 里朗读态不能再有独立分支；画法里不能有竖线
-    banned = ["return 2;", "shape == 2", "drawRoundRect(x - bw"]
-    left = [x for x in banned if x in t]
-    ok_speaking = "case ST_SPEAKING:" not in t
-    ok_active = "case ST_ACTIVE:" in t and "return 1;" in t
-    return (not left and ok_speaking and ok_active), \
-        ("残留=%r 朗读独立态=%s 实心=%s" % (left, not ok_speaking, ok_active))
+    i = t.find("private static int shape(int state)")
+    j = t.find("\n    }", i)
+    body = t[i:j]
+    parts = re.split(r"case\s+(\w+):", body)
+    names = parts[1::2]
+    chunks = parts[2::2]
+    vals = []
+    for ch in chunks:
+        r = re.search(r"return\s+(\d+)\s*;", ch)
+        vals.append(int(r.group(1)) if r else None)
+    carry = None
+    for k in range(len(vals) - 1, -1, -1):
+        if vals[k] is None:
+            vals[k] = carry
+        else:
+            carry = vals[k]
+    return dict(zip(names, vals)), body
+
+
+@case("四种状态：闲置实心 / 点一下空心 / 朗读空心加竖线 / 放大实心")
+def c_shape():
+    m, body = shape_map()
+    want = {"ST_NORMAL": 1, "ST_ACTIVE": 1, "ST_SPEAKING": 2,
+            "ST_DOUBLE": 1, "ST_PAN": 1, "ST_IDLE": 1}
+    bad = {k: (m.get(k), v) for k, v in want.items() if m.get(k) != v}
+    # 点一下 / 加载转圈必须走 default（空心环 0），不能混进实心分支
+    d = re.search(r"default:\s*return\s+(\d+)\s*;", body)
+    ok_default = (d is not None and d.group(1) == "0"
+                  and "ST_PICKING" not in m and "ST_LOADING" not in m)
+    t = read(BA)
+    ok_bars = "shape == 2" in t and "drawRoundRect(x - bw" in t
+    ok_dots = "drawDots" in t and "state == ST_LOADING" in t
+    return (not bad and ok_default and ok_bars and ok_dots), \
+        ("映射错=%r default=%s 竖线=%s 转圈=%s"
+         % (bad, ok_default, ok_bars, ok_dots))
 
 
 @case("按下变实心、抬手复常态")
