@@ -72,8 +72,8 @@ public class BallController implements View.OnTouchListener {
     private float downRawX, downRawY;
     private float lastFx, lastFy;
     private boolean faded = false;
-    /** lp 坐标系原点相对 getRawX/Y 原点的差值，DOWN 时由同一次 MotionEvent 反推 */
-    private int originDx = 0, originDy = 0;
+    /** 按下时手指相对球中心的偏心量（View 内部坐标，与任何屏幕原点无关） */
+    private float grabDx = 0f, grabDy = 0f;
 
     private int screenW = 0, screenH = 0;
     private ValueAnimator settleAnim = null;
@@ -339,18 +339,12 @@ public class BallController implements View.OnTouchListener {
                 lastFy = fy;
                 offsetX = fx - lp.x;
                 offsetY = fy - lp.y;
-                // 用同一次 MotionEvent 的 raw 与 view 内坐标反推 lp 原点差：
-                //   view 左上角的 raw 坐标 = e.getRawX() - e.getX()，再减 lp.x 即原点差。
-                // 3.9.13 用 getLocationOnScreen() 测，它对 TYPE_ACCESSIBILITY_OVERLAY
-                // 会把系统装饰一并算进去，实测值偏大，补偿过度 —— 真机上表现为
-                // 按住后球【固定向上偏约半个手指】。raw / local 同源于系统同一次
-                // 坐标变换，不会多算，也不猜状态栏高度、不猜 ROM。
-                originDx = (int) (e.getRawX() - e.getX()) - lp.x;
-                originDy = (int) (e.getRawY() - e.getY()) - lp.y;
-                if (Math.abs(originDx) > screenW || Math.abs(originDy) > screenH) {
-                    originDx = 0;
-                    originDy = 0;
-                }
+                // 手指按在球的哪个位置（相对球中心）。这是 View 内部坐标，
+                // 不涉及 lp 原点、状态栏、ROM 装饰，是唯一可以直接信的量。
+                // 按下即变实心：手在球上操作 = 控制态。
+                grabDx = e.getX() - lp.width / 2f;
+                grabDy = e.getY() - lp.height / 2f;
+                view.setState(BallView.ST_ACTIVE);
                 state = ST_PENDING;
                 h.removeCallbacks(holdTask);
                 h.postDelayed(holdTask, prefs.holdMs());
@@ -393,6 +387,10 @@ public class BallController implements View.OnTouchListener {
                         + (fy - downRawY) * (fy - downRawY)) + "px"
                         + (cancel ? " (被系统取消)" : ""));
 
+                // 手离开球先退回常态。放在 cb.onTap() 之前，轻点进选字态时
+                // 由上层再设成实心，不会被这一句冲掉。
+                view.setState(BallView.ST_NORMAL);
+
                 if (st == ST_PENDING) {
                     if (!cancel && cb != null) {
                         cb.onTap();
@@ -420,10 +418,10 @@ public class BallController implements View.OnTouchListener {
                         }
                     }
                 } else if (st == ST_ZOOMING) {
-                    // 放大松手：球中心仍留在手指处，只做边界收拢。
-                    // 放大期间球中心已经对齐手指，这里用同一个公式，松手不会跳。
-                    lp.x = clampX((int) (fx - lp.width / 2f - originDx), lp.width);
-                    lp.y = clampY((int) (fy - lp.height / 2f - originDy), lp.height);
+                    // 放大松手：与放大期间同一套相对直写，球中心仍留在手指处，
+                    // 只做边界收拢，松手不会跳一下。
+                    lp.x = clampX((int) (fx - offsetX), lp.width);
+                    lp.y = clampY((int) (fy - offsetY), lp.height);
                     commit();
                     if (cb != null) {
                         cb.onMoved(lp.x, lp.y);
@@ -448,20 +446,17 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 放大态：球【中心】对齐手指，并把 lp 原点差实测扣掉。
+        // 手指挪多少，球挪多少。offset 已在 holdTask 里扣掉偏心量，
+        // 所以这一式同时做到「球中心贴着手指」和「原点差 D 自动抵消」。
         //
-        // 3.9.11 写死 fx - 半宽，没扣原点差 D → 固定向下偏 D（倍率下 s·D）。
-        // 3.9.12 改成「保持按下偏移」的相对直写，固定偏消了，但手指按在球的
-        // 哪一侧，球就往哪一侧偏 δ0（倍率下 s·δ0）—— 于是变成有时向上、
-        // 有时向左向右，正是这次反馈的现象。闲置拖球要保持按下偏移，放大态不要。
-        //
-        // 这一式两种情形都恒等于手指：
-        //   窗口不随放大变换：显示中心 = lp + D + 半宽 = fx
-        //   窗口随放大变换  ：显示中心 = S/2 + s·(lp + D + 半宽 − K) = fx
-        // （K = fx − (fx − S/2)/s，D 与 K 在式内抵消；clampCenter 对 raw 范围内
-        //  的手指从不触发，数值模拟已验）。按偏量、倍率、原点差全部无关。
-        lp.x = (int) (fx - lp.width / 2f - originDx);
-        lp.y = (int) (fy - lp.height / 2f - originDy);
+        // 两种窗口模型下都严格等于手指（见 verify_ball.py 数值断言）：
+        //   窗口不随系统放大：显示中心 = D + lp + 半宽 = fx
+        //   窗口随系统放大  ：显示中心 = S/2 + s·(D + lp + 半宽 − K) = fx
+        // 不测 D、不猜状态栏、不猜 ROM、不猜窗口会不会被放大。
+        // 3.9.11 绝对写法差 D，3.9.12 差 δ0，3.9.13/14 去测 D 又测不准 ——
+        // 四版都偏，这版是唯一不需要任何未知量的写法。
+        lp.x = (int) (fx - offsetX);
+        lp.y = (int) (fy - offsetY);
         if (zooming() && prefs.compensate()) {
             view.setDrawScale(1f / zoom.scale());
         } else {
@@ -551,6 +546,14 @@ public class BallController implements View.OnTouchListener {
             }
             state = ST_ZOOMING;
             Log.gesture("按住够久 → 判定为放大");
+            // 放大态要的是【球中心贴着手指】，闲时拖球才要【保持按下偏移】。
+            // offset 里含着偏心量 δ0，扣掉它，相对直写就等价于中心对齐：
+            //   offset = D + 半宽 + δ0  →  扣后 = D + 半宽
+            //   lp = f − offset  →  显示中心 = D + lp + 半宽 = f
+            // D（lp 原点差）被 DOWN 时的实测隐含，从来不需要显式测量 ——
+            // 3.9.13 / 3.9.14 都是去测 D，测不准就固定向上或向下偏。
+            offsetX -= grabDx;
+            offsetY -= grabDy;
             if (cb != null) {
                 // 先让上层把朗读停掉：放大就只干放大，不交叉
                 cb.onZoomStart(lastFx, lastFy);

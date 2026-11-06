@@ -8,8 +8,8 @@ android {
         applicationId "com.floating.combo"
         minSdkVersion 24
         targetSdkVersion 29
-        versionCode 44
-        versionName "3.9.14"
+        versionCode 45
+        versionName "3.9.15"
     }
 
     buildTypes {
