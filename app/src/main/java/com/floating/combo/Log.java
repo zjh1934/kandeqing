@@ -26,7 +26,6 @@ public class Log {
     private static final String NAME = "qiuqiu.log";
     private static final int MAX_BYTES = 150 * 1024;
     public static final int MAX_RENDER = 60;
-    private static final int MAX_LINES = 3000;
 
     private static File file = null;
     private static HandlerThread thread = null;

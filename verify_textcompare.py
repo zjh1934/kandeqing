@@ -1,4 +1,3 @@
-
 def same_line(a, b):
     if a is None or b is None:
         return False

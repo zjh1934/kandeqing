@@ -1,4 +1,3 @@
-
 MAX_CHAR_REQ = 20000
 
 def _is_ws(ch):

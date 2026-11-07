@@ -14,7 +14,6 @@
 import io
 import os
 import re
-import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 BC = os.path.join(ROOT, "app", "src", "main", "java", "com",
