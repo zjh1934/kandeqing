@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 看得清 · 推广物料生成
 
@@ -20,11 +18,9 @@ import qrcode
 from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont
 
-# ============ 只改这里 ============
 DOWNLOAD_URL = "https://zjh1934.github.io/kandeqing/"
 APK_URL = "https://github.com/zjh1934/kandeqing/releases/latest"
 APP_NAME = "看得清"
-# ==================================
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_CANDIDATES = [
@@ -42,12 +38,10 @@ GREY = (90, 100, 112)
 WHITE = (255, 255, 255)
 LIGHT = (244, 248, 253)
 
-
 def font(size):
     if FONT:
         return ImageFont.truetype(FONT, size)
     return ImageFont.load_default()
-
 
 def make_qr(url, path, box=900):
     qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -59,7 +53,6 @@ def make_qr(url, path, box=900):
     img.save(path)
     print("  二维码 →", path)
     return img
-
 
 def wrap(draw, text, f, max_w):
     """按像素宽度粗暴折行，中文够用"""
@@ -78,19 +71,16 @@ def wrap(draw, text, f, max_w):
         lines.append(cur)
     return lines
 
-
 def card(qr_img, out):
     """A5 竖版大字卡片，可直接打印或当图片发微信"""
     W, H = 1240, 1748
     im = Image.new("RGB", (W, H), WHITE)
     d = ImageDraw.Draw(im)
 
-    # 顶部品牌条
     d.rectangle([0, 0, W, 250], fill=BLUE)
     d.text((60, 46), APP_NAME, font=font(112), fill=WHITE)
     d.text((66, 176), "手机上的字看不清？", font=font(46), fill=(225, 236, 255))
 
-    # 三个卖点
     y = 310
     f_big = font(52)
     bullets = [
@@ -103,7 +93,6 @@ def card(qr_img, out):
         d.text((108, y), b, font=f_big, fill=DARK)
         y += 96
 
-    # 二维码
     qs = 560
     q = qr_img.resize((qs, qs), Image.NEAREST)
     qx, qy = (W - qs) // 2, y + 60
@@ -116,13 +105,11 @@ def card(qr_img, out):
     y += 92
     d.text((W // 2, y), "装完开一次「无障碍」就行", font=font(40), fill=GREY, anchor="ma")
 
-    # 底部：链接兜底（扫不了就手输 / 让家人帮忙）
     d.rectangle([0, H - 170, W, H], fill=LIGHT)
     for i, line in enumerate(wrap(d, "扫不了？让家人打开：" + DOWNLOAD_URL, font(28), W - 100)):
         d.text((50, H - 150 + i * 38), line, font=font(28), fill=GREY)
     im.save(out)
     print("  卡片   →", out)
-
 
 def html(qr_png_bytes, out):
     b64 = base64.b64encode(qr_png_bytes).decode()
@@ -186,7 +173,6 @@ def html(qr_png_bytes, out):
     open(out, "w", encoding="utf-8").write(doc)
     print("  下载页 →", out)
 
-
 def main():
     print("下载页链接：", DOWNLOAD_URL)
     print("安装包直链：", APK_URL)
@@ -197,7 +183,6 @@ def main():
     card(qr_page, os.path.join(HERE, "大字卡片.png"))
     html(buf.getvalue(), os.path.join(HERE, "下载页.html"))
     print("完成。四个文件都在本目录，可直接打印 / 发微信 / 托管。")
-
 
 if __name__ == "__main__":
     main()

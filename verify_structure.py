@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 无 JDK / Android SDK 环境下的 Java 源码结构自检。
 
@@ -17,7 +16,6 @@
 
 import os
 import re
-import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC_DIRS = [
@@ -25,34 +23,28 @@ SRC_DIRS = [
     os.path.join(ROOT, "app", "src", "test", "java"),
 ]
 
-# 这些不是方法调用
 NOT_CALLS = {
     "if", "for", "while", "switch", "catch", "synchronized", "return",
     "new", "else", "do", "try", "finally", "throw", "throws", "case",
     "super", "this", "instanceof", "assert",
 }
 
-# 不在源码树里、但一定存在的类（只放真正自动生成的，别拿它掩盖漏写的 import）
 EXTERNAL_OK = {
-    "R",      # aapt 生成的资源类
+    "R",
 }
 
-# 从框架父类继承来的常量，源码里不会有声明
 FRAMEWORK_INHERITED = {
     "WINDOW_SERVICE", "NOTIFICATION_SERVICE", "MODE_PRIVATE",
     "LAYOUT_INFLATER_SERVICE", "INPUT_METHOD_SERVICE", "POWER_SERVICE",
     "AUDIO_SERVICE", "KEYGUARD_SERVICE", "CLIPBOARD_SERVICE", "VIBRATOR_SERVICE", "RESULT_OK", "RESULT_CANCELED",
-    # R 由 aapt2 在编译期生成，源码里本来就没有
     "R",
 }
 
 TYPE_KEYWORD = r"(?:class|interface|enum)"
 
-
 def read(path):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
-
 
 def strip_literals(src):
     """去掉注释、字符串、字符字面量，位置用空格补齐（保持下标对齐）。"""
@@ -114,7 +106,6 @@ def strip_literals(src):
             i += 1
     return "".join(out)
 
-
 def match_block(s, i):
     """s[i] == '{'，返回配对的 '}' 下标；不配对返回 -1。"""
     depth = 0
@@ -129,7 +120,6 @@ def match_block(s, i):
                 return j
         j += 1
     return -1
-
 
 def find_classes(code):
     """
@@ -147,7 +137,6 @@ def find_classes(code):
         out.append((m.group(1), m.start(), j, end))
     return out
 
-
 def own_body(code, cls, classes):
     """把类自己的方法体挖出来，嵌套类的部分抹掉。"""
     _, s, b, e = cls
@@ -161,7 +150,6 @@ def own_body(code, cls, classes):
                 chars[k] = " "
     return "".join(chars[b + 1:e])
 
-
 MODIFIERS = (r"(?:public|protected|private|static|final|abstract|synchronized"
              r"|native|strictfp|volatile|transient)\s+")
 
@@ -172,7 +160,6 @@ METHOD_RE = re.compile(
 FIELD_RE = re.compile(
     r"(?:^|[;{}])\s*(?:@\w+\s*)*(?:%s)*[\w.$]+(?:<[^;=(){}]*>)?(?:\[\s*\])*\s+(\w+)\s*(?=[=;])"
     % MODIFIERS, re.M)
-
 
 def members_of(body):
     names = set()
@@ -185,9 +172,8 @@ def members_of(body):
         if n not in NOT_CALLS:
             names.add(n)
     for m in re.finditer(r"\b(?:class|interface|enum)\s+(\w+)", body):
-        names.add(m.group(1))   # 嵌套类型也能用 Outer.Inner 引用
+        names.add(m.group(1))
     return names
-
 
 def build_index():
     files = []
@@ -200,8 +186,8 @@ def build_index():
                     files.append(os.path.join(root, n))
     files.sort()
 
-    index = {}   # class name -> set(members)
-    packages = {}  # class name -> package
+    index = {}
+    packages = {}
     per_file = []
     for f in files:
         code = strip_literals(read(f))
@@ -223,7 +209,6 @@ def build_index():
             packages[c[0]] = pkg
         per_file.append(info)
     return index, packages, per_file
-
 
 def check_balance(info):
     """括号配对检查。返回错误列表。"""
@@ -247,12 +232,9 @@ def check_balance(info):
         errs.append("第 %d 个字符的 '%s' 没有闭合" % (i, c))
     return errs
 
-
 REF_RE = re.compile(r"(?<![\w.$])([A-Z]\w*)\s*\.\s*(\w+)")
 
-# X.class / X.this 不是成员访问
 REF_SKIP_MEMBERS = {"class", "this", "super"}
-
 
 def check_symbols(index, packages, per_file):
     """ProjectClass.member 必须真实存在。"""
@@ -260,7 +242,6 @@ def check_symbols(index, packages, per_file):
     for info in per_file:
         code = info["code"]
         own = set(c[0] for c in info["classes"])
-        # 本文件里所有类自己的成员都可以直接用
         mine = set()
         for c in info["classes"]:
             mine |= index.get(c[0], set())
@@ -270,7 +251,6 @@ def check_symbols(index, packages, per_file):
             if cls in EXTERNAL_OK or member in REF_SKIP_MEMBERS:
                 continue
             if cls in own:
-                # 同文件里的类：成员应该在本文件里找得到
                 if member not in mine:
                     errs.append("%s: %s.%s 不存在（本文件内未定义）"
                                 % (os.path.basename(info["path"]), cls, member))
@@ -281,7 +261,6 @@ def check_symbols(index, packages, per_file):
                                 % (os.path.basename(info["path"]), cls, member, cls))
     return errs
 
-
 def declared_names(info, index):
     """本文件里声明过的名字（方法 / 字段 / 嵌套类型）"""
     names = set()
@@ -289,7 +268,6 @@ def declared_names(info, index):
         names.add(c[0])
         names |= index.get(c[0], set())
     return names
-
 
 def check_imports(per_file, packages, index):
     """用到的类名得 import 过；import 了没用的给个警告。"""
@@ -304,8 +282,6 @@ def check_imports(per_file, packages, index):
     }
     for info in per_file:
         code = info["code"]
-        # 真正写了 import 的（区分普通 import 和 static import：
-        # static import 进来的是方法名，小写开头，不能按类名的规则查）
         imported = set()
         static_imported = set()
         for is_static, imp in info["imports"]:
@@ -314,8 +290,6 @@ def check_imports(per_file, packages, index):
             else:
                 imported.add(imp.rsplit(".", 1)[-1])
 
-        # 同包的类不用 import。要和 imported 分开存，
-        # 否则"未使用的 import"会把所有同包类都算进来，全是噪音。
         samepkg = set()
         for name, pkg in packages.items():
             if pkg == info["package"]:
@@ -325,7 +299,6 @@ def check_imports(per_file, packages, index):
         for m in re.finditer(r"(?<![\w.$])([A-Z]\w*)", code):
             used.add(m.group(1))
 
-        # 本文件里声明过的（类 / 方法 / 字段 / 嵌套类型）不是外部引用
         used -= declared_names(info, index)
 
         missing = sorted(n for n in used
@@ -349,16 +322,10 @@ def check_imports(per_file, packages, index):
                          % (os.path.basename(info["path"]), ", ".join(unused_static)))
     return errs, warns
 
-
-# 静态符号解析看不出「类不在这个 package 下」：这种错只有真编译会报
-# cannot find symbol。2026-11-05 实测：AccessibilityWindowInfo 被写成
-# android.accessibilityservice.*，镜像全绿、CI 的 javac 直接 12 个错。
-# 把踩过的错包名硬拦在这里，避免再靠一次失败构建去发现。
 BAD_ANDROID_IMPORTS = {
     "android.accessibilityservice.AccessibilityWindowInfo":
         "android.view.accessibility.AccessibilityWindowInfo",
 }
-
 
 def check_bad_android_imports(per_file):
     errs = []
@@ -369,7 +336,6 @@ def check_bad_android_imports(per_file):
                 errs.append("FAIL [错包名] %s: import %s → 应为 %s"
                             % (os.path.basename(info["path"]), bad, good))
     return errs
-
 
 def run_once():
     index, packages, per_file = build_index()
@@ -398,9 +364,7 @@ def run_once():
             print(p)
     else:
         print("结构与符号检查全部通过 ✅")
-    # 只有 FAIL 算失败
     return sum(1 for p in problems if p.startswith("FAIL"))
-
 
 def main():
     total = 0
@@ -410,7 +374,6 @@ def main():
     if total:
         raise SystemExit("结构检查累计 %d 个问题" % total)
     print("结构检查两遍全部通过 ✅")
-
 
 if __name__ == "__main__":
     main()

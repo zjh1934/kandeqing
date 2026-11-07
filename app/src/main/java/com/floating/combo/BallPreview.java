@@ -6,13 +6,6 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.view.View;
 
-/**
- * 颜色选择页里的三态预览。
- *
- * 一次把闲置实心 / 点一下空心 / 朗读空心加竖线摆齐；点色卡时三个球一起换色。
- * 每个球都调 BallArt.draw，和屏幕上真挂着的球是同一套画法。
- * 预览里给一层中性底色，只为让白色默认款在浅色界面上也看得见。
- */
 public class BallPreview extends View {
 
     private static final int[] STATES = new int[]{
@@ -58,7 +51,6 @@ public class BallPreview extends View {
             c.drawRoundRect(cx - half, cy - half, cx + half, cy + half,
                     10f * getResources().getDisplayMetrics().density,
                     10f * getResources().getDisplayMetrics().density, pad);
-            // 一小条内容，验证半透明叠底
             label.setColor(0xFF8A97A8);
             c.drawRect(cx - half + px, cy - 3f,
                     cx + half - px, cy + 3f, label);

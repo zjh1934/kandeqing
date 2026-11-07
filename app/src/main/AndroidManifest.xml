@@ -4,22 +4,9 @@
 
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-    <!-- 点按时震一下，确认"点上了"。看不见球变没变色的时候靠它，见 Haptics.java -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- 主要走 TYPE_ACCESSIBILITY_OVERLAY，不需要这个权限。
-         留着是为了兜底：个别 ROM 的无障碍窗口加不进去时，
-         BallController.show() 会退到 TYPE_APPLICATION_OVERLAY，那条路要这个权限。
-         不影响正常流程。 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- 仅 Android 10（API 29）用于把日志写进公共 Downloads（MediaStore）。
-         API 30+ 走作用域存储、不需要此权限；再高版本会被忽略，故限定 maxSdkVersion=29。 -->
-
-    <!-- Android 11+ 声明后才能枚举第三方 TTS 引擎。
-         如果你的 AIDE 报 "<queries> 未知元素"，把下面整个 <queries> 块删掉即可：
-         TtsManager.enumerate() 还有第二条路（getEngines()）兜底，不靠它也能列出引擎。 -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
@@ -40,7 +27,6 @@
             </intent-filter>
         </activity>
 
-        <!-- 一个服务干全部：画球 + 抓字 + 控制放大 -->
         <service
             android:name=".ComboService"
             android:enabled="true"

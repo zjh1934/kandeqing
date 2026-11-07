@@ -13,12 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * TTS 引擎管理。全进程只有一个 TextToSpeech 实例。
- * 切换引擎 = stop + shutdown + 重新绑定，保证彻底换掉。
- *
- * 语速音调这里直接设进去（系统 TTS 那套设置界面不是每个引擎都有）。
- */
 public class TtsManager {
 
     public static class Engine {
@@ -44,63 +38,33 @@ public class TtsManager {
     private static final String PREF = "cfg";
     private static final String KEY_ENGINE = "engine_pkg";
     private static final String KEY_VOICE = "engine_voice";
-    /**
-     * 一次交给引擎的最大字数。
-     * 官方上限 TextToSpeech.getMaxSpeechInputLength() 是 4000，
-     * 超了 speak() 直接返回 ERROR —— 一个字都不念。留 400 的余量。
-     */
     private static final int MAX_CHUNK = 3600;
 
     private static TextToSpeech tts = null;
 
-    // ── 下面这批字段跨线程：主线程写，引擎回调线程读（或反过来）──
-    //
-    // 不加 volatile 的后果不是崩溃，是「偶发、说不清」：
-    //   · 引擎回调线程改了 ready / failed，主线程过一会儿才看得见
-    //     → 球卡在"朗读态"、或者明明能用却提示"还在初始化"
-    //   · 主线程 session++ 作废了旧会话，回调线程还拿着旧值判断
-    //     → "刚点了一句，读两个字球就跳回待命"
-    // 这类问题在真机上几天才撞到一次，撞到也复现不了，
-    // 所以宁可现在就把可见性钉死。
-    //
-    // 只加 volatile，不动结构：这些字段都是「一次写入、到处读」的开关，
-    // 没有"先读再改"的复合操作，volatile 够用，也不需要上锁。
-    /** 每次重建 +1，用来丢弃旧实例的回调 */
     private static volatile int serial = 0;
     private static volatile boolean ready = false;
     private static volatile boolean failed = false;
     private static volatile boolean cnOk = false;
     private static String currentPkg = "";
-    /** 系统默认引擎包名。enumerate() 时缓存，供界面显示"跟随系统默认"跟的是谁 */
     private static String defaultPkg = "";
     private static Context appCtx = null;
     private static OnInitListener listener = null;
     private static SpeechListener speechListener = null;
 
-    /**
-     * 当前朗读会话号。speak() / stop() / release() 都会 +1。
-     *
-     * 长文本被切成几段排队念，引擎逐段回调；被 stop() 打断的旧会话也会回调。
-     * 靠这个号把"不是这一次朗读"的回调全部丢掉 ——
-     * 否则会出现"刚点了一句，读两个字球就跳回待命"。
-     */
     private static volatile int session = 0;
-    /** 本次会话一共几段。回调里用它判断"是不是最后一段"，不靠计数器累加 */
     private static volatile int chunkTotal = 0;
-    /** 上次因初始化失败而重试的时间，避免点一下就重连一次。只在主线程碰，无需 volatile */
     private static long lastRetry = 0;
 
     public interface OnInitListener {
         void onEngineReady(boolean ready, boolean cnOk, String pkg);
     }
 
-    /** 朗读结束 / 出错的回调 */
     public interface SpeechListener {
         void onDone();
 
         void onError();
 
-        /** 又读完了一段（不是最后一段）。长文靠它续命，别被超时打断 */
         void onChunk();
     }
 
@@ -133,52 +97,19 @@ public class TtsManager {
         return cnOk;
     }
 
-    /**
-     * 当前实例**实际构造时用的**包名。空串 = 系统默认。
-     *
-     * 必须说清楚它不代表什么：官方没有"查询某个 TextToSpeech 实例
-     * 最终绑定到了哪个包"的公开 API（3.3 复查确认，官方构造器文档也
-     * 明说"不保证指定引擎会被加载"）。这里返回的是我们构造时传进去的值。
-     * 若那个引擎没装 / 被禁用，系统会**静默回退**到默认引擎，
-     * 而这个值不会跟着变 —— 它能证明"我们请求了谁"，
-     * 不能证明"最终生效的是谁"。
-     */
     public static String getCurrentPkg() {
         return currentPkg;
     }
 
-    /**
-     * 枚举引擎。
-     *
-     * 两条路都走，但**顺序有讲究**（3.3 改过）：
-     *   ① 建实例问 getEngines() —— 官方定义的"已安装引擎"列表，作为主来源
-     *   ② PackageManager 查 TTS_SERVICE —— 只用来补齐 ① 漏掉的
-     *
-     * 原来反过来（包查询在前、getEngines() 兜底）。外部核查指出
-     * getEngines() 才是官方定义的来源，包查询在 Android 11+ 还受包可见性影响，
-     * 放前面会让"列表第一项是谁"变得不可预测 ——
-     * 而列表第一项恰好就是"没存过引擎时默认选中的那一项"，
-     * 顺序不稳会直接导致界面显示和实际用的引擎对不上。
-     *
-     * 注意：这个列表**不含"跟随系统默认"** 这一项，那是界面层加的。
-     */
     public static List<Engine> enumerate(Context ctx) {
         List<Engine> out = new ArrayList<Engine>();
 
-        // ① 主来源：实例查询
         TextToSpeech probe = null;
         try {
-            // listener 不能传 null！
-            // 官方标注这个参数是**非空**：framework 初始化完成时会回调它，
-            // 传 null 必然 NPE（在回调线程上抛，还会把这次枚举整条路径废掉）。
-            // 原来这里就传的 null，异常被外层 catch 吞掉，
-            // 表现是"列表里永远只有包查询查到的那几个"。
             probe = new TextToSpeech(ctx.getApplicationContext(),
                     new TextToSpeech.OnInitListener() {
                         @Override
                         public void onInit(int status) {
-                            // 空实现：这里只要一个合法的 listener 占位，
-                            // 枚举用的是下面的同步 getEngines()/getDefaultEngine()
                         }
                     });
             List<TextToSpeech.EngineInfo> es = probe.getEngines();
@@ -190,29 +121,18 @@ public class TtsManager {
                     }
                     String label = e.label;
                     if (label == null || label.isEmpty()) {
-                        // label 官方不保证非空。空了就用包名 ——
-                        // 比显示"系统 TTS"这种猜出来的名字可解释得多
                         label = e.name;
                     }
                     out.add(new Engine(label, e.name));
                 }
             }
-            // 系统默认引擎的包名，趁实例还活着取回来缓存。
-            //
-            // 为什么必须在实例上取：getDefaultEngine() 是**实例方法**，不是静态的。
-            // 写成 TextToSpeech.getDefaultEngine() 会直接编译失败
-            // （non-static method cannot be referenced from a static context）。
-            // 我 3.3 第一版就写错了，是复查时抓出来的。
             try {
                 String d = probe.getDefaultEngine();
-                // 无引擎可用时官方未定义返回值，参考实现是空串 —— null 和空串都要挡
                 defaultPkg = (d == null) ? "" : d;
             } catch (Exception ignored) {
-                // 取不到就留着上一次的值，UI 层有兜底文案
             }
         } catch (Exception ignored) {
         } finally {
-            // 原来 shutdown 写在 try 里，getEngines() 一抛异常就永远绑着这个实例
             if (probe != null) {
                 try {
                     probe.shutdown();
@@ -222,7 +142,6 @@ public class TtsManager {
         }
         Log.i("tts", "系统默认引擎 = " + (defaultPkg.length() == 0 ? "(未知)" : defaultPkg));
 
-        // ② 补齐：包查询（需要 manifest 里声明 <queries>）
         try {
             Intent intent = new Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE);
             PackageManager pm = ctx.getPackageManager();
@@ -258,16 +177,6 @@ public class TtsManager {
         return out;
     }
 
-    /**
-     * 系统默认引擎的包名（API 8 就有）。
-     *
-     * 用来告诉用户"跟随系统默认"到底跟的是谁 ——
-     * 不然那一项是个空名字，用户根本不知道自己在用什么。
-     *
-     * 返回的是**上一次 enumerate() 缓存下来的值**，不是当场算的：
-     * 因为它得在 TextToSpeech 实例上取，而 UI 线程上现建一个实例太贵。
-     * 没枚举过就是空串，界面层自己兜底。
-     */
     public static String defaultEnginePkg() {
         return defaultPkg == null ? "" : defaultPkg;
     }
@@ -281,13 +190,6 @@ public class TtsManager {
         return false;
     }
 
-    /**
-     * 列音色，中文排前面。
-     *
-     * 优先用系统的 getVoices()（API 21+），拿到的是真实音色名，
-     * 比如 zh-CN-XiaoxiaoNeural —— MultiTTS 那类就是靠这个区分发音人的。
-     * 拿不到就退回列语言。
-     */
     public static List<Voice> listVoicesZhFirst() {
         List<Voice> out = new ArrayList<Voice>();
         if (tts == null || !ready) {
@@ -310,10 +212,6 @@ public class TtsManager {
                         } catch (Exception ignored) {
                         }
                         String tag = v.getName();
-                        // 3.9.6：界面上显示说人话的短名，不再把
-                        // microsoft_zh-CN-XiaoxiaoNeural / NOT_SET 这种包名甩给用户。
-                        // 只改 label（显示），name 仍是原始 tag —— 保存、比对、
-                        // applyVoice 全走 name，一行逻辑都不用动。
                         String label = friendlyVoice(tag, l);
                         Voice item = new Voice(tag, label);
                         if (l != null && "zh".equals(l.getLanguage())) {
@@ -350,10 +248,6 @@ public class TtsManager {
         return out;
     }
 
-    /**
-     * 3.9.6：常见 Neural 音色 → 中文短名。认不出来的保留原名 + 语言，
-     * 不硬猜，也不丢信息。只影响显示，不影响存哪个音色。
-     */
     private static String friendlyVoice(String tag, Locale l) {
         if (tag == null) {
             return "";
@@ -386,7 +280,6 @@ public class TtsManager {
         return tag;
     }
 
-    /** 按名字设音色。名字为空就只设中文语言 */
     public static boolean applyVoice(String name) {
         if (tts == null || !ready) {
             return false;
@@ -406,7 +299,6 @@ public class TtsManager {
                     }
                 }
             }
-            // 名字对不上就退回设语言
             Locale l = Locale.CHINA;
             if (name != null && name.length() > 0) {
                 try {
@@ -418,8 +310,6 @@ public class TtsManager {
             int r = tts.setLanguage(l);
             if (r == TextToSpeech.LANG_MISSING_DATA
                     || r == TextToSpeech.LANG_NOT_SUPPORTED) {
-                // 设了不支持的语言，speak 会直接 ERROR，
-                // 用户看到的是"朗读失败"，不如退回中文
                 return setup(tts);
             }
             return true;
@@ -428,7 +318,6 @@ public class TtsManager {
         }
     }
 
-    /** 引擎刚就绪 / 刚重建时，把用户存的音色套回去 */
     public static void applySavedVoice() {
         if (appCtx == null) {
             return;
@@ -444,7 +333,6 @@ public class TtsManager {
         }
     }
 
-    /** 返回 "" 表示用系统默认 */
     public static String getSavedEngine(Context ctx) {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE);
@@ -475,9 +363,6 @@ public class TtsManager {
 
     public static void init(Context ctx) {
         appCtx = ctx.getApplicationContext();
-        // 已经有实例就别重建。
-        // 原来无条件 bind()，会 release 掉服务里那个实例 ——
-        // 表现就是"听着听着打开看得清 App，声音当场就断了"。
         if (tts != null && !failed) {
             notifyListener();
             return;
@@ -493,10 +378,6 @@ public class TtsManager {
         bind();
     }
 
-    /**
-     * 初始化失败之后的重试。3 秒内不重复，免得用户连点把引擎反复拉起。
-     * 没有这个入口，引擎一旦初始化失败就只能重启 App 才能恢复。
-     */
     public static void retryIfFailed() {
         if (!failed || appCtx == null) {
             return;
@@ -514,9 +395,7 @@ public class TtsManager {
         if (appCtx == null) {
             return;
         }
-        // 先释放旧实例，避免每次 init()/rebuild() 泄漏一个 TTS 引擎
-        // （rebind() 知道先 release()，bind() 之前漏了）
-        session++;      // 旧实例的在途回调一并作废
+        session++;
         chunkTotal = 0;
         if (tts != null) {
             try {
@@ -536,7 +415,7 @@ public class TtsManager {
             @Override
             public void onInit(int status) {
                 if (mySerial != serial) {
-                    return;   // 旧实例回调，丢弃
+                    return;
                 }
                 if (status != TextToSpeech.SUCCESS) {
                     failed = true;
@@ -558,8 +437,6 @@ public class TtsManager {
         };
         String pkg = getSavedEngine(appCtx);
         if (pkg != null && pkg.length() > 0 && !installed(appCtx, pkg)) {
-            // 存的引擎被卸载了。不清掉的话每次启动都必然初始化失败，
-            // 而且用户完全不知道该去哪儿改 —— 直接退回系统默认
             Log.w("tts", "保存的引擎已不存在：" + pkg + "，改回系统默认引擎");
             saveEngine(appCtx, "");
             pkg = "";
@@ -579,7 +456,6 @@ public class TtsManager {
         }
     }
 
-    /** 这个包还在不在 */
     private static boolean installed(Context ctx, String pkg) {
         try {
             ctx.getPackageManager().getPackageInfo(pkg, 0);
@@ -589,7 +465,6 @@ public class TtsManager {
         }
     }
 
-    /** 挂朗读进度回调。引擎重建后必须重新挂，否则读完不回调、状态卡住 */
     private static void attachProgress() {
         if (tts == null) {
             return;
@@ -614,22 +489,9 @@ public class TtsManager {
         }
     }
 
-    /**
-     * 一段念完了。
-     *
-     * 只有"当前会话的最后一段"才算整次朗读结束：
-     * 长文本会被切成几段排队，引擎一段一段回调；
-     * 并且被 stop() 掉的旧会话也会回调 —— 靠会话号筛掉。
-     *
-     * 判断"最后一段"直接看 id 里的段号，不靠计数器累加 ——
-     * 回调在引擎的线程上，累加计数会有竞态，错了就是状态永远卡在"朗读中"。
-     */
     private static void onChunkEnd(String id, boolean error) {
         int s = sessionOf(id);
         if (s == -1) {
-            // 引擎没回传我们给的那个 id（个别第三方引擎会这样）。
-            // 这种回调没法判断属于哪一次，只能当成"当前这次结束了" ——
-            // 丢弃的话球会永远停在"朗读态"（朗读中），比偶尔早一帧收尾严重得多。
             Log.w("tts", "回调没有可识别的 id，按本次结束处理：" + id);
             notifyEnd(error);
             return;
@@ -639,12 +501,10 @@ public class TtsManager {
             return;
         }
         if (error) {
-            // 出错就别等了：后面排队的片段很可能已经被引擎丢掉
             notifyEnd(true);
             return;
         }
         if (!isLastChunk(id)) {
-            // 后面还有片段：告诉上层"还在念"，让它把超时往后推
             if (speechListener != null) {
                 speechListener.onChunk();
             }
@@ -664,11 +524,10 @@ public class TtsManager {
         }
     }
 
-    /** id 形如 "3#0"，# 前面是会话号，后面是第几段 */
     private static boolean isLastChunk(String id) {
         int i = (id == null) ? -1 : id.indexOf('#');
         if (i < 0) {
-            return true;    // 没有段号信息，当作只有一段
+            return true;
         }
         try {
             return Integer.parseInt(id.substring(i + 1)) >= chunkTotal - 1;
@@ -692,7 +551,7 @@ public class TtsManager {
 
     public static void release() {
         serial++;
-        session++;      // 在途回调全部作废
+        session++;
         chunkTotal = 0;
         ready = false;
         if (tts != null) {
@@ -708,7 +567,6 @@ public class TtsManager {
         tts = null;
     }
 
-    /** 只设语言。语速音调在 speak 时按 Prefs 设 */
     public static boolean setup(TextToSpeech t) {
         if (t == null) {
             return false;
@@ -726,16 +584,6 @@ public class TtsManager {
         }
     }
 
-    /**
-     * 朗读。语速音调从 Prefs 取。
-     *
-     * 长文本必须切段：官方上限 getMaxSpeechInputLength() 是 4000 字，
-     * 超了 speak() 直接返回 ERROR —— 引擎一个字都不念，界面上却已经进入"朗读中"，
-     * 用户看到球变橙、听不到声音，点一下球又退回待命，像坏了一样。
-     * 切段后按顺序排队（FLUSH + ADD），读完最后一段才算这次朗读结束。
-     *
-     * 返回值也如实反映引擎的应答，不再一律 true。
-     */
     public static boolean speak(String text, float rate, float pitch) {
         if (tts == null || !ready || text == null) {
             return false;
@@ -747,9 +595,7 @@ public class TtsManager {
             if (parts.isEmpty()) {
                 return false;
             }
-            chunkTotal = parts.size();      // 先写总段数
-            // 再写会话号。这行以前注释里写着"volatile 写"，但字段并不是 volatile ——
-            // 现在字段真的加上了，这行注释才名副其实。
+            chunkTotal = parts.size();
             int mySession = ++session;
             Log.i("tts", "speak " + text.length() + " 字 → " + parts.size()
                     + " 段 rate=" + rate + " pitch=" + pitch);
@@ -766,10 +612,8 @@ public class TtsManager {
                 }
                 if (r != TextToSpeech.SUCCESS) {
                     Log.e("tts", "引擎拒收第 " + i + " 段，返回 " + r);
-                    session++;      // 作废这一批的回调
+                    session++;
                     chunkTotal = 0;
-                    // 前面几段可能已经在念了。不 stop 的话：
-                    // 界面回待命、声音还在响，用户再点一次就叠音
                     try {
                         tts.stop();
                     } catch (Exception ignored) {
@@ -785,10 +629,6 @@ public class TtsManager {
         }
     }
 
-    /**
-     * 把长文本切成不超过 MAX_CHUNK 的几段，尽量切在标点上。
-     * 找不到标点就硬切 —— 硬切的听感差，但总比整段被拒收、一个字都不念强。
-     */
     private static java.util.List<String> split(String text) {
         java.util.List<String> out = new java.util.ArrayList<String>();
         String t = text.trim();
@@ -816,17 +656,7 @@ public class TtsManager {
         return out;
     }
 
-    /**
-     * 停止。
-     *
-     * 原来这里会用空串 speak 去"冲洗队列"，
-     * 但 MultiTTS 那类引擎收到空文本会报错、甚至卡住状态机，
-     * 表现为"停了一次之后再也点不动朗读"。
-     * 直接 stop() 就够了，不要多此一举。
-     */
     public static void stop() {
-        // 会话号一变，在途的"读完了"回调就全被丢掉，
-        // 不会在读下一句的时候被上一句的回调把状态清回待命
         session++;
         chunkTotal = 0;
         if (tts == null) {
@@ -838,7 +668,6 @@ public class TtsManager {
         }
     }
 
-    /** 兜底：还在响就整个重建，强制闭嘴。重建后一定重新挂回调 */
     public static void forceStop() {
         if (tts == null) {
             return;

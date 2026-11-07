@@ -1,17 +1,3 @@
-#!/usr/bin/env bash
-# 手工构建 APK（不依赖 Gradle/AGP，直接走 aapt2 + javac + d8 + apksigner）
-#
-# 用法：
-#   bash build_apk.sh
-#   TOOLCHAIN=/path/to/toolchain ANDROID_SDK=/path/to/sdk bash build_apk.sh
-#
-# 需要：JDK 17、Android SDK（platforms/android-30、build-tools/30.0.3）
-#
-# 3.6：去掉写死的 Windows .exe 与 C:/Users/... 路径，Windows / Linux / macOS
-# 都能跑（GitHub Actions 的 ubuntu runner 直接用系统 JAVA_HOME + ANDROID_HOME）。
-#
-# 注意：aapt2 在 Windows 上打不开含中文的目录（报 "failed to open directory"），
-# 所以先把 app/src/main 复制到纯英文路径下再编译，产物再拷回来。
 set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -30,7 +16,6 @@ WORK="$TC/work"
 SRC="$WORK/src"
 OUT="$WORK/out"
 
-# Windows 的 SDK / JDK 可执行文件带 .exe，Linux / macOS 不带。
 if [ -f "$BT/aapt2.exe" ]; then EXE=".exe"; else EXE=""; fi
 
 export JAVA_HOME="$JDK"
@@ -42,7 +27,6 @@ export PATH="$JDK/bin:$PATH"
 rm -rf "$WORK"
 mkdir -p "$SRC" "$OUT/gen" "$OUT/classes" "$OUT/dex"
 
-# 版本号从 build.gradle 读，别在脚本里另写一份（迟早忘了同步）
 VER=$(grep -oE 'versionName[[:space:]]+"[^"]+"' "$ROOT/app/build.gradle" \
       | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
 CODE=$(grep -oE 'versionCode[[:space:]]+[0-9]+' "$ROOT/app/build.gradle" \
@@ -76,7 +60,6 @@ find "$SRC/java" "$OUT/gen" -name "*.java" > "$OUT/srcs.txt"
 
 echo "== 4/6 d8 =="
 "$JDK/bin/jar$EXE" cf "$OUT/classes.jar" -C "$OUT/classes" .
-# 用 java -cp d8.jar 直接跑：d8.bat 在 Git Bash 里会把参数吞掉、还返回 0，产物是空的
 "$JDK/bin/java$EXE" -cp "$BT/lib/d8.jar" com.android.tools.r8.D8 \
   --lib "$PLAT" --release --min-api 24 --output "$OUT/dex" "$OUT/classes.jar"
 
@@ -88,8 +71,6 @@ cp dex/classes.dex ./classes.dex
 "$BT/zipalign$EXE" -f -p 4 unsigned.apk aligned.apk
 
 echo "== 6/6 签名 =="
-# 3.7：签名密钥固定下来，之后每次发版都是同一把，用户才能覆盖升级。
-# CI 从 Actions Secrets 解码到 .toolchain/debug.keystore；本地没配就退回临时调试密钥。
 KS="$TC/debug.keystore"
 ALIAS="${KEY_ALIAS:-androiddebugkey}"
 STOREPASS="${KEYSTORE_PASSWORD:-android}"

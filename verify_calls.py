@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 补上 verify_structure.py 没盖住的一类编译错误：**不带点号的方法调用**。
 
@@ -33,7 +32,6 @@ SRC_DIRS = [
     os.path.join(ROOT, "app", "src", "test", "java"),
 ]
 
-# 改代码之前的那个 commit —— 基线只用来「放过本来就存在的调用」
 BASELINE = "ebb50db"
 
 sys.path.insert(0, ROOT)
@@ -42,7 +40,6 @@ try:
 except Exception:
     strip_literals = None
 
-# 长得像调用但不是调用
 NOT_CALLS = {
     "if", "for", "while", "switch", "catch", "synchronized", "return",
     "new", "else", "do", "try", "finally", "throw", "throws", "case",
@@ -52,14 +49,10 @@ NOT_CALLS = {
     "short",
 }
 
-# 方法声明：名字 + 参数表 + 方法体（接口/抽象方法没有体，这里不收，
-# 反正调用方也不会凭空多出来）
 DECL_RE = re.compile(
     r"[\w\[\]<>.,\s]+?\s(\w+)\s*\([^;{}()]*\)\s*(?:throws\s+[\w.,\s]+)?\{")
 
-# 无点号前缀的调用：前面不能是 . $ 或单词字符
 CALL_RE = re.compile(r"(?<![.\w$])(\w+)\s*\(")
-
 
 def java_files():
     out = []
@@ -72,7 +65,6 @@ def java_files():
                     out.append(os.path.join(dirpath, name))
     return sorted(out)
 
-
 def strip(src):
     """去掉注释和字符串，避免把注释里的中文当代码"""
     if strip_literals is None:
@@ -84,10 +76,8 @@ def strip(src):
     except Exception:
         return src
 
-
 def declared_names(src):
     return set(DECL_RE.findall(strip(src)))
-
 
 def called_names(src):
     s = strip(src)
@@ -96,13 +86,11 @@ def called_names(src):
         name = m.group(1)
         if name in NOT_CALLS:
             continue
-        # new Runnable() 这种前面紧跟 new
         head = s[max(0, m.start() - 4):m.start()].strip()
         if head.endswith("new"):
             continue
         out.add(name)
     return out
-
 
 def baseline_of(rel):
     """拿基线版本的内容；拿不到返回 None"""
@@ -115,14 +103,12 @@ def baseline_of(rel):
         pass
     return None
 
-
 def main():
     files = java_files()
     if not files:
         print("PASS - 没找到 java 文件")
         return 0
 
-    # 全工程声明过的方法名（含本次新加的）
     all_declared = set()
     for f in files:
         with open(f, "r", encoding="utf-8") as fh:
@@ -156,7 +142,6 @@ def main():
 
     print("PASS - 所有无点号调用都能解析到方法（或基线里本就有）")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

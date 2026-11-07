@@ -13,45 +13,16 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * 抓屏幕文字。
- *
- *   1) 取窗口 —— getRootInActiveWindow() 只在窗口内容变化时才有数据，经常拿 null，
- *      也拿不到弹窗 / 输入法 / 分屏的另一半。改走 getWindows() 按层级从上往下扫，
- *      哪个窗口里点得到字就用哪个，拿不到再退回 getRootInActiveWindow()。
- *   2) 收节点 —— 一趟后序遍历收完（旧实现每个节点把子树递归两遍，O(n²) + 双倍 IPC），
- *      顺手记下点中的那一段；带可见性过滤（不读滚出屏的）和节点数上限（防病态树卡死主线程）。
- *   3) 排顺序 —— 先按 top 纵向分带成行，行内按 left 排。只按 (top,left) 会把多列布局读乱。
- *   4) 精确到句 —— 拿这段每个字的位置，算点中的是第几个字，回退到最近的句读。
- *   5) 续读 —— 把阅读顺序里排在这段之后的都接上，读完一屏。
- *
- * 3.9.14：按用户要求整份换回【球球时期】这套抓字器（f49c1ed6f4，651 行）。
- * 骨架原样：单趟后序收集、第一个命中窗口即返回、逐字位置只问命中段、
- * 两级句读回扫、主线程同步抓字之外的外围不变。
- * 只保留四处必要适配，不往上面加层：
- *   ① isChrome 里两个不存在的常量（编译必需，2.6 已修）
- *   ② joinBelow 用 bottom 判，别把点击点所在段整段漏掉（2.6 已修）
- *   ③ MAX_SEG 只截收录不截遍历、不再硬丢 isVisibleToUser 误报的节点
- *      —— 这两处正是「长列表 / 多层页面抓不到字」的大头
- *   ④ 读多少、放大态断言、hint/tooltip/state 文本：保留但不能改骨架
- * 3.9.5 起的容差命中、跨窗口全局比面积、文本分角色、快照重算等层全部撤掉。
- *
- * 只在【未放大】时调用 —— 放大状态下不抓字，避免坐标体系混淆。
- */
 public class TextGrabber {
 
-    /** 一趟最多走多少个节点。超长列表之类的病态树会把主线程拖死（同行方案经验值 10000） */
     private static final int MAX_WALK = 10000;
-    /** 一屏最多收多少段。只截【收录】不截【遍历】，见 walk() */
     private static final int MAX_SEG = 2000;
 
-    /** 3.9.4「读多少」当前值，每次 grabFrom 重读一次，界面改完下一次点字就生效 */
     private int readScope = Prefs.READ_SCREEN;
 
     private static final String[] EXTRA_GETTER_NAMES = {
             "getHintText", "getTooltipText", "getStateDescription", "getPaneTitle"
     };
-    /** 反射 Method 只在类加载时解析一次，热路径上不重复 Class.getMethod */
     private static final java.lang.reflect.Method[] EXTRA_GETTERS = resolveExtraGetters();
 
     private static java.lang.reflect.Method[] resolveExtraGetters() {
@@ -68,17 +39,7 @@ public class TextGrabber {
         }
         return out;
     }
-    /**
-     * 递归深度上限。正常界面撑死几十层，这里给到 500 很宽裕；
-     * 卡住是为了防病态树（几万层的链表式布局）把栈打爆 ——
-     * 触顶时这一趟收不到东西，grabFrom 会退回 grabAt 兜底。
-     */
     private static final int MAX_DEPTH = 500;
-    /**
-     * 一次最多取多少个字符位置。
-     * 官方上限 EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_MAX_LENGTH = 20000，
-     * 超了请求直接失败 —— 旧实现把整段长度原样传进去，长文章必然拿不到位置。
-     */
     private static final int MAX_CHAR_REQ = 20000;
 
     private final AccessibilityService svc;
@@ -87,9 +48,7 @@ public class TextGrabber {
         this.svc = svc;
     }
 
-    /** 从点击处开始，往后续读 */
     public String grabFrom(int x, int y) {
-        // 官方契约：放大态下 bounds 与逐字位置 RectF 都会被缩放，坐标不自洽。
         if (magnified()) {
             Log.w("grab", "系统处于放大态，坐标不自洽，本次不抓字");
             return null;
@@ -98,7 +57,6 @@ public class TextGrabber {
         readScope = new Prefs(svc).readScope();
         String out = grabFromWindows(x, y);
         if (out != null && out.length() > 0) {
-            // 只记耗时 / 字数，绝不写读到的文字
             Log.i("grab", "抓字 " + ((System.nanoTime() - t0) / 1000000L)
                     + "ms / " + out.length() + " 字");
             return out;
@@ -117,10 +75,6 @@ public class TextGrabber {
         }
     }
 
-    /**
-     * 按窗口层级从上往下扫，第一个「点得到字」的窗口就是内容窗口。
-     * 全屏扫完都没点到（比如点在图片上），就用最上面那个有内容的窗口，从点击高度往下接。
-     */
     private String grabFromWindows(int x, int y) {
         List<AccessibilityNodeInfo> roots = roots();
         if (roots.isEmpty()) {
@@ -162,7 +116,6 @@ public class TextGrabber {
         }
     }
 
-    /** 兜底：直接读命中的那一块，不切句 */
     public String grabAt(int x, int y) {
         List<AccessibilityNodeInfo> roots = roots();
         if (roots.isEmpty()) {
@@ -173,7 +126,7 @@ public class TextGrabber {
             for (int r = 0; r < roots.size(); r++) {
                 findDeepest(roots.get(r), x, y, best);
                 if (best.text != null) {
-                    break;      // 点到的窗口在最上面，命中就收工
+                    break;
                 }
             }
         } finally {
@@ -187,14 +140,6 @@ public class TextGrabber {
         return best.text;
     }
 
-    // ---------- 窗口 ----------
-
-    /**
-     * 取所有可遍历的窗口根节点，按层级从高到低（上层优先）。
-     *
-     * getWindows() 需要 accessibilityFlags 里有 flagRetrieveInteractiveWindows
-     * （配置里已经加了）。拿不到再退回 getRootInActiveWindow()。
-     */
     private List<AccessibilityNodeInfo> roots() {
         List<AccessibilityNodeInfo> out = new ArrayList<AccessibilityNodeInfo>();
 
@@ -208,7 +153,6 @@ public class TextGrabber {
         }
 
         if (wins != null && wins.size() > 0) {
-            // getWindows() 的返回顺序不保证是层级顺序，自己排
             Collections.sort(wins, new Comparator<AccessibilityWindowInfo>() {
                 @Override
                 public int compare(AccessibilityWindowInfo a, AccessibilityWindowInfo b) {
@@ -218,7 +162,7 @@ public class TextGrabber {
             for (int i = 0; i < wins.size(); i++) {
                 AccessibilityWindowInfo w = wins.get(i);
                 if (w == null || isChrome(w)) {
-                    continue;   // 状态栏 / 导航栏 / 输入法 / 分屏条 / 我们自己的浮层
+                    continue;
                 }
                 AccessibilityNodeInfo r = null;
                 try {
@@ -230,7 +174,6 @@ public class TextGrabber {
                     out.add(r);
                 }
             }
-            // 根的生命周期和窗口信息无关，但窗口信息本身也要还回去
             for (int i = 0; i < wins.size(); i++) {
                 try {
                     if (wins.get(i) != null) {
@@ -263,13 +206,9 @@ public class TextGrabber {
         }
     }
 
-    /** 系统装饰窗口 / 我们自己的浮层：一律不当内容窗口 */
     private static boolean isChrome(AccessibilityWindowInfo w) {
         try {
             int t = w.getType();
-            // Android 只有 TYPE_SYSTEM 同时代表状态栏/导航栏；
-            // TYPE_STATUS_BAR / TYPE_NAVIGATION_BAR / TYPE_MAGNIFICATION_OVERLAY
-            // 在 compileSdk 30 下不存在，写了编译不过（2.6 已修）。
             return t == AccessibilityWindowInfo.TYPE_SYSTEM
                     || t == AccessibilityWindowInfo.TYPE_INPUT_METHOD
                     || t == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER
@@ -285,13 +224,10 @@ public class TextGrabber {
             android.util.DisplayMetrics dm = svc.getResources().getDisplayMetrics();
             r.set(0, 0, dm.widthPixels, dm.heightPixels);
         } catch (Exception e) {
-            // 量不到就当无限大，等于不做屏幕过滤，别把内容筛没了
             r.set(-1000000, -1000000, 1000000, 1000000);
         }
         return r;
     }
-
-    // ---------- 收集 ----------
 
     private static final class Walk {
         final List<TextLayout.Node> out;
@@ -322,15 +258,6 @@ public class TextGrabber {
         }
     }
 
-    /**
-     * 一趟后序遍历：返回这个子树有没有交出文字。
-     *
-     * 只在「有文字且子节点没交出文字」时才收录当前节点 ——
-     * 这样拿到的是最靠下的那批文字节点，父节点不会和子节点重复贴一遍。
-     *
-     * 预算耗尽时返回 true（而不是 false）：让父节点知道"下面已经有内容了"，
-     * 别把父节点整段再贴上来造成重复。
-     */
     private boolean walk(AccessibilityNodeInfo node, Walk w, int depth) {
         if (node == null) {
             return false;
@@ -376,7 +303,7 @@ public class TextGrabber {
             return childYielded;
         }
         if (childYielded) {
-            return true;    // 文字在子节点里，当前节点这段就不重复了
+            return true;
         }
 
         Rect r = new Rect();
@@ -386,16 +313,12 @@ public class TextGrabber {
             return false;
         }
         if (r.isEmpty()) {
-            return false;   // 量不到位置，没法排序，宁可不收
+            return false;
         }
         if (!Rect.intersects(r, w.screen)) {
-            return false;   // 整块都在屏幕外（滚出去的），不读
+            return false;
         }
 
-        // 预算只截【收录】，绝不截【遍历】。子节点上面已经全部走完了，
-        // 到上限只是不再往 out 放；触点落在的那一段永远豁免。
-        // 球球版把这个闸放在 walk 入口，500 段长列表点第 450 段会整棵子树
-        // 不再访问 —— 正是「经常抓不到字」的大头。
         if (w.out.size() >= MAX_SEG) {
             w.truncated = true;
             if (!r.contains(w.px, w.py)) {
@@ -415,9 +338,6 @@ public class TextGrabber {
         return true;
     }
 
-    // ---------- 拼装 ----------
-
-    /** 点中了某一段：从这段的句读处开始，接上阅读顺序里后面的所有段 */
     private String join(List<TextLayout.Node> segs, Pick pick) {
         int idx = indexOf(segs, pick.seg);
         if (idx < 0) {
@@ -432,7 +352,6 @@ public class TextGrabber {
             head = firstSentence(head);
         }
         s.addHead(head);
-        // 只有「读到屏底」才接后续段；段末 / 一句到此为止。
         if (readScope != Prefs.READ_SCREEN) {
             return s.text();
         }
@@ -442,13 +361,10 @@ public class TextGrabber {
         return s.text();
     }
 
-    /** 没点中任何一段：把点击高度以下的都接上 */
     private String joinBelow(List<TextLayout.Node> segs, int y) {
         Sink s = new Sink();
         for (int i = 0; i < segs.size(); i++) {
             TextLayout.Node n = segs.get(i);
-            // 用 bottom 判：整段都在点击点上方才跳过。
-            // 用 top 判会把"点击点落在这段中间"的那一段整个漏掉。
             if (n.bottom <= y) {
                 continue;
             }
@@ -464,7 +380,6 @@ public class TextGrabber {
         return out;
     }
 
-    /** 截到第一个句末标点（含）。找不到就整段返回，绝不切成空串 */
     private static String firstSentence(String s) {
         if (s == null || s.length() == 0) {
             return s;
@@ -487,7 +402,6 @@ public class TextGrabber {
         return -1;
     }
 
-    /** 拼字符串的容器，顺手干掉连续重复段 */
     private static final class Sink {
         final StringBuilder sb = new StringBuilder();
         String prev = null;
@@ -507,7 +421,7 @@ public class TextGrabber {
                 return;
             }
             if (prev != null && TextCompare.sameLine(prev, t)) {
-                return;     // 只去「连续且完全相等」，绝不比包含 —— 否则会吞掉正文
+                return;
             }
             if (sb.length() > 0) {
                 sb.append("\n");
@@ -521,14 +435,6 @@ public class TextGrabber {
         }
     }
 
-    // ---------- 字符级定位 ----------
-
-    /**
-     * 应该从第几个字开始读。返回的下标是相对【trim 之后】的串。
-     *
-     * 注意：nodeText() 收录的是 trim 过的文本，而字符位置是按原文排的，
-     * 有前导空白时两者下标差了一个偏移量 —— 不减掉就会切错位置（旧实现的 bug）。
-     */
     private int charStartIn(AccessibilityNodeInfo node, int x, int y) {
         if (node == null || Build.VERSION.SDK_INT < 26) {
             return 0;
@@ -554,7 +460,6 @@ public class TextGrabber {
             }
 
             String key = AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
-            // 整段（夹到 20000）→ 2000 字 → 500 字，逐级退让
             int[] tries = new int[]{
                     Math.min(raw.length(), MAX_CHAR_REQ),
                     Math.min(raw.length(), 2000),
@@ -612,7 +517,6 @@ public class TextGrabber {
         return null;
     }
 
-    /** 起点固定是 0，所以下标就是第几个字 */
     private int nearestChar(RectF[] rects, float x, float y) {
         int best = -1;
         double bestD = Double.MAX_VALUE;
@@ -641,8 +545,6 @@ public class TextGrabber {
         }
         return best;
     }
-
-    // ---------- 兜底用的最深命中 ----------
 
     private void findDeepest(AccessibilityNodeInfo node, int x, int y, Best best) {
         if (node == null) {
@@ -694,12 +596,6 @@ public class TextGrabber {
         int area = Integer.MAX_VALUE;
     }
 
-    // ---------- 取文本 ----------
-
-    /**
-     * 节点的文字：正文优先，没有就退回内容描述（图标按钮靠它才有东西读）。
-     * 返回的一律是 trim 过的。
-     */
     private String nodeText(AccessibilityNodeInfo node) {
         if (node == null) {
             return null;
@@ -722,8 +618,6 @@ public class TextGrabber {
         } catch (Exception e) {
             return null;
         }
-        // 自定义控件常把看得见的字放在这几个字段里。低版本没有的方法
-        // 在类加载时就已被跳过，热路径上只有 invoke，没有 Class.getMethod。
         for (int i = 0; i < EXTRA_GETTERS.length; i++) {
             java.lang.reflect.Method m = EXTRA_GETTERS[i];
             if (m == null) {

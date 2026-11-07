@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 提交前自检总入口。
 
@@ -29,7 +28,6 @@ SUITES = ["verify_structure.py", "verify_textlayout.py",
           "verify_ball.py"]
 PASSES = 3
 
-
 def main():
     total_failed = 0
     for i in range(1, PASSES + 1):
@@ -46,7 +44,6 @@ def main():
     if total_failed:
         raise SystemExit("自检未通过：共 %d 次失败" % total_failed)
     print("三轮自检全部通过 ✅")
-
 
 if __name__ == "__main__":
     main()

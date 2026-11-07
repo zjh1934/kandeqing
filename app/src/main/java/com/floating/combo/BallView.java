@@ -4,29 +4,14 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.view.View;
 
-/**
- * 球本体。3.9.16 四种状态：
- *   ST_NORMAL / ST_ACTIVE   闲置、按住放大 —— 实心球
- *   ST_PICKING              点一下选字 —— 空心柔边环
- *   ST_LOADING              还没读出来 —— 空心环 + 环内转圈点
- *   ST_SPEAKING             朗读中 —— 空心环 + 两条竖线
- * 换颜色只改渐变里的颜色值，形态不变。
- *
- * 具体画法统一放在 BallArt，界面里的三态预览和色卡也调同一份。
- *
- * drawScale 仍在：系统全屏放大时悬浮窗会被一起放大，按 1/s 画才能
- * 让球保持设定大小。这段是已验证过的逻辑，未改动。
- */
 public class BallView extends View {
 
     public static final int ST_NORMAL = BallArt.ST_NORMAL;
     public static final int ST_ACTIVE = BallArt.ST_ACTIVE;
     public static final int ST_PICKING = BallArt.ST_PICKING;
     public static final int ST_SPEAKING = BallArt.ST_SPEAKING;
-    /** 点字后到出声前：环内一排小点转圈（3.9.2） */
     public static final int ST_LOADING = BallArt.ST_LOADING;
 
-    /** 默认「苹果白」，与 iOS 缩放控制器的白色款一致 */
     private int color = Prefs.COLORS[Prefs.DEF_COLOR_INDEX];
     private float alpha = 1.0f;
     private int state = ST_NORMAL;
@@ -59,8 +44,6 @@ public class BallView extends View {
     public void setState(int s) {
         if (state != s) {
             state = s;
-            // 加载态要点自己会转，得持续重绘；离开这个状态后 onDraw
-            // 不再排队，动画自然停 —— 不需要额外记一个 animator。
             if (state == ST_LOADING) {
                 postInvalidateDelayed(48);
             }
@@ -70,7 +53,6 @@ public class BallView extends View {
 
     private float effAlpha() {
         float a = alpha;
-        // 选取 / 加载 / 朗读都是「正在干活」，别被闲置淡出盖掉
         if (state == ST_PICKING || state == ST_SPEAKING
                 || state == ST_LOADING) {
             a = Math.max(a, 0.94f);

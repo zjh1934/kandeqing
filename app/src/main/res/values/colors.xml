@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 3.10：默认「跟随系统」，所以这里给浅色一套、中性深色一套，
-         MainActivity 在 setContentView 之前按当前模式 setTheme 选中其一。
-         深色是纯灰黑，不是深蓝底。 -->
     <color name="surface_base">#FFF6F8FB</color>
     <color name="surface_raised">#FFFFFFFF</color>
     <color name="surface_overlay">#FFEFF2F7</color>

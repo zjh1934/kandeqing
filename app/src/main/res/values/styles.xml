@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 浅色（系统浅色 / 手动选浅色时用）。Manifest 里挂这套作兜底。 -->
     <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/surface_base</item>
         <item name="android:colorAccent">@color/accent_solid</item>
@@ -11,7 +10,6 @@
         <item name="android:navigationBarColor">@color/surface_base</item>
     </style>
 
-    <!-- 中性深色（系统深色 / 手动选深色时用）。不是深蓝底。 -->
     <style name="AppThemeDark" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/dark_surface_base</item>
         <item name="android:colorAccent">@color/dark_accent_solid</item>

@@ -15,43 +15,21 @@ import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 
-/**
- * 悬浮球手势控制器。
- *
- * 三种手势，靠「时间」和「位移」两条线分开：
- *   手指一动（超 slop）  → 挪球
- *   按住不动超过 holdMs → 放大（手指到哪，球到哪；画面松手就还原，球留在手底下）
- *   按住不动，holdMs 内松手 → 轻点（交给上层，用于朗读）
- *
- * ── 为什么之前"一点都不跟手" ──
- * 系统全屏放大时，悬浮窗会被一起放大：球变大 s 倍、位置以屏幕中心为锚点外扩 s 倍。
- * 手指挪 1mm，球视觉上挪 3mm —— 那就是不跟手的确切感受。
- *
- * ── 怎么解决 ──
- * 窗口尺寸保持设定值（触摸区稳定），绘制时按 1/s 缩小抵消系统放大；
- * 位置用放大公式反推，让球的视觉中心精确落在手指下。
- */
 public class BallController implements View.OnTouchListener {
 
     public interface Callback {
-        /** 按住够久了，要放大。给的是手指位置 */
         void onZoomStart(float fx, float fy);
 
-        /** 放大中，手指挪到 (fx,fy) */
         void onZoomMove(float fx, float fy);
 
-        /** 松手，结束放大 */
         void onZoomEnd();
 
-        /** 轻点（按住时间短、几乎没移动） */
         void onTap();
 
-        /** 球位置变了，存起来 */
         void onMoved(int x, int y);
     }
 
     private static final int ST_IDLE = 0;
-    /** 按下后还没判定：不知道要拖、要放大、还是要轻点 */
     private static final int ST_PENDING = 1;
     private static final int ST_DRAG_BALL = 2;
     private static final int ST_ZOOMING = 3;
@@ -77,10 +55,6 @@ public class BallController implements View.OnTouchListener {
     private ValueAnimator settleAnim = null;
 
     public BallController(Context c, Prefs p, ZoomController z, Callback cb) {
-        // 关键：必须用【服务自己的 Context】。
-        // TYPE_ACCESSIBILITY_OVERLAY 会校验窗口所有者是不是无障碍服务，
-        // 用 applicationContext 建的 WindowManager 在多数 ROM 上加不进去，
-        // 表现就是"点了开关球不出来"。
         ctx = c;
         wm = (WindowManager) ctx.getSystemService(Context.WINDOW_SERVICE);
         prefs = p;
@@ -89,10 +63,6 @@ public class BallController implements View.OnTouchListener {
         measure();
     }
 
-    /**
-     * 屏幕尺寸变了（旋转 / 分屏 / 折叠屏展开）之后必须重算，
-     * 否则 clamp 还按旧尺寸算，球可能停在屏幕外，用户再也点不到。
-     */
     public void remeasure() {
         measure();
         if (view == null || lp == null) {
@@ -101,7 +71,6 @@ public class BallController implements View.OnTouchListener {
         lp.x = clampX(lp.x, lp.width);
         lp.y = clampY(lp.y, lp.height);
         commit();
-        // 原点差每次 ACTION_DOWN 用 MotionEvent 自洽反推，旋转后下一次按下自动重测
         if (cb != null) {
             cb.onMoved(lp.x, lp.y);
         }
@@ -135,9 +104,6 @@ public class BallController implements View.OnTouchListener {
         return lp == null ? screenH / 2f : lp.y + lp.height / 2f;
     }
 
-    // ---------- 显示 / 隐藏 ----------
-
-    /** 上一次加窗口失败的原因，给界面显示用。成功则为 null */
     public String lastError() {
         return lastErr;
     }
@@ -146,15 +112,11 @@ public class BallController implements View.OnTouchListener {
 
     public void show() {
         if (view != null && view.getParent() != null) {
-            // 已经稳稳挂在窗口上，只刷一下外观
             lastErr = null;
             applyPrefs();
             return;
         }
         if (view != null) {
-            // view 还在，但已经不在窗口上了（被系统摘掉 / 上次 removeView 没清干净）。
-            // 老代码在这里直接 return，结果球永远回不来 ——
-            // 用户看到的就是"开关关了再开，怎么点都没反应"。必须重建。
             Log.w("ball", "view 已脱离窗口，丢弃后重建");
             view = null;
             lp = null;
@@ -165,12 +127,10 @@ public class BallController implements View.OnTouchListener {
         lastErr = null;
 
         view = new BallView(ctx);
-        // 交给 Haptics：系统 UI 触感通道要挂在一个真实 View 上
         Haptics.attach(view);
         view.setBallColor(prefs.color());
         view.setBallAlpha(prefs.alpha());
 
-        // 三种窗口类型，从最合适到最兜底，挨个试
         int[] types;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             types = new int[]{
@@ -228,16 +188,10 @@ public class BallController implements View.OnTouchListener {
         scheduleIdle();
     }
 
-    /** 球现在真的挂在窗口上吗 */
     public boolean isShown() {
         return view != null && view.getParent() != null;
     }
 
-    /**
-     * 把球提到最上层。
-     * 覆盖层加进来会盖住球，原来靠 hide+show 解决，
-     * 但那样球会消失一帧、状态也丢了。改成重新挂一次，不重建。
-     */
     public void bringToFront() {
         if (view == null || lp == null || wm == null) {
             return;
@@ -250,15 +204,12 @@ public class BallController implements View.OnTouchListener {
             wm.addView(view, lp);
         } catch (Exception e) {
             Log.e("ball", "球提到上层失败", e);
-            // remove 已经生效、add 却失败：球就这样凭空消失了。
-            // 重建一次，别让用户"点一下球，球没了"
             view = null;
             lp = null;
             show();
         }
     }
 
-    /** 重新挂上状态（重建或提到上层后，颜色/图标要跟当前状态一致） */
     public void reapplyState(int s) {
         if (view != null) {
             view.setState(s);
@@ -268,8 +219,6 @@ public class BallController implements View.OnTouchListener {
     public void hide() {
         cancelAnim();
         h.removeCallbacks(idleTask);
-        // 按住还没到判定时间就被隐藏（比如用户在界面里把开关关了），
-        // holdTask 到点会去碰已经置空的 view —— 直接崩在服务主线程上
         h.removeCallbacks(holdTask);
         state = ST_IDLE;
         faded = false;
@@ -304,15 +253,12 @@ public class BallController implements View.OnTouchListener {
         }
     }
 
-    /** 强制恢复待命外观 */
     public void resetLook() {
         if (view != null) {
             view.setDrawScale(1f);
             view.setState(BallView.ST_NORMAL);
         }
     }
-
-    // ---------- 手势 ----------
 
     @Override
     public boolean onTouch(View v, MotionEvent e) {
@@ -335,7 +281,7 @@ public class BallController implements View.OnTouchListener {
                 downRawY = fy;
                 lastFx = fx;
                 lastFy = fy;
-                offsetX = fx - lp.x;   // 只给闲置拖球用
+                offsetX = fx - lp.x;
                 offsetY = fy - lp.y;
                 view.setState(BallView.ST_ACTIVE);
                 state = ST_PENDING;
@@ -353,10 +299,6 @@ public class BallController implements View.OnTouchListener {
                     h.removeCallbacks(holdTask);
                     state = ST_DRAG_BALL;
                     Log.gesture("手指动了 → 判定为拖球");
-                    // 按下时已经记好 offsetX/offsetY，拖动就直接相对直写。
-                    // 原来这里还按「球窗口会不会被系统放大」分两套坐标算 dragOffset，
-                    // 但 ST_DRAG_BALL 是按下即移动、holdTask 已被 remove，此时根本没放大，
-                    // zooming() 恒 false —— 那半套 screenToContent 换算从来走不到。
                 }
 
                 if (state == ST_DRAG_BALL) {
@@ -380,8 +322,6 @@ public class BallController implements View.OnTouchListener {
                         + (fy - downRawY) * (fy - downRawY)) + "px"
                         + (cancel ? " (被系统取消)" : ""));
 
-                // 手离开球先退回常态。放在 cb.onTap() 之前，轻点进选字态时
-                // 由上层再设成实心，不会被这一句冲掉。
                 view.setState(BallView.ST_NORMAL);
 
                 if (st == ST_PENDING) {
@@ -396,9 +336,6 @@ public class BallController implements View.OnTouchListener {
 
                 view.setDrawScale(1f);
 
-                // 只有真拖动过才重新落位。
-                // 原来轻点也走这条：球停在中屏时，点一下要读字，球却自己弹到边上，
-                // 下次更点不中。轻点不改位置。
                 if (st == ST_DRAG_BALL) {
                     if (prefs.snapEdge()) {
                         animateToEdge((int) (fx - offsetX), (int) (fy - offsetY));
@@ -411,7 +348,6 @@ public class BallController implements View.OnTouchListener {
                         }
                     }
                 } else if (st == ST_ZOOMING) {
-                    // 松手仍是球心 = 触点，只收边界，不跳。
                     lp.x = clampX((int) (fx - lp.width / 2f), lp.width);
                     lp.y = clampY((int) (fy - lp.height / 2f), lp.height);
                     commit();
@@ -428,8 +364,6 @@ public class BallController implements View.OnTouchListener {
         }
     }
 
-    // ---------- 位置核心 ----------
-
     private boolean zooming() {
         return zoom != null && zoom.isOn() && zoom.scale() > 1.01f;
     }
@@ -438,7 +372,6 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 球心 = 触点。就这一行，没有第二件事。
         lp.x = (int) (fx - lp.width / 2f);
         lp.y = (int) (fy - lp.height / 2f);
         if (zooming() && prefs.compensate()) {
@@ -453,8 +386,6 @@ public class BallController implements View.OnTouchListener {
         if (lp == null || view == null) {
             return;
         }
-        // 拖球与放大态球定位现在共用同一套相对直写，不再一个按屏幕坐标、
-        // 一个按内容坐标（两条路径对「球窗口会不会被放大」的假设原本是反的）。
         lp.x = (int) (fx - offsetX);
         lp.y = (int) (fy - offsetY);
         view.setDrawScale(1f);
@@ -514,14 +445,11 @@ public class BallController implements View.OnTouchListener {
         }
     }
 
-    // ---------- 闲置变淡 ----------
-
     private void scheduleIdle() {
         h.removeCallbacks(idleTask);
         h.postDelayed(idleTask, IDLE_MS);
     }
 
-    /** 按住不动够久了 —— 判定为"要放大" */
     private final Runnable holdTask = new Runnable() {
         @Override
         public void run() {
@@ -531,7 +459,6 @@ public class BallController implements View.OnTouchListener {
             state = ST_ZOOMING;
             Log.gesture("按住够久 → 判定为放大");
             if (cb != null) {
-                // 先让上层把朗读停掉：放大就只干放大，不交叉
                 cb.onZoomStart(lastFx, lastFy);
             }
             view.setState(BallView.ST_ACTIVE);

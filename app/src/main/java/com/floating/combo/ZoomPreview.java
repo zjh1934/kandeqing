@@ -6,13 +6,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
-/**
- * 放大页的实时预览：一行示例文字 + 模拟手指位置的圆环。
- *
- * 3.8 把 3.7 那块 160dp 大画布压成 60dp 的一行 —— 倍率仍即时作用，
- * 但不再单独占掉半屏，也不再额外挂一个「深底 / 浅底切换」按钮。
- * 背景由外层 Ui.previewRow 提供，这里只画内容。
- */
 public class ZoomPreview extends FrameLayout {
 
     private final TextView sample;
@@ -42,7 +35,6 @@ public class ZoomPreview extends FrameLayout {
         addView(finger, flp);
     }
 
-    /** 倍率变化即时作用于画面：用缩放而非改字号，字号改大会撑破这一行。 */
     public void apply(float scale) {
         float k = scale / 2.5f;
         if (k < 0.6f) {

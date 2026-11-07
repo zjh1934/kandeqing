@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 球的定位与形态自检（3.9.17）。
 
@@ -25,19 +24,14 @@ BA = os.path.join(ROOT, "app", "src", "main", "java", "com",
 
 CASES = []
 
-
 def case(name):
     def deco(fn):
         CASES.append((name, fn))
         return fn
     return deco
 
-
 def read(p):
     return io.open(p, encoding="utf-8").read()
-
-
-# ---------------------------------------------------------------- 静态断言
 
 def body_of(t, signature):
     i = t.find(signature)
@@ -46,7 +40,6 @@ def body_of(t, signature):
     j = t.find("\n    }", i)
     return t[i:j]
 
-
 @case("放大态只有「球心 = 触点」，没有任何补偿")
 def c_absolute_align():
     t = read(BC)
@@ -54,24 +47,20 @@ def c_absolute_align():
             "lp.y = (int) (fy - lp.height / 2f);",
             "lp.x = clampX((int) (fx - lp.width / 2f), lp.width);",
             "lp.y = clampY((int) (fy - lp.height / 2f), lp.height);"]
-    # 全局不许再出现的花活
     banned_global = ["grabDx", "grabDy", "originDx", "originDy",
                      "getLocationOnScreen", "measureOrigin",
                      "getRawX() - e.getX()", "offsetX -=", "offsetY -="]
     miss = [x for x in must if x not in t]
     left = [x for x in banned_global if x in t]
-    # 放大态函数体里不许碰 offset / 内容坐标换算（拖球里用 offset 是合法的）
     zoom_body = body_of(t, "private void placeBallAtFinger")
     bad_zoom = [x for x in ["offsetX", "offsetY", "screenToContent"]
                 if x in zoom_body]
     return (not miss and not left and not bad_zoom), \
         ("缺=%r 全局残留=%r 放大态残留=%r" % (miss, left, bad_zoom))
 
-
 @case("闲置拖球仍保持按下偏移，没被放大态牵连")
 def c_drag_untouched():
     t = read(BC)
-    # placeBallKeepOffset 必须还是 fx - offsetX
     i = t.find("private void placeBallKeepOffset")
     j = t.find("\n    }", i)
     body = t[i:j]
@@ -79,7 +68,6 @@ def c_drag_untouched():
           and "lp.y = (int) (fy - offsetY);" in body
           and "offsetX = fx - lp.x;" in t)
     return ok, body.strip()[:120]
-
 
 def shape_map():
     """从 BallArt.shape() 源码里解出每个 case 的返回值，连续 case 共享 return。"""
@@ -101,7 +89,6 @@ def shape_map():
             carry = vals[k]
     return dict(zip(names, vals)), body
 
-
 @case("四种状态：闲置实心 / 点一下空心 / 朗读空心加竖线 / 放大实心")
 def c_shape():
     m, body = shape_map()
@@ -118,7 +105,6 @@ def c_shape():
         ("映射错=%r default=%s 竖线=%s 转圈=%s"
          % (bad, ok_default, ok_bars, ok_dots))
 
-
 @case("按下变实心、抬手复常态")
 def c_down_up():
     t = read(BC)
@@ -129,17 +115,11 @@ def c_down_up():
     order = 0 < i_restore < i_tap
     return (ok and order), ("有=%s 顺序=%s" % (ok, order))
 
-
-# ---------------------------------------------------------------- 数值断言
-
 SIZE = 144
 POINTS = [200, 600, 900, 1200, 1800, 2200, 2350]
 
-
 @case("球心 = 触点：手指在哪、按球哪个位置，都恒等")
 def c_numeric():
-    # 放大态 lp = f - 半宽；球显示中心 = lp + 半宽。
-    # 不引入原点差、不引入倍率、不引入按下偏移 —— 这一式里根本没有别的量。
     bad = []
     for f in POINTS:
         for delta0 in [0, 40, -40, 35, -45, 20]:
@@ -149,12 +129,8 @@ def c_numeric():
                 bad.append((f, delta0, center - f))
     return (not bad), bad[:6]
 
-
 @case("反向验证：带 offset 的旧写法必被测出偏差")
 def c_reverse():
-    # 3.9.15/3.9.16 的 lp = f - offsetX，offset 里含按下偏心量 δ0
-    # （D=0 时 offset = 半宽 + δ0 - δ0 之外的残留 / 或含 D），
-    # 只要不是纯粹的「半宽」，球心就会偏离触点。
     errs = []
     for f in POINTS:
         for delta0 in [40, -35, 20]:
@@ -163,7 +139,6 @@ def c_reverse():
             errs.append(abs(lp + SIZE / 2 - f))
     ok = max(errs) > 10
     return ok, max(errs)
-
 
 def run_once():
     failed = 0
@@ -174,7 +149,6 @@ def run_once():
               "" if ok else ("→ %r" % (detail,)))
     return failed
 
-
 def main():
     total = 0
     for i in range(2):
@@ -183,7 +157,6 @@ def main():
     if total:
         raise SystemExit("球自检失败 %d 项" % total)
     print("球定位与形态两遍全部通过 ✅")
-
 
 if __name__ == "__main__":
     main()

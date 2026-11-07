@@ -22,22 +22,10 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 看得清 3.8 · 紧凑设置列表组件工厂。
- *
- * 按平台原生设置范式重做：一个分组 = 一块圆角表面 + 若干 48dp 行，
- * 行间只有极弱细线；没有卡片标题、没有说明文字、没有折叠块、没有 › 二级箭头。
- * 字号压到 14 / 12 / 11 三档，全部用 sp，跟随系统字号缩放。
- *
- * 所有色值运行时从 Theme 读，深 / 浅主题切换后 recreate() 自动整屏生效。
- * 组件本身不读 Prefs、不碰 TTS / 抓字 / 悬浮球服务，回调一律由调用方传进来。
- */
 public final class Ui {
 
     private Ui() {
     }
-
-    // ---- 基础 ------------------------------------------------------------
 
     public static int dp(Context c, int v) {
         return (int) (v * c.getResources().getDisplayMetrics().density + 0.5f);
@@ -74,17 +62,14 @@ public final class Ui {
         return t;
     }
 
-    /** 正文 / 列表项标签 14sp */
     public static TextView body(Context c, String s) {
         return text(c, s, 14, Theme.TEXT, false);
     }
 
-    /** 分组名 / 次要说明 12sp */
     public static TextView caption(Context c, String s) {
         return text(c, s, 12, Theme.TEXT_2, false);
     }
 
-    /** 滑块当前值 14sp 等宽数字 */
     public static TextView value(Context c, String s) {
         TextView t = text(c, s, 14, Theme.ACCENT, true);
         tnum(t);
@@ -114,9 +99,6 @@ public final class Ui {
         return r;
     }
 
-    // ---- 分组容器 --------------------------------------------------------
-
-    /** 组名 + 一块圆角表面 + 若干行。行间细线，无组间分割线。 */
     public static LinearLayout group(Context c, String title, View... rows) {
         LinearLayout wrap = new LinearLayout(c);
         wrap.setOrientation(LinearLayout.VERTICAL);
@@ -124,8 +106,6 @@ public final class Ui {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        // 3.9.6 L1：原来只是 12sp 灰小字，跟下面的设置行、展开选项糊成一片。
-        // 现在给章节一根 3dp 蓝竖条 + 13sp 加粗，一眼分出「这是目录」。
         LinearLayout head = new LinearLayout(c);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
@@ -167,28 +147,10 @@ public final class Ui {
         return wrap;
     }
 
-    // ---- 各类行 ----------------------------------------------------------
-
-    /**
-     * 下拉选择行（3.9.3 重做）。
-     *
-     * 旧版是「标签 + 原生 Spinner」：Spinner 的 getView 各自套一块 8dp 圆角
-     * 深灰底、灰字右对齐，旁边再挂一个字体 ▾ —— 一行里三块拼贴，跟分组
-     * 卡片和细分割线完全不搭，展开后更是一堆独立小方块。
-     *
-     * 现在就是分组卡片里的一行普通列表项：左标签、右强调色当前值、最右
-     * 几何箭头。点开**就地展开**单选菜单（不是悬浮弹层、不是二级页面）。
-     *
-     * 3.9.6 层级重做：L1 组名有蓝竖条，L2 展开时整行淡底 + 左侧蓝竖条 +
-     * 箭头朝上，L3 缩进并用竖引导线串起、13sp 次级色。选中项改成引导线上
-     * 一小段蓝色圆角竖条，取消原来的整块淡蓝底和几何勾 —— 蓝色只留给
-     * 章节标记与当前值，选项不再跟它们抢。同组同时只展开一个（手风琴）。
-     */
     public static SelectRow selectRow(Context c, String label) {
         return new SelectRow(c, label);
     }
 
-    /** 就地展开的单选行。不新增顶层类，跟其他组件一起放在 Ui 里。 */
     public static final class SelectRow extends LinearLayout {
 
         public interface OnSelected {
@@ -197,7 +159,7 @@ public final class Ui {
 
         private final Context c;
         private final LinearLayout row;
-        private final View mark;          // L2 展开时左侧那根蓝竖条
+        private final View mark;
         private final TextView value;
         private final GlyphView chevron;
         private final LinearLayout menu;
@@ -206,7 +168,6 @@ public final class Ui {
         private boolean expanded = false;
         private OnSelected cb;
 
-        /** 全局只开一个。用弱引用，Activity recreate 后不会拽住旧界面。 */
         private static java.lang.ref.WeakReference<SelectRow> sOpen;
 
         public SelectRow(Context c, String labelText) {
@@ -222,11 +183,8 @@ public final class Ui {
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setLayoutParams(rowLp(c, Theme.ROW_SELECT));
             int p = dp(c, 12);
-            // mark 一直占位（5 + 3 + 4 = 12dp），label 仍从 12dp 起，
-            // 跟滑块行、分割线严格对齐；展开时也不会左右跳。
             row.setPadding(dp(c, 5), 0, p, 0);
 
-            // L2 激活标记：默认 INVISIBLE 但仍占位
             mark = new View(c);
             mark.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
                     dp(c, 1.5f), 0, 0));
@@ -265,7 +223,6 @@ public final class Ui {
             menu = new LinearLayout(c);
             menu.setOrientation(LinearLayout.VERTICAL);
             menu.setVisibility(View.GONE);
-            // L3：整体缩进，装在一块更淡的圆角表面里，跟 L2 的行分开。
             menu.setBackgroundDrawable(Theme.rounded(Theme.SURFACE_2,
                     dp(c, 10), 0, 0));
             menu.setPadding(dp(c, 14), dp(c, 4), dp(c, 14), dp(c, 8));
@@ -290,7 +247,6 @@ public final class Ui {
             }
         }
 
-        /** 初始化用：只改显示与选中态，绝不触发回调（对齐 Spinner.setSelection） */
         public void setSelection(int pos) {
             selected = items.isEmpty() ? 0
                     : Math.max(0, Math.min(items.size() - 1, pos));
@@ -312,7 +268,7 @@ public final class Ui {
             if (!expanded && sOpen != null) {
                 SelectRow prev = sOpen.get();
                 if (prev != null && prev != this && prev.expanded) {
-                    prev.setExpanded(false);   // 手风琴：开新的就收起旧的
+                    prev.setExpanded(false);
                 }
             }
             setExpanded(!expanded);
@@ -322,7 +278,6 @@ public final class Ui {
             expanded = on;
             menu.setVisibility(on ? View.VISIBLE : View.GONE);
             chevron.setRotation(on ? 180f : 0f);
-            // L2 激活态：整行淡底 + 左侧蓝竖条，明确「下面这组选项属于我」
             row.setBackgroundDrawable(on
                     ? new android.graphics.drawable.InsetDrawable(
                             Theme.rounded(Theme.ACCENT_SOFT, dp(c, 8), 0, 0),
@@ -348,9 +303,6 @@ public final class Ui {
                 item.setLayoutParams(new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 44)));
 
-                // L3 轨道：每格一根贯通的 2dp 细线，逐格拼成竖引导线。
-                // 选中项在线上叠一小段蓝色圆角竖条 —— 取代原来的整块淡蓝底
-                // 和几何勾，跟 L1 / L2 的蓝竖条是同一套语言，只是更短。
                 android.widget.FrameLayout rail = new android.widget.FrameLayout(c);
                 rail.setLayoutParams(new LinearLayout.LayoutParams(
                         dp(c, 30), dp(c, 44)));
@@ -383,7 +335,7 @@ public final class Ui {
                     @Override
                     public void onClick(View v) {
                         int old = selected;
-                        setExpanded(false);     // 先收起，别在点击回调里重建菜单
+                        setExpanded(false);
                         setSelection(pos);
                         if (cb != null && pos != old) {
                             cb.on(pos);
@@ -395,7 +347,6 @@ public final class Ui {
         }
     }
 
-    /** 滑块行：标签 + 实时数值 + 滑杆。没有刻度、没有说明文字。 */
     public static LinearLayout sliderRow(Context c, String label,
                                          int min, int max, int cur,
                                          final Fmt fmt, final OnValue cb) {
@@ -449,7 +400,6 @@ public final class Ui {
         return r;
     }
 
-    /** 开关行：状态由 Switch 本身表达，文字不写「开 / 关」。 */
     public static LinearLayout switchRow(Context c, String label,
                                          boolean checked, final OnToggle cb) {
         LinearLayout r = newRow(c, Theme.ROW_SWITCH);
@@ -480,7 +430,6 @@ public final class Ui {
         return r;
     }
 
-    /** 动作行：右侧圆形按钮直接执行，不暗示进入下一级。 */
     public static LinearLayout actionRow(Context c, String label, int glyph,
                                          final Runnable onClick) {
         LinearLayout r = newRow(c, Theme.ROW_ACTION);
@@ -499,12 +448,10 @@ public final class Ui {
         return r;
     }
 
-    /** 恢复默认行：右侧 ↺ 圆钮，点一下当场生效，无弹层、无二级。 */
     public static LinearLayout resetRow(Context c, final Runnable onClick) {
         return actionRow(c, "恢复默认", GlyphView.RESET, onClick);
     }
 
-    /** 纯状态行：左侧绿点 + 一句信任陈述，无控件。 */
     public static LinearLayout plainRow(Context c, String label) {
         LinearLayout r = newRow(c, Theme.ROW_PLAIN);
         View dot = new View(c);
@@ -518,7 +465,6 @@ public final class Ui {
         return r;
     }
 
-    /** 颜色行：大色卡（球本体 + 名字 + 选中勾），横向可滑。 */
     public static LinearLayout chipsRow(Context c, final Prefs prefs,
                                         int selected, final Runnable onChange) {
         LinearLayout outer = new LinearLayout(c);
@@ -541,7 +487,6 @@ public final class Ui {
         return outer;
     }
 
-    /** 三态球一次看完：点色卡时整行一起换色，不再只变一个小圆点。 */
     public static LinearLayout ballPreviewRow(Context c, BallPreview preview) {
         LinearLayout r = newRow(c, Theme.ROW_BALL_PREVIEW);
         LinearLayout box = new LinearLayout(c);
@@ -556,7 +501,6 @@ public final class Ui {
         return r;
     }
 
-    /** 重画颜色色卡：选中项是放大一圈的球 + 白勾 + 外环 + 名字高亮。 */
     public static void buildChips(final Context c, LinearLayout row,
                                   final Prefs prefs, final int selected,
                                   final Runnable onChange) {
@@ -597,7 +541,6 @@ public final class Ui {
         }
     }
 
-    /** 三段控件：跟随系统 / 深色 / 浅色。 */
     public static LinearLayout segmentRow(Context c, int selected,
                                           final OnValue cb) {
         LinearLayout r = newRow(c, Theme.ROW_SEGMENT);
@@ -608,7 +551,7 @@ public final class Ui {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 36)));
         for (int i = 0; i < items.length; i++) {
             final int idx = i;
-            boolean on = (i == selected);   // selected 为 0/1/2
+            boolean on = (i == selected);
             TextView seg = text(c, items[i], 12,
                     on ? Theme.ACCENT : Theme.TEXT_2, on);
             seg.setGravity(Gravity.CENTER);
@@ -635,7 +578,6 @@ public final class Ui {
         return r;
     }
 
-    /** 放大页的实时预览行：外层 chip 底，内层预览画布。 */
     public static LinearLayout previewRow(Context c, View preview) {
         LinearLayout r = newRow(c, Theme.ROW_PREVIEW);
         LinearLayout box = new LinearLayout(c);
@@ -652,7 +594,6 @@ public final class Ui {
         return r;
     }
 
-    /** 联系作者行：二维码 + 微信号直接铺开，不折叠。 */
     public static LinearLayout qrRow(Context c, int qrResId, String wxId) {
         LinearLayout r = new LinearLayout(c);
         r.setOrientation(LinearLayout.VERTICAL);
@@ -683,9 +624,6 @@ public final class Ui {
         return r;
     }
 
-    // ---- 主操作按钮 ------------------------------------------------------
-
-    /** 单色主操作，单屏唯一。 */
     public static Button primaryButton(Context c, String label) {
         Button b = new Button(c);
         b.setText(label);
@@ -698,8 +636,6 @@ public final class Ui {
         b.setMinimumHeight(dp(c, 48));
         return b;
     }
-
-    // ---- 反馈 ------------------------------------------------------------
 
     public static void toast(Context c, String msg, boolean ok) {
         try {
@@ -722,8 +658,6 @@ public final class Ui {
         toast(c, msg, true);
     }
 
-    // ---- 底部导航 --------------------------------------------------------
-
     public static LinearLayout navItem(Context c, int glyph, String label,
                                        boolean active) {
         LinearLayout v = new LinearLayout(c);
@@ -745,8 +679,6 @@ public final class Ui {
         return v;
     }
 
-    // ---- 几何图标（不依赖字体符号，避免缺字） -----------------------------
-
     public static final class GlyphView extends View {
         public static final int SHARE = 1;
         public static final int COPY = 2;
@@ -755,9 +687,7 @@ public final class Ui {
         public static final int NAV_ZOOM = 5;
         public static final int NAV_ORB = 6;
         public static final int NAV_MORE = 7;
-        /** 下拉箭头（几何，不用字体 ▾） */
         public static final int CHEVRON = 8;
-        /** 选中勾 */
         public static final int CHECK = 9;
 
         private final int kind;
@@ -777,7 +707,6 @@ public final class Ui {
             }
         }
 
-        /** 导航图标用选中 / 未选中色；不设时取 accent。 */
         public void setTint(int color) {
             tint = color;
             invalidate();
@@ -831,7 +760,6 @@ public final class Ui {
                 canvas.drawCircle(cx, cy, r * 1.05f, paint);
                 canvas.drawCircle(cx, cy, r * 0.38f, fill);
             } else if (kind == CHEVRON) {
-                // 几何 chevron：两条短线，展开时由外层 setRotation(180) 翻上去
                 float a = getWidth() * 0.24f;
                 canvas.drawLine(cx - a, cy - a * 0.45f, cx, cy + a * 0.45f, paint);
                 canvas.drawLine(cx, cy + a * 0.45f, cx + a, cy - a * 0.45f, paint);
@@ -848,7 +776,6 @@ public final class Ui {
         }
     }
 
-    /** 颜色色卡：画的就是球本体，选中加外环与右下角白勾。 */
     public static final class BallChipView extends View {
         private int color = 0xFFFAFAFA;
         private boolean checked = false;
@@ -866,7 +793,6 @@ public final class Ui {
             invalidate();
         }
 
-        /** 不叫 setSelected：那是 View 自带的方法，别覆盖它。 */
         public void setChecked(boolean v) {
             checked = v;
             invalidate();
@@ -883,7 +809,6 @@ public final class Ui {
                 line.setStrokeWidth(Ui.dp(getContext(), 2f));
                 c.drawCircle(cx, cy, r - pad, line);
             }
-            // 统一中性底：白色默认是半透明柔边环，没有底在浅色界面上会看不见
             fill.setColor(0xFF3C4655);
             c.drawCircle(cx, cy, r * 0.88f, fill);
             BallArt.draw(c, cx, cy, r * 0.78f, color,
@@ -906,17 +831,14 @@ public final class Ui {
     }
 }
 
-/** 滑块把整数值交给页面的回调。 */
 interface OnValue {
     void on(int v);
 }
 
-/** Switch 状态回调。 */
 interface OnToggle {
     void on(boolean on);
 }
 
-/** 滑块数值的显示格式。 */
 interface Fmt {
     String text(int v);
 }

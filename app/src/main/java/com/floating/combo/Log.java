@@ -20,30 +20,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * 运行日志。写进 APP 私有目录 + 公共下载目录各一份。
- *
- * 用 APP 私有目录，是因为 Android 10+ 往公共目录随便写文件会被拦。
- * 界面上的「导出日志」会把文件复制到 Downloads，方便你捞出来。
- *
- * 只记代码内部事件（手势、状态、错误），不记你的任何内容。
- *
- * ── 硬规矩：4.x 起，任何时候都不许把屏幕上的字写进来 ──
- *   这份日志能导出成 .md 存进「下载」，界面上还有「复制日志」，
- *   写进来的东西等于永久留在手机里、还能被一键复制出去。
- *   抓到多少字可以记（text.length()），抓到了什么一个字都不许记。
- *   历史上这里记过前 20 个字（ComboService 的"抓到 X 字，开头：「…」"），
- *   跟"不记你读到的任何文字"的承诺冲突，3.5 已删。
- *   加新日志时照这条自查：这行会不会把用户看到的内容带出来？
- */
 public class Log {
 
     private static final String TAG = "看得清";
     private static final String NAME = "qiuqiu.log";
-    /** 文件超过 150KB 就砍掉前面一半，防止越用越撑 */
     private static final int MAX_BYTES = 150 * 1024;
-    /** 界面上最多渲染多少行，防止 TextView 撑爆 */
-    /** 和 recent 里保留的条数保持一致，否则"显示全部"名不副实 */
     public static final int MAX_RENDER = 60;
     private static final int MAX_LINES = 3000;
 
@@ -51,9 +32,7 @@ public class Log {
     private static HandlerThread thread = null;
     private static Handler h = null;
     private static boolean inited = false;
-    /** App 自己的版本，日志开头带上，一眼看出测的是哪一版 */
     private static String appVer = "?";
-    /** 内存里也留一份，界面可以直接显示最新若干条 */
     private static final ArrayList<String> recent = new ArrayList<String>();
 
     public static synchronized void init(Context ctx) {
@@ -106,7 +85,6 @@ public class Log {
         write("E", tag, msg);
     }
 
-    /** 带异常的日志，堆栈也会记下来 */
     public static void e(String tag, String msg, Throwable t) {
         write("E", tag, msg + " | " + String.valueOf(t));
         if (t != null) {
@@ -124,12 +102,10 @@ public class Log {
         }
     }
 
-    /** 手势事件单独一个入口，方便看时序 */
     public static void gesture(String msg) {
         write("G", "gesture", msg);
     }
 
-    /** 状态变化 */
     public static void state(String from, String to, String why) {
         write("S", "state", from + " → " + to + (why == null ? "" : "  (" + why + ")"));
     }
@@ -175,7 +151,6 @@ public class Log {
         }
     }
 
-    /** 超过 MAX_LINES 就砍掉前面一半，别无限涨 */
     private static synchronized void trim() {
         if (file == null || !file.exists()) {
             return;
@@ -186,10 +161,9 @@ public class Log {
             }
             java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
             long len = file.length();
-            // 从后往前找，保留最后一半
             long keep = len / 2;
             raf.seek(keep);
-            raf.readLine();   // 丢弃半行
+            raf.readLine();
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
             byte[] buf = new byte[4096];
             int n;
@@ -204,14 +178,12 @@ public class Log {
         }
     }
 
-    /** 最近若干条，界面直接显示 */
     public static synchronized ArrayList<String> recent() {
         synchronized (recent) {
             return new ArrayList<String>(recent);
         }
     }
 
-    /** 清空 */
     public static void clear() {
         if (file != null) {
             try {
@@ -226,7 +198,6 @@ public class Log {
         i("app", "日志已清空");
     }
 
-    /** 日志原文（复制按钮用；没有就返回空串，不返回 null，调用方好判断） */
     public static String content() {
         if (file == null || !file.exists()) {
             return "";
@@ -245,7 +216,6 @@ public class Log {
         }
     }
 
-    /** 拼成 markdown：有个标题和设备信息，发给别人一眼能看懂 */
     private static String asMarkdown() {
         StringBuilder sb = new StringBuilder();
         sb.append("# 看得清 诊断日志\n\n");
@@ -268,18 +238,11 @@ public class Log {
         return sb.toString();
     }
 
-    /** 默认文件名，.md —— 发给开发直接能渲染 */
     public static String defaultName() {
         String stamp = new SimpleDateFormat("MMdd_HHmm", Locale.CHINA).format(new Date());
         return "看得清日志_" + stamp + ".md";
     }
 
-    /**
-     * 写到用户自己挑的位置（系统文件选择器给的 Uri）。
-     *
-     * 这是现在的首选：走 SAF，任何安卓版本都不需要存储权限，
-     * 而且用户能自己决定存到哪（之前是硬写「下载」目录，用户根本不知道去哪找）。
-     */
     public static boolean exportTo(Context ctx, Uri uri) {
         if (uri == null) {
             return false;
@@ -300,12 +263,6 @@ public class Log {
         }
     }
 
-    /**
-     * 兜底导出：选择器调不起来时用。
-     *   - API 29+ 用 MediaStore 写进「下载」（作用域存储下的正路）
-     *   - 再不行就写 app 私有目录，必定可写
-     * 返回给用户看得懂的位置描述；失败返回 null。
-     */
     public static String export(Context ctx) {
         if (file == null || !file.exists()) {
             return null;
@@ -323,7 +280,6 @@ public class Log {
                     return "下载/" + name;
                 }
             }
-            // 兜底：app 私有外部目录（必然可写，无需任何权限）
             File dir = ctx.getExternalFilesDir(null);
             if (dir == null) {
                 dir = ctx.getFilesDir();
@@ -339,16 +295,6 @@ public class Log {
         }
     }
 
-    /** 字节拷贝，关闭交给调用方 */
-    private static void copy(java.io.InputStream in, OutputStream out) throws Exception {
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) > 0) {
-            out.write(buf, 0, n);
-        }
-    }
-
-    /** 私有目录里那份的路径 */
     public static String path() {
         return file == null ? null : file.getAbsolutePath();
     }

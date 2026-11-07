@@ -2,33 +2,13 @@ package com.floating.combo;
 
 import android.graphics.drawable.GradientDrawable;
 
-/**
- * 看得清 3.8 · 可切换的 Design Tokens。
- *
- * 3.7 那套是「一套深色写死」。3.8 补了正式的深 / 浅主题；
- * 3.10 把默认改成「跟随系统」，并把深色从偏蓝的深蓝灰换成中性灰黑。
- * 「更多 → 外观」里的三段控件真正切换整套配色，不是只换一块球预览。
- *
- * 色值改成运行时可写的静态字段：所有界面代码都是「用的时候才读 Theme.XXX」，
- * 所以 apply() 换掉一套值 + recreate() 重画，就能整屏跟着变，不必逐个控件改引用。
- *
- * 旧名（BG / SURFACE / ...）保留为别名并在 apply() 里同步赋值，避免遗留引用拿到旧色。
- * 纯展示层，不引用 TTS / 抓字 / 日志 / 手势。
- */
 public final class Theme {
 
-    /**
-     * 0=跟随系统，1=深色，2=浅色。
-     * 3.10 起默认**跟随系统**（用户明确要求），不再是写死的深色。
-     * 老用户升级后界面会跟着手机当前外观走，属预期变化。
-     */
     public static final int MODE_SYSTEM = 0;
     public static final int MODE_DARK = 1;
     public static final int MODE_LIGHT = 2;
     public static final int MODE_DEFAULT = MODE_SYSTEM;
 
-    // ---- 运行时调色板（apply 里整体替换；逐行给初值，apply 前也读得到） ----
-    // 深色是中性灰黑，不是深蓝底。3.10 把原先 #0B0E13 / #151B25 那套蓝灰全部换掉。
     public static int BASE = 0xFF121212;
     public static int RAISED = 0xFF1E1E1E;
     public static int OVERLAY = 0xFF262626;
@@ -47,12 +27,10 @@ public final class Theme {
     public static int GRADIENT_FROM = 0xFF4AA8FF;
     public static int GRADIENT_TO = 0xFF4AA8FF;
 
-    // ---- 两套都不变的常量 -------------------------------------------------
     public static final int TRANSPARENT = 0x00000000;
     public static final int ON_ACCENT = 0xFFFFFFFF;
     public static final int QR_WHITE = 0xFFFFFFFF;
 
-    // ---- 旧名别名 --------------------------------------------------------
     public static int BG = 0xFF121212;
     public static int SURFACE = 0xFF1E1E1E;
     public static int SURFACE_2 = 0xFF262626;
@@ -60,7 +38,6 @@ public final class Theme {
     public static int TEAL = 0xFF4AA8FF;
     public static int BLUE = 0xFF4AA8FF;
 
-    // ---- 间距 / 圆角（dp，调用方换算） ------------------------------------
     public static final int GRID = 4;
     public static final int GAP_GROUP = 12;
     public static final int CARD_PAD = 16;
@@ -72,26 +49,23 @@ public final class Theme {
     public static final int ROW_ACTION = 48;
     public static final int ROW_PLAIN = 44;
     public static final int ROW_SLIDER = 56;
-    public static final int ROW_CHIPS = 64;          // 大色卡：38dp 球 + 名字
-    public static final int ROW_BALL_PREVIEW = 96;    // 三态球一次看完，仍保持整页一屏
+    public static final int ROW_CHIPS = 64;
+    public static final int ROW_BALL_PREVIEW = 96;
     public static final int ROW_SEGMENT = 52;
     public static final int ROW_PREVIEW = 60;
     public static final int ROW_RESET = 48;
     public static final int ROW_QR = 148;
 
-    // ---- 动效（ms） -------------------------------------------------------
     public static final int DUR_MICRO = 120;
     public static final int DUR_STANDARD = 240;
 
     private Theme() {
     }
 
-    /** 换整套配色。必须在任何 View 被创建之前调用。 */
     public static void apply(int mode, boolean systemNight) {
         boolean dark = (mode == MODE_DARK)
                 || (mode == MODE_SYSTEM && systemNight);
         if (dark) {
-            // 标准深色：中性灰黑，不带任何蓝调
             BASE = 0xFF121212;
             RAISED = 0xFF1E1E1E;
             OVERLAY = 0xFF262626;
@@ -136,7 +110,6 @@ public final class Theme {
         BLUE = GRADIENT_TO;
     }
 
-    /** 圆角矩形：填充 + 可选描边。 */
     public static GradientDrawable rounded(int color, float radiusPx,
                                            int strokeColor, float strokePx) {
         GradientDrawable g = new GradientDrawable();
@@ -148,7 +121,6 @@ public final class Theme {
         return g;
     }
 
-    /** 圆形纯色（状态点、颜色 chip）。 */
     public static GradientDrawable circle(int color, float radiusPx,
                                           int strokeColor, float strokePx) {
         GradientDrawable g = new GradientDrawable();

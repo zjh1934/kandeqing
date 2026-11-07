@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 镜像 TextGrabber 的完整抓字流程：roots → walk → sortReadingOrder → join。
 
@@ -20,12 +19,11 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from verify_textlayout import (  # noqa: E402
+from verify_textlayout import (
     Node, RectF, clean, nearest_char, sentence_start,
     leading_whitespace, trimmed_length, sort_reading_order,
 )
 
-# 镜像 walk 是递归的，深树测试需要抬高上限
 sys.setrecursionlimit(20000)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -35,19 +33,14 @@ GRABBER = os.path.join(
 
 _src = io.open(GRABBER, encoding="utf-8").read()
 
-
 def _const(name, default):
     m = re.search(
         r"private\s+static\s+final\s+int\s+%s\s*=\s*(\d+)\s*;" % name, _src)
     return int(m.group(1)) if m else default
 
-
 MAX_WALK = _const("MAX_WALK", 10000)
 MAX_SEG = _const("MAX_SEG", 400)
 MAX_DEPTH = _const("MAX_DEPTH", 200)
-
-
-# ---------- 假节点 ----------
 
 class FakeNode(object):
     def __init__(self, text=None, desc=None, bounds=(0, 0, 0, 0),
@@ -82,7 +75,6 @@ class FakeNode(object):
     def recycle(self):
         self.recycled = True
 
-
 class Rect(object):
     def __init__(self):
         self.left = self.top = self.right = self.bottom = 0
@@ -99,13 +91,9 @@ class Rect(object):
     def contains(self, x, y):
         return self.left <= x <= self.right and self.top <= y <= self.bottom
 
-
 def intersects(a, b):
     return (a.left < b.right and b.left < a.right
             and a.top < b.bottom and b.top < a.bottom)
-
-
-# ---------- 镜像 TextGrabber ----------
 
 class Walk(object):
     def __init__(self, out, screen, px, py):
@@ -118,13 +106,11 @@ class Walk(object):
         self.truncated = False
         self.pick = None
 
-
 class Pick(object):
     def __init__(self, seg, area, char_start):
         self.seg = seg
         self.area = area
         self.charStart = char_start
-
 
 def node_text(node):
     if node is None:
@@ -144,13 +130,11 @@ def node_text(node):
         return None
     return None
 
-
 def visible(node):
     try:
         return node.isVisibleToUser()
     except Exception:
         return True
-
 
 def char_start_in(node, x, y, sdk=26):
     """镜像 TextGrabber.charStartIn（不含 Bundle/refresh，只算偏移）"""
@@ -181,7 +165,6 @@ def char_start_in(node, x, y, sdk=26):
         return rel
     except Exception:
         return 0
-
 
 def walk(node, w, depth=0):
     """镜像 TextGrabber.walk：一趟后序遍历，返回这个子树有没有交出文字"""
@@ -245,7 +228,6 @@ def walk(node, w, depth=0):
             w.pick = Pick(seg, area, char_start_in(node, w.px, w.py))
     return True
 
-
 class Sink(object):
     def __init__(self):
         self.parts = []
@@ -270,7 +252,6 @@ class Sink(object):
     def text(self):
         return "\n".join(self.parts).strip()
 
-
 def join(segs, pick):
     idx = -1
     for i, s in enumerate(segs):
@@ -288,7 +269,6 @@ def join(segs, pick):
         sink.add(segs[i].text)
     return sink.text()
 
-
 def join_below(segs, y):
     sink = Sink()
     for n in segs:
@@ -296,7 +276,6 @@ def join_below(segs, y):
             continue
         sink.add(n.text)
     return sink.text()
-
 
 def grab_from_windows(roots, x, y, screen):
     """镜像 TextGrabber.grabFromWindows（含 finally 里的根回收）"""
@@ -322,7 +301,6 @@ def grab_from_windows(roots, x, y, screen):
         for r in roots:
             r.recycle()
 
-
 def all_nodes(node, acc=None):
     if acc is None:
         acc = []
@@ -333,17 +311,12 @@ def all_nodes(node, acc=None):
         all_nodes(c, acc)
     return acc
 
-
-# ---------- 用例 ----------
-
 SCREEN = Rect()
 SCREEN.left, SCREEN.top, SCREEN.right, SCREEN.bottom = 0, 0, 1080, 1920
-
 
 def n(text=None, desc=None, bounds=(0, 0, 0, 0), visible=True, children=None,
       char_rects=None):
     return FakeNode(text, desc, bounds, visible, children, char_rects)
-
 
 def case_two_columns_continue():
     """
@@ -365,7 +338,6 @@ def case_two_columns_continue():
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "左一\n右一\n左二\n右二\n左三", got
 
-
 def case_parent_child_no_dup():
     """
     容器有 contentDescription，子节点是真正的正文。
@@ -380,7 +352,6 @@ def case_parent_child_no_dup():
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "第一行\n第二行", got
 
-
 def case_offscreen_skipped():
     """滚出屏幕的节点整块在屏外，不该读出来。"""
     root = n(children=[
@@ -389,7 +360,6 @@ def case_offscreen_skipped():
     ])
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "屏内的", got
-
 
 def case_visibility_lie_fallback():
     """ROM 的 isVisibleToUser 全报 false —— 遍历不再硬丢节点，内容照常捞回。"""
@@ -400,7 +370,6 @@ def case_visibility_lie_fallback():
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "文本甲\n文本乙", got
 
-
 def case_consecutive_dedup():
     """连续且完全相等的两段只保留一段。"""
     root = n(children=[
@@ -410,7 +379,6 @@ def case_consecutive_dedup():
     ])
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "重复\n收尾", got
-
 
 def case_substring_not_swallowed():
     """
@@ -424,7 +392,6 @@ def case_substring_not_swallowed():
     got = grab_from_windows([root], 50, 20, SCREEN)
     return got == "你好世界\n世界", got
 
-
 def case_sentence_cut():
     """点中"光"，从最近的句读（逗号）后开始：欢迎光临。"""
     raw = "你好世界，欢迎光临。"
@@ -434,10 +401,9 @@ def case_sentence_cut():
     root = n(children=[
         n(raw, bounds=(0, 0, len(raw) * 20, 40), char_rects=rects),
     ])
-    x = 7 * 20 + 10          # "光"
+    x = 7 * 20 + 10
     got = grab_from_windows([root], x, 20, SCREEN)
     return got == "欢迎光临。", got
-
 
 def case_leading_ws_sentence_cut():
     """前导空白版本：偏移要减掉前导空白，不能切错。"""
@@ -448,10 +414,9 @@ def case_leading_ws_sentence_cut():
     root = n(children=[
         n(raw, bounds=(0, 0, len(raw) * 20, 40), char_rects=rects),
     ])
-    x = 7 * 20 + 10          # "欢"（原文下标 7）
+    x = 7 * 20 + 10
     got = grab_from_windows([root], x, 20, SCREEN)
     return got == "欢迎光临。", got
-
 
 def case_no_hit_reads_below():
     """点在空白处（没命中任何段）：从点击高度往下接。"""
@@ -463,7 +428,6 @@ def case_no_hit_reads_below():
     got = grab_from_windows([root], 50, 100, SCREEN)
     return got == "中间\n下面", got
 
-
 def case_budget_does_not_explode():
     """超宽树（>10000 节点）要在上限处停住，不能卡死。"""
     leaf = n("叶", bounds=(0, 0, 10, 10))
@@ -473,19 +437,16 @@ def case_budget_does_not_explode():
     got = grab_from_windows([root], 5, 5, SCREEN)
     return got is not None and len(got) > 0, (len(got) if got else None)
 
-
 def _chain(depth, leaf_text):
     node = n(leaf_text, bounds=(0, 0, 10, 10))
     for _ in range(depth):
         node = n(children=[node])
     return node
 
-
 def case_deep_tree_ok():
     """正常深度的深树要能正常收到内容，不能被深度上限误伤。"""
     got = grab_from_windows([_chain(300, "最底")], 5, 5, SCREEN)
     return got == "最底", got
-
 
 def case_too_deep_guarded():
     """
@@ -501,12 +462,10 @@ def case_too_deep_guarded():
     ok_fallback = (best.text == "最底")
     return (ok_window_pass and ok_fallback), (got, best.text)
 
-
 class Best(object):
     def __init__(self):
         self.text = None
         self.area = 1 << 30
-
 
 def find_deepest(node, x, y, best):
     """镜像 TextGrabber.findDeepest"""
@@ -536,7 +495,6 @@ def find_deepest(node, x, y, best):
         if child is not None:
             find_deepest(child, x, y, best)
 
-
 def case_all_nodes_recycled():
     """
     AccessibilityNodeInfo 是有上限的系统资源（一般同时只能有几十个），
@@ -557,7 +515,6 @@ def case_all_nodes_recycled():
     ok = (got is not None) and not leaked
     return ok, (got, len(leaked))
 
-
 CASES = [
     ("两列布局续读不乱序", case_two_columns_continue),
     ("父子节点不重复收录", case_parent_child_no_dup),
@@ -574,7 +531,6 @@ CASES = [
     ("节点全部回收无泄漏", case_all_nodes_recycled),
 ]
 
-
 def run_once():
     failed = 0
     for name, fn in CASES:
@@ -584,7 +540,6 @@ def run_once():
               "" if ok else ("→ %r" % (detail,)))
     return failed
 
-
 def main():
     total = 0
     for i in range(1, 3):
@@ -593,7 +548,6 @@ def main():
     if total:
         raise SystemExit("TextGrabber 累计 %d 个用例失败" % total)
     print("TextGrabber 两遍全部通过 ✅")
-
 
 if __name__ == "__main__":
     main()

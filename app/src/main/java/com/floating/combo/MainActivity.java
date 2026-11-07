@@ -24,31 +24,16 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 看得清 3.8 · 紧凑设置页。
- *
- * 按已经确认的 v3 预览稿落地：
- *   - 无页面大标题：底部选项卡已经标了当前页，状态栏下直接是全局主控条
- *   - 一个分组 = 一块圆角表面 + 48dp 行；无说明文字、无注释、无折叠块
- *   - 全 UI 没有 › 二级入口：动作一律右侧圆钮直接执行
- *   - 恢复默认重做：分组内一行 + ↺ 圆钮，点一下当场生效，不弹确认层
- *   - 二维码 + 微信号直接铺开；「查看源码」删除
- *   - 「更多 → 外观」的三段控件真正切换整套深 / 浅配色
- *
- * 界面层只负责显示状态。TTS、抓字、放大、悬浮球手势沿用既有实现，未改动。
- */
 public class MainActivity extends Activity
         implements TtsManager.OnInitListener {
 
     private Prefs prefs;
 
-    // ---- 全局主控条（正常态只有一行） ------------------------------------
     private Switch swBall;
     private TextView tvState;
     private Button bAcc;
     private boolean syncSwitch = false;
 
-    // ---- 页面与导航 ------------------------------------------------------
     private ScrollView sv;
     private LinearLayout body;
     private LinearLayout navRow;
@@ -62,7 +47,6 @@ public class MainActivity extends Activity
             Ui.GlyphView.NAV_ORB, Ui.GlyphView.NAV_MORE
     };
 
-    // ---- 朗读页 ----------------------------------------------------------
     private Ui.SelectRow spEngine, spVoice, spScope;
     private Button btnTry;
     private Runnable tryEnd;
@@ -72,7 +56,6 @@ public class MainActivity extends Activity
     private String shownEngine = null;
     private String shownVoice = null;
 
-    // ---- 放大 / 悬浮球页 --------------------------------------------------
     private ZoomPreview zoomPreview;
     private BallPreview ballPreview;
     private int colorIndex = 0;
@@ -84,10 +67,6 @@ public class MainActivity extends Activity
         super.onCreate(b);
         prefs = new Prefs(this);
         colorIndex = prefs.colorIndex();
-        // 必须在任何 View 被创建之前换好整套配色。
-        // 默认跟随系统：系统浅色就浅色、深色就中性深色；手动选深色/浅色也照此。
-        // setTheme 让 Spinner / Switch / Toast 这些原生控件也跟着走，
-        // 否则系统浅色时手动切深色，原生控件还是白底黑字。
         Theme.apply(prefs.themeMode(), systemNight());
         setTheme(darkMode() ? R.style.AppThemeDark : R.style.AppTheme);
 
@@ -133,7 +112,6 @@ public class MainActivity extends Activity
         TtsManager.init(getApplicationContext());
     }
 
-    /** 深 / 浅模式下系统栏与状态栏图标也得跟着换，不然浅底白字看不见。 */
     private void setupWindow() {
         Window win = getWindow();
         win.setBackgroundDrawable(new ColorDrawable(Theme.BASE));
@@ -199,10 +177,6 @@ public class MainActivity extends Activity
         }
         super.onDestroy();
     }
-
-    // =====================================================================
-    // 全局主控条
-    // =====================================================================
 
     private View masterControl() {
         LinearLayout c = new LinearLayout(this);
@@ -276,7 +250,6 @@ public class MainActivity extends Activity
         row.addView(swBall);
         c.addView(row);
 
-        // 这两项只在服务异常时出现：正常态整条主控就是一行，没有解释文字
         tvState = Ui.caption(this, "");
         tvState.setPadding(pad, Ui.dp(this, 4), pad, Ui.dp(this, 4));
         tvState.setVisibility(View.GONE);
@@ -329,7 +302,6 @@ public class MainActivity extends Activity
         Log.i("ui", "状态刷新 设置=" + prefs.ballOn() + " 无障碍=" + acc
                 + " 服务=" + running);
 
-        // 开关显示「想不想开」，实际开没开由异常态那一行说
         syncSwitch = true;
         swBall.setChecked(acc && prefs.ballOn());
         syncSwitch = false;
@@ -362,10 +334,6 @@ public class MainActivity extends Activity
             return false;
         }
     }
-
-    // =====================================================================
-    // 底部导航
-    // =====================================================================
 
     private View bottomNav() {
         LinearLayout wrap = new LinearLayout(this);
@@ -439,17 +407,11 @@ public class MainActivity extends Activity
         return Ui.lp(this, 0, 0, 0, Theme.GAP_GROUP);
     }
 
-    // =====================================================================
-    // 朗读
-    // =====================================================================
-
     private LinearLayout pageRead() {
         LinearLayout page = pageColumn();
 
         spEngine = Ui.selectRow(this, "语音引擎");
         spVoice = Ui.selectRow(this, "音色");
-        // 3.9.4「读多少」：跟引擎 / 音色同构的一行，复用刚通过的就地展开菜单。
-        // 默认「读到屏底」，保持早期版本行为；改成一句 / 段末时下一次点字就生效。
         spScope = Ui.selectRow(this, "读多少");
         List<String> scopeLabels = new ArrayList<String>();
         for (String s : Prefs.READ_SCOPE_LABELS) {
@@ -503,7 +465,6 @@ public class MainActivity extends Activity
                     Ui.toast(MainActivity.this, "引擎还没准备好，等一两秒", false);
                     return;
                 }
-                // 球正在朗读时共用同一个引擎：先同步停掉，否则两段声音会叠
                 ComboService.stopBallSpeaking();
                 TtsManager.speak("这是一句试听，声音正常就可以用了",
                         prefs.rate(), prefs.pitch());
@@ -529,9 +490,6 @@ public class MainActivity extends Activity
     private void reloadEngines() {
         List<TtsManager.Engine> real = TtsManager.enumerate(this);
         engines = new ArrayList<TtsManager.Engine>();
-        // 空串 = 跟随系统默认，必须有这一项，否则显示与实际用的引擎对不上。
-        // 3.9.6：显示短名就好，别把「（MultiTTS…）」这种包名截一半糊在行尾。
-        // 真想知道当前引擎，下面「音色」列表和试听会体现；逻辑仍用 pkg 空串。
         engines.add(new TtsManager.Engine("跟随系统默认", ""));
         engines.addAll(real);
 
@@ -616,17 +574,10 @@ public class MainActivity extends Activity
                 if (TtsManager.isFailed()) {
                     Ui.toast(MainActivity.this, "引擎初始化失败，换一个试试", false);
                 }
-                // 换引擎后旧音色列表已经失效，必须无条件刷新。
-                // 原来只在 voices 为空时刷，导致切引擎后仍显示旧引擎的音色名，
-                // 保存的 voice 在新引擎里不存在，applyVoice 静默退回中文，界面却显示「已选中」。
                 reloadVoices();
             }
         });
     }
-
-    // =====================================================================
-    // 放大
-    // =====================================================================
 
     private LinearLayout pageZoom() {
         LinearLayout page = pageColumn();
@@ -673,7 +624,6 @@ public class MainActivity extends Activity
                         new OnToggle() {
                             @Override
                             public void on(boolean on) {
-                                // compensate=true 表示球不变大，这里正向陈述取反
                                 prefs.setCompensate(!on);
                                 ComboService.refresh();
                             }
@@ -691,10 +641,6 @@ public class MainActivity extends Activity
                 })), groupLp());
         return page;
     }
-
-    // =====================================================================
-    // 悬浮球
-    // =====================================================================
 
     private LinearLayout pageBall() {
         LinearLayout page = pageColumn();
@@ -753,7 +699,6 @@ public class MainActivity extends Activity
                     @Override
                     public void run() {
                         colorIndex = prefs.colorIndex();
-                        // 三个状态的预览球一起换色，真球也跟着换
                         if (ballPreview != null) {
                             ballPreview.setColor(prefs.color());
                         }
@@ -781,7 +726,6 @@ public class MainActivity extends Activity
                 Ui.resetRow(this, new Runnable() {
                     @Override
                     public void run() {
-                        // 一律从 Prefs 的共享常量取，别在这里另写一套数字
                         prefs.setSizeDp(Prefs.DEF_SIZE_DP);
                         prefs.setAlpha(Prefs.DEF_ALPHA);
                         prefs.setIdleAlpha(Prefs.DEF_IDLE_ALPHA);
@@ -795,10 +739,6 @@ public class MainActivity extends Activity
                 })), groupLp());
         return page;
     }
-
-    // =====================================================================
-    // 更多
-    // =====================================================================
 
     private void shareToFriend() {
         final String url = getString(R.string.share_download_url);
@@ -874,11 +814,6 @@ public class MainActivity extends Activity
         return page;
     }
 
-    // =====================================================================
-    // 通用件
-    // =====================================================================
-
-    /** 重画整个界面：切换主题、恢复设置后把界面拉回与新值一致。 */
     private void rebuild() {
         recreate();
     }

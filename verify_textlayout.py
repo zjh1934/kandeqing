@@ -1,21 +1,5 @@
-#!/usr/bin/env python3
-# 镜像 com.floating.combo.TextLayout 的逻辑，以及 TextGrabber.charStartIn 的偏移换算。
-#
-# 项目环境里没有 JDK / Android SDK，JUnit 跑不起来。TextLayout 是特地写成
-# 无 Android 依赖的纯逻辑，就是为了能在这里 1:1 镜像验证 —— 两边结果必须一致。
-#
-# 重点覆盖三个修复：
-#   1) 阅读顺序：多列布局不能只按 (top,left) 排，要先纵向分带成行。
-#   2) charStart 偏移：字符位置是按【原文】排的，而收录的文本是 trim 过的，
-#      有前导空白时两者差一个偏移量，不减掉就会切错位置。
-#   3) 3.9.3「点哪里从哪读」：逐字位置拿不到时按 y 估行号（x 只做行内
-#      微调），不再 return 0 让 join() 把整篇从头念起；scanBack 点在最后
-#      一句时也从这句读起。含「旧逻辑必须 FAIL」的反向验证。
 
 MAX_CHAR_REQ = 20000
-
-
-# ---------- Java 语义 ----------
 
 def _is_ws(ch):
     """Java Character.isWhitespace —— 注意不含不间断空格（U+00A0 等）。"""
@@ -25,7 +9,6 @@ def _is_ws(ch):
         return True
     return ch.isspace()
 
-
 def leading_whitespace(s):
     if s is None:
         return 0
@@ -33,7 +16,6 @@ def leading_whitespace(s):
     while i < len(s) and _is_ws(s[i]):
         i += 1
     return i
-
 
 def trimmed_length(s):
     if s is None:
@@ -45,13 +27,11 @@ def trimmed_length(s):
         b -= 1
     return b - a
 
-
 def clean(s):
     if s is None:
         return None
     t = s.strip()
     return None if len(t) == 0 else t
-
 
 def scan_back(text, offset, puncts, floor=0):
     if text is None or puncts is None:
@@ -67,11 +47,9 @@ def scan_back(text, offset, puncts, floor=0):
         while s < len(text) and _is_ws(text[s]):
             s += 1
         if s >= len(text):
-            # 3.9.3：点在最后一句，从这句读起，绝不退回整篇开头
             return max(0, offset - 1)
         return s
     return 0
-
 
 def sentence_start(text, offset):
     if text is None:
@@ -87,13 +65,9 @@ def sentence_start(text, offset):
     s = scan_back(text, offset, "，、：,:", floor)
     if s > 0:
         return s
-    return offset      # 命中字附近，绝不退回篇头
+    return offset
 
-
-# ---------- 阅读顺序 ----------
-
-SENTENCE_LOOKBACK = 160      # 镜像 TextLayout.SENTENCE_LOOKBACK
-
+SENTENCE_LOOKBACK = 160
 
 class Node(object):
     __slots__ = ('text', 'left', 'top', 'right', 'bottom', 'body', 'charStart')
@@ -111,7 +85,6 @@ class Node(object):
         return "Node(%r,%d,%d,%d,%d)" % (
             self.text, self.left, self.top, self.right, self.bottom)
 
-
 def same_row(a, b):
     top = max(a.top, b.top)
     bottom = min(a.bottom, b.bottom)
@@ -123,7 +96,6 @@ def same_row(a, b):
         return False
     return overlap * 2 >= min_h
 
-
 def _band_hits(band, n):
     top = max(band['top'], n.top)
     bottom = min(band['bottom'], n.bottom)
@@ -134,7 +106,6 @@ def _band_hits(band, n):
     if min_h <= 0:
         return False
     return overlap * 2 >= min_h
-
 
 def sort_reading_order(lst):
     if lst is None or len(lst) < 2:
@@ -159,9 +130,6 @@ def sort_reading_order(lst):
         out.extend(b['items'])
     return out
 
-
-# ---------- 字符级定位的偏移换算 ----------
-
 class RectF(object):
     __slots__ = ('left', 'top', 'right', 'bottom')
 
@@ -170,7 +138,6 @@ class RectF(object):
 
     def is_empty(self):
         return self.left >= self.right or self.top >= self.bottom
-
 
 def nearest_char(rects, x, y):
     best = -1
@@ -194,13 +161,12 @@ def nearest_char(rects, x, y):
             best = i
     return best
 
-
 def fallback_start(bounds, x, y, raw, length, lead):
     """3.9.5 镜像：先按 y 落行、行内再按 x 估；单行时 y 完全不参与"""
     if raw is None or length < 40:
         return 0
     if bounds is None:
-        return 0        # 连 bounds 都量不到，才退回段首
+        return 0
     l, t, r, b = bounds
     if r <= l or b <= t or len(raw) == 0:
         return 0
@@ -217,7 +183,6 @@ def fallback_start(bounds, x, y, raw, length, lead):
     off = min(len(raw), int(ratio * len(raw)))
     rel = sentence_start(raw, off) - lead
     return max(0, min(length, rel))
-
 
 def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None, available=True):
     """
@@ -249,7 +214,6 @@ def char_start_in(raw, rects_of, x, y, sdk=26, bounds=None, available=True):
                     return max(0, min(length, rel))
     return fallback_start(bounds, x, y, raw, length, lead)
 
-
 def make_rects(text, x0=0, y0=0, cw=20, ch=40):
     """把一串字按等宽排成一行，返回每个字的矩形。"""
     out = []
@@ -257,16 +221,11 @@ def make_rects(text, x0=0, y0=0, cw=20, ch=40):
         out.append(RectF(x0 + i * cw, y0, x0 + (i + 1) * cw, y0 + ch))
     return out
 
-
 def center_of(i, cw=20, ch=40, x0=0, y0=0):
     return x0 + i * cw + cw / 2.0, y0 + ch / 2.0
 
-
-# ---------- 用例 ----------
-
 def _order(lst):
     return [n.text for n in sort_reading_order(list(lst))]
-
 
 def case_single_column():
     """普通单列：从上到下。"""
@@ -277,7 +236,6 @@ def case_single_column():
     ]
     got = _order(ns)
     return got == ["第一行", "第二行", "第三行"], got
-
 
 def case_two_columns():
     """
@@ -294,7 +252,6 @@ def case_two_columns():
     got = _order(ns)
     return got == ["左一", "右一", "左二", "右二", "左三"], got
 
-
 def case_same_row_misaligned_top():
     """同一行但 top 差几像素：仍要算同一行，行内按 left 排。"""
     ns = [
@@ -303,7 +260,6 @@ def case_same_row_misaligned_top():
     ]
     got = _order(ns)
     return got == ["A", "B"], got
-
 
 def case_different_rows_small_gap():
     """两行只差一点：垂直重叠不到一半，必须算两行。"""
@@ -314,7 +270,6 @@ def case_different_rows_small_gap():
     got = _order(ns)
     return got == ["上一行", "下一行"], got
 
-
 def case_empty_and_single():
     ns = [Node("孤零零", 0, 0, 10, 10)]
     got = _order(ns)
@@ -322,13 +277,11 @@ def case_empty_and_single():
     ok2 = sort_reading_order([]) == []
     return (ok1 and ok2), got
 
-
 def case_same_row_api():
     a = Node("a", 0, 0, 100, 40)
     b = Node("b", 110, 5, 210, 45)
     c = Node("c", 0, 100, 100, 140)
     return (same_row(a, b) and not same_row(a, c)), (same_row(a, b), same_row(a, c))
-
 
 def case_sentence_plain():
     """没有前导空白：点中"光"(下标7)，回退到逗号后的"欢"(下标5)。"""
@@ -339,7 +292,6 @@ def case_sentence_plain():
     ok = (rel == 5) and (raw.strip()[rel:] == "欢迎光临。")
     return ok, (rel, raw.strip()[rel:] if rel < len(raw.strip()) else None)
 
-
 def case_sentence_leading_ws():
     """
     关键回归：有前导空白。
@@ -349,11 +301,10 @@ def case_sentence_leading_ws():
     """
     raw = "  你好世界，欢迎光临。"
     rects = make_rects(raw)
-    x, y = center_of(7)          # 欢
+    x, y = center_of(7)
     rel = char_start_in(raw, lambda c: rects[:c], x, y)
     ok = (rel == 5) and (raw.strip()[rel:] == "欢迎光临。")
     return ok, (rel, raw.strip()[rel:] if rel < len(raw.strip()) else None)
-
 
 def case_sentence_no_punct():
     """一个标点都没有：从点中的字开始。"""
@@ -363,10 +314,9 @@ def case_sentence_no_punct():
     rel = char_start_in(raw, lambda c: rects[:c], x, y)
     return rel == 5, rel
 
-
 def case_single_request_no_fallback_chain():
     """3.9.7：预检通过后只请求一次，长度夹到 20000，不再 2000/500 逐级退让。"""
-    raw = "甲乙丙丁。" * 500       # 3000 字
+    raw = "甲乙丙丁。" * 500
     full = make_rects(raw)
     seen = []
 
@@ -380,7 +330,6 @@ def case_single_request_no_fallback_chain():
           and rel == 100)
     return ok, (seen, rel)
 
-
 def case_extra_data_unavailable_not_zero():
     """getAvailableExtraData 不含该 key：降级按行估算，绝不从篇头读"""
     raw = _long_text()
@@ -389,14 +338,12 @@ def case_extra_data_unavailable_not_zero():
                         bounds=bounds, available=False)
     return rel > 0.25 * len(raw), rel
 
-
 def case_obsolete_node_not_zero():
     """refreshWithExtraData 返回 false（节点 obsolete）：同样降级，不返回 0"""
     raw = _long_text()
     bounds = (0, 0, 1000, 1600)
     rel = char_start_in(raw, lambda c: None, 100, 800, bounds=bounds)
     return rel > 0.25 * len(raw), rel
-
 
 def case_lookback_limits_start():
     """3.9.7：几百字没有标点时，句起点不许一路退到段首"""
@@ -405,7 +352,6 @@ def case_lookback_limits_start():
     got = sentence_start(raw, offset)
     return got >= offset - SENTENCE_LOOKBACK, (got, offset)
 
-
 def case_char_req_capped():
     """超长文本第一次请求必须夹到 20000，不能把整段长度原样传进去。"""
     seen = []
@@ -413,28 +359,25 @@ def case_char_req_capped():
 
     def rects_of(count):
         seen.append(count)
-        return None   # 全部失败，最终返回 0
+        return None
 
     rel = char_start_in(raw, rects_of, 0, 0)
     ok = rel == 0 and seen[0] == MAX_CHAR_REQ and all(c <= MAX_CHAR_REQ for c in seen)
     return ok, seen[:1]
 
-
 def _long_text():
     return ''.join('第%d行的内容写在这里' % i
                    + ('。' if i % 3 == 2 else '，') for i in range(40))
 
-
 def case_fallback_y_mid_not_head():
     """3.9.3 核心：长文没逐字位置时，点中段行首不能从篇头读"""
     raw = _long_text()
-    bounds = (0, 0, 1000, 1600)      # 40 行，点第 20 行行首
+    bounds = (0, 0, 1000, 1600)
     x, y = 100, 800
     rel = char_start_in(raw, lambda c: None, x, y, bounds=bounds)
     ratio = rel / float(len(raw))
     return 0.25 < ratio < 0.65, 'rel=%d len=%d ratio=%.3f' % (
         rel, len(raw), ratio)
-
 
 def case_fallback_short_from_head():
     """短段单行：降级仍从段首读，别把第一个字切掉"""
@@ -443,32 +386,28 @@ def case_fallback_short_from_head():
                         bounds=(0, 0, 300, 40))
     return rel == 0, rel
 
-
 def case_last_sentence_not_zero():
     """点在最后一句：scanBack 不再把 0 当答案"""
     got = scan_back("甲乙丙。", 4, "。")
     return got > 0, got
 
-
 def case_single_line_y_does_not_shift():
     """3.9.5：单行文本里手指上下偏几像素，起点下标必须一样。
     旧版 ry×0.85+rx×0.15 让同一行上下点估出不同字符 —— 点这里读那里。"""
     raw = '这一行是一段没有标点的连续文字用来做单行估算的回归用例甲乙丙丁'
-    bounds = (0, 0, 1000, 40)       # 高度 < 48px → lines=1
+    bounds = (0, 0, 1000, 40)
     a = fallback_start(bounds, 500, 4, raw, len(raw), 0)
     b = fallback_start(bounds, 500, 36, raw, len(raw), 0)
     return a == b, (a, b)
-
 
 def case_reverse_old_zero_detected():
     """反向验证：旧逻辑（拿不到逐字位置直接 return 0）必须被抓出来"""
     raw = _long_text()
     bounds = (0, 0, 1000, 1600)
     new_rel = char_start_in(raw, lambda c: None, 100, 800, bounds=bounds)
-    old_rel = 0                       # 3.9.2 及之前的行为
+    old_rel = 0
     detected = old_rel == 0 and new_rel > 0.25 * len(raw)
     return detected, 'old=%d new=%d len=%d' % (old_rel, new_rel, len(raw))
-
 
 def case_old_buggy_offset():
     """
@@ -479,11 +418,10 @@ def case_old_buggy_offset():
     rects = make_rects(raw)
     x, y = center_of(7)
     offset = nearest_char(rects, x, y)
-    old_rel = sentence_start(raw, offset)          # 没减前导空白
+    old_rel = sentence_start(raw, offset)
     trimmed = raw.strip()
     old_head = trimmed[old_rel:] if old_rel < len(trimmed) else ""
     return old_head != "欢迎光临。", old_head
-
 
 CASES = [
     ("单列从上到下", case_single_column),
@@ -508,7 +446,6 @@ CASES = [
     ("对照：旧算法确实切错", case_old_buggy_offset),
 ]
 
-
 def run_once():
     failed = 0
     for name, fn in CASES:
@@ -516,7 +453,6 @@ def run_once():
         failed += 0 if ok else 1
         print(("PASS" if ok else "FAIL"), "-", name, "" if ok else ("→ %r" % (detail,)))
     return failed
-
 
 def main():
     total = 0
@@ -526,7 +462,6 @@ def main():
     if total:
         raise SystemExit("TextLayout 累计 %d 个用例失败" % total)
     print("TextLayout 两遍全部通过 ✅")
-
 
 if __name__ == "__main__":
     main()
