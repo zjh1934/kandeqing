@@ -6,7 +6,7 @@
 
 **不联网 · 不上传 · 不用 OCR · 不学手势 · 免费开源**
 
-[![版本](https://img.shields.io/badge/version-3.9.17-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![版本](https://img.shields.io/badge/version-3.9.18-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![网络权限](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![协议](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -23,13 +23,17 @@
 
 ## 30 秒看懂
 
-屏幕边上常驻一个小球，只有两个动作：
+屏幕边上常驻一个小球，动作就这几个：
 
 | 你想干什么 | 怎么做 |
 |---|---|
 | **字太小，看不清** | **按住球** → 画面放大，手指挪到哪看到哪，松手还原 |
 | **不想用眼睛了** | **点一下球** → **点屏幕上那段字** → 从这句开始念给你听 |
+| **刚复制了一段话** | **双击球** → 直接念剪贴板（默认开，可关） |
+| **复制完就想听** | 「朗读」页打开「复制后自动朗读」（默认关） |
 | **不想听了** | **再点一下球** |
+
+双击判定不拖慢单击：第一次点球照旧进选字态，第二次在双击窗口内就把这次选字作废，改念剪贴板，不会叠音。剪贴板内容只在本地交给语音引擎，日志不记正文。
 
 装完开一次无障碍，以后不用管。**不需要注册、不需要登录、不需要联网。**
 
@@ -58,9 +62,9 @@ flowchart LR
 | Select to Speak / TalkBack | ❌ | 部分 | ✅ | **要学** | 否 |
 | OCR 选区朗读类 | ❌ | ✅ | ✅ | 要框选 | **要截图 + OCR** |
 | 剪贴板朗读类 | ❌ | ❌（要先复制） | ✅ | 否 | 否 |
-| **看得清** | **✅** | **✅** | **✅** | **两个动作** | **都不需要** |
+| **看得清** | **✅** | **✅** | **✅** | **点 / 按住 / 双击** | **都不需要** |
 
-**我们的取舍很明确**：只走 Android 官方 `AccessibilityNodeInfo` 树，不截图、不做 OCR、不引入模型。
+**我们的取舍很明确**：屏幕取字只走 Android 官方 `AccessibilityNodeInfo` 树，不截图、不做 OCR、不引入模型；双击念剪贴板走系统 `ClipboardManager`，同样零网络、零截图。
 换来的是**点一下就出声、零网络权限、屏幕内容一步都不出手机**；代价是图片里的字、游戏/Canvas 自绘的字读不到。
 这不是缺陷没修完，是刻意选的路 —— 需要读图片里的字，OCR 类工具更合适。
 
@@ -71,7 +75,7 @@ flowchart LR
 
 ## 装上就能用
 
-**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kanqing-3.9.17.apk`）
+**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kanqing-3.9.18.apk`）
 
 1. 点开下载好的文件 → 提示「未知来源」时选 **允许 / 继续**（安卓对所有非商店应用的统一提醒，不是软件有问题）
 2. 装完打开 → 按首页提示去 **设置 → 无障碍 → 看得清 → 打开**

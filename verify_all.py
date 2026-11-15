@@ -9,6 +9,7 @@
   verify_speak.py     —— TtsManager 长文本切段（4000 字上限）
   verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
   verify_ball.py      —— 球定位数值模拟 + 控制实心/朗读空心的静态断言
+  verify_clipboard.py —— 双击读剪贴板 / 复制后自动朗读 / 隐私与默认值
 
 跑三遍，全绿才准提交。
 
@@ -25,7 +26,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["verify_structure.py", "verify_textlayout.py",
           "verify_grabber.py", "verify_speak.py", "verify_calls.py",
-          "verify_ball.py"]
+          "verify_ball.py", "verify_clipboard.py"]
 PASSES = 3
 
 def main():

@@ -5,6 +5,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -53,6 +56,10 @@ public class ComboService extends AccessibilityService
     private int pickSeq = 0;
 
     private boolean pickAbortedByUser = true;
+
+    private ClipboardManager clipMgr;
+    private ClipboardManager.OnPrimaryClipChangedListener clipListener;
+    private String lastAutoClipText = null;
 
     public static boolean isRunning() {
         return instance != null;
@@ -119,6 +126,7 @@ public class ComboService extends AccessibilityService
         });
 
         startFg();
+        registerClipListener();
         if (prefs.ballOn()) {
             Log.i("svc", "开关是开的，准备显示球");
             ball.show();
@@ -359,6 +367,164 @@ public class ComboService extends AccessibilityService
     }
 
     @Override
+    public void onDoubleTap() {
+        if (prefs == null) {
+            initOnce();
+        }
+        if (!prefs.clipTapRead()) {
+            onTap();
+            return;
+        }
+        Haptics.tap();
+        abortPendingGrab(true);
+        removeOverlay();
+        h.removeCallbacks(pickTimeout);
+        readClipboardAloud(false);
+    }
+
+    private void registerClipListener() {
+        try {
+            clipMgr = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipMgr == null) {
+                return;
+            }
+            clipListener = new ClipboardManager.OnPrimaryClipChangedListener() {
+                @Override
+                public void onPrimaryClipChanged() {
+                    h.post(clipAutoTask);
+                }
+            };
+            clipMgr.addPrimaryClipChangedListener(clipListener);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private final Runnable clipAutoTask = new Runnable() {
+        @Override
+        public void run() {
+            if (instance != ComboService.this) {
+                return;
+            }
+            if (prefs == null || !prefs.clipAutoRead()) {
+                return;
+            }
+            if (zooming || waitingSpeak || state != ST_IDLE) {
+                return;
+            }
+            String text = readClipboardText();
+            if (text == null || text.trim().length() == 0) {
+                return;
+            }
+            if (text.equals(lastAutoClipText)) {
+                return;
+            }
+            lastAutoClipText = text;
+            speakClipboardText(text, true);
+        }
+    };
+
+    private void readClipboardAloud(boolean auto) {
+        String text = readClipboardText();
+        if (text == null) {
+            if (!auto) {
+                toast("读不到剪贴板，可能受系统限制");
+                Haptics.error();
+                toIdle();
+            }
+            return;
+        }
+        speakClipboardText(text, auto);
+    }
+
+    private void speakClipboardText(String text, boolean auto) {
+        if (text.trim().length() == 0) {
+            if (!auto) {
+                toast("剪贴板是空的");
+                Haptics.error();
+                toIdle();
+            }
+            return;
+        }
+        if (!TtsManager.isReady()) {
+            if (!auto) {
+                toast("语音引擎还没准备好");
+                Haptics.error();
+                toIdle();
+            }
+            return;
+        }
+        Log.i("clip", (auto ? "自动" : "双击") + "朗读剪贴板 " + text.length() + " 字");
+        speakNow(text);
+    }
+
+    private String readClipboardText() {
+        try {
+            if (clipMgr == null) {
+                clipMgr = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            }
+            if (clipMgr == null) {
+                return null;
+            }
+            ClipData clip = clipMgr.getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) {
+                return null;
+            }
+            ClipDescription desc = clip.getDescription();
+            if (desc != null) {
+                CharSequence label = desc.getLabel();
+                if (label != null) {
+                    String l = label.toString();
+                    if (l.startsWith("看得清") || l.equals("微信号")) {
+                        return null;
+                    }
+                }
+            }
+            CharSequence cs = clip.getItemAt(0).getText();
+            if (cs == null) {
+                cs = clip.getItemAt(0).coerceToText(this);
+            }
+            return cs == null ? null : cs.toString();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void speakNow(String text) {
+        if (text == null || text.trim().length() == 0) {
+            toast("这里没读到文字");
+            Haptics.error();
+            toIdle();
+            return;
+        }
+        if (!TtsManager.isReady()) {
+            toast("语音引擎还没准备好");
+            Haptics.error();
+            toIdle();
+            return;
+        }
+        if (state == ST_SPEAKING || waitingSpeak) {
+            TtsManager.stop();
+        }
+        waitingSpeak = false;
+        h.removeCallbacks(speakWatchdog);
+        h.removeCallbacks(pickTimeout);
+        h.removeCallbacks(forceStopTask);
+        boolean ok = TtsManager.speak(text, prefs.rate(), prefs.pitch());
+        if (!ok) {
+            toast("朗读失败");
+            Haptics.error();
+            toIdle();
+            return;
+        }
+        Log.state(stName(state), stName(ST_SPEAKING), "开始朗读 " + text.length() + " 字");
+        state = ST_SPEAKING;
+        if (ball != null) {
+            ball.setState(BallView.ST_SPEAKING);
+        }
+        h.postDelayed(speakWatchdog, guardMs(text.length()));
+    }
+
+    @Override
     public void onMoved(int x, int y) {
         if (prefs != null) {
             prefs.setBallPos(x, y);
@@ -506,34 +672,12 @@ public class ComboService extends AccessibilityService
             }
             return;
         }
-        if (!TtsManager.isReady()) {
-            toast("语音引擎还没准备好");
-            Haptics.error();
-            toIdle();
-            return;
-        }
         if (text == null || text.trim().length() == 0) {
             Log.w("grab", "什么都没抓到");
-            toast("这里没读到文字");
-            Haptics.error();
-            toIdle();
-            return;
+        } else {
+            Log.i("grab", "抓到 " + text.length() + " 字");
         }
-        Log.i("grab", "抓到 " + text.length() + " 字");
-        boolean ok = TtsManager.speak(text, prefs.rate(), prefs.pitch());
-        if (!ok) {
-            toast("朗读失败");
-            Haptics.error();
-            toIdle();
-            return;
-        }
-        Log.state(stName(state), stName(ST_SPEAKING), "开始朗读 " + text.length() + " 字");
-        state = ST_SPEAKING;
-        if (ball != null) {
-            ball.setState(BallView.ST_SPEAKING);
-        }
-        h.removeCallbacks(speakWatchdog);
-        h.postDelayed(speakWatchdog, guardMs(text.length()));
+        speakNow(text);
     }
 
     public static void stopBallSpeaking() {
@@ -755,6 +899,16 @@ public class ComboService extends AccessibilityService
 
     private void teardown() {
         closeAll();
+        h.removeCallbacks(clipAutoTask);
+        if (clipMgr != null && clipListener != null) {
+            try {
+                clipMgr.removePrimaryClipChangedListener(clipListener);
+            } catch (Throwable ignored) {
+            }
+        }
+        clipMgr = null;
+        clipListener = null;
+        lastAutoClipText = null;
         TtsManager.setSpeechListener(null);
         TtsManager.release();
         if (grabThread != null) {

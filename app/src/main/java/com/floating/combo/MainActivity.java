@@ -457,6 +457,27 @@ public class MainActivity extends Activity
                             }
                         })), groupLp());
 
+        TextView clipHint = Ui.caption(this,
+                "复制的文字只在本地朗读，不记录、不上传；部分系统可能限制后台读剪贴板");
+        clipHint.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
+                Ui.dp(this, 12), Ui.dp(this, 8));
+        page.addView(Ui.group(this, "剪贴板",
+                Ui.switchRow(this, "双击球读剪贴板", prefs.clipTapRead(),
+                        new OnToggle() {
+                            @Override
+                            public void on(boolean on) {
+                                prefs.setClipTapRead(on);
+                            }
+                        }),
+                Ui.switchRow(this, "复制后自动朗读", prefs.clipAutoRead(),
+                        new OnToggle() {
+                            @Override
+                            public void on(boolean on) {
+                                prefs.setClipAutoRead(on);
+                            }
+                        }),
+                clipHint), groupLp());
+
         btnTry = Ui.primaryButton(this, "试听一句");
         btnTry.setOnClickListener(new View.OnClickListener() {
             @Override
