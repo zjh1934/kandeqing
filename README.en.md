@@ -6,7 +6,7 @@
 
 **No internet permission · No OCR · No account · No gestures to memorize · Free & open source**
 
-[![version](https://img.shields.io/badge/version-3.9.18-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![version](https://img.shields.io/badge/version-3.9.19-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![no internet permission](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -22,15 +22,24 @@
 
 ## What it does in 30 seconds
 
-A small ball stays at the edge of your screen. Just a few gestures:
+Two independent floating balls, each draggable on its own:
 
-| You want to | You do |
-|---|---|
-| **Text is too small** | **Hold the ball** → screen magnifies, follows your finger, release to restore |
-| **Give your eyes a rest** | **Tap the ball** → **tap the text on screen** → it reads from that sentence |
-| **Just copied some text** | **Double-tap the ball** → reads the clipboard (on by default, can be turned off) |
-| **Want copies read aloud** | Enable "Read new clipboard content" on the Read tab (off by default) |
-| **Stop listening** | **Tap the ball again** |
+| Ball | You want to | You do |
+|---|---|---|
+| **White** | Text is too small | **Hold** → screen magnifies, follows your finger, release to restore |
+| **White** | Give your eyes a rest | **Tap white ball** → **tap the text on screen** → it reads from that sentence |
+| **Green** | Just copied some text | **Tap the green speaker ball** → reads the clipboard; **tap again** while speaking to stop |
+| | Want copies read automatically | Enable "Auto-read new clipboard content" on the Read tab (off by default) |
+
+The green ball appears only when "Copy & Read" is on (default on). Its look follows
+the open-source [TapRead](https://github.com/DLWangSan/tapread) green speaker ball.
+There is **no double-tap and no gesture conflict** — one tap on the white ball is
+always one tap, one tap on the green ball always reads the clipboard.
+
+Android 10+ blocks background clipboard reads, so the green ball briefly obtains
+an accessibility focus window to read. No screenshots, no OCR, no network;
+clipboard text stays on device and is never written to logs. Android 13+ may show
+its own "app read clipboard" toast — that is a system behavior.
 
 Enable the accessibility service once after install. No sign-up, no login, no network.
 
@@ -73,7 +82,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 ## Install
 
-**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.18.apk` under Assets).
+**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.19.apk` under Assets).
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.

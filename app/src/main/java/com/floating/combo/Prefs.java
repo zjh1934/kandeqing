@@ -35,7 +35,7 @@ public class Prefs {
             "只读一句", "读到段末", "读到屏底"
     };
 
-    public static final boolean DEF_CLIP_TAP_READ = true;
+    public static final boolean DEF_CLIP_READ = true;
     public static final boolean DEF_CLIP_AUTO_READ = false;
 
     private static final String K_BALL_ON = "ball_on";
@@ -56,8 +56,10 @@ public class Prefs {
     private static final String K_HAPTIC = "haptic";
     private static final String K_THEME_MODE = "theme_mode";
     private static final String K_READ_SCOPE = "read_scope";
-    private static final String K_CLIP_TAP_READ = "clip_tap_read";
+    private static final String K_CLIP_READ = "clip_read";
     private static final String K_CLIP_AUTO_READ = "clip_auto_read";
+    private static final String K_CLIP_BALL_X = "clip_ball_x";
+    private static final String K_CLIP_BALL_Y = "clip_ball_y";
 
     private final SharedPreferences sp;
 
@@ -264,12 +266,12 @@ public class Prefs {
         sp.edit().putInt(K_READ_SCOPE, v).apply();
     }
 
-    public boolean clipTapRead() {
-        return sp.getBoolean(K_CLIP_TAP_READ, DEF_CLIP_TAP_READ);
+    public boolean clipRead() {
+        return sp.getBoolean(K_CLIP_READ, DEF_CLIP_READ);
     }
 
-    public void setClipTapRead(boolean v) {
-        sp.edit().putBoolean(K_CLIP_TAP_READ, v).apply();
+    public void setClipRead(boolean v) {
+        sp.edit().putBoolean(K_CLIP_READ, v).apply();
     }
 
     public boolean clipAutoRead() {
@@ -278,5 +280,21 @@ public class Prefs {
 
     public void setClipAutoRead(boolean v) {
         sp.edit().putBoolean(K_CLIP_AUTO_READ, v).apply();
+    }
+
+    public boolean hasClipBallPos() {
+        return sp.contains(K_CLIP_BALL_X) && sp.contains(K_CLIP_BALL_Y);
+    }
+
+    public int clipBallX() {
+        return sp.getInt(K_CLIP_BALL_X, 0);
+    }
+
+    public int clipBallY() {
+        return sp.getInt(K_CLIP_BALL_Y, 0);
+    }
+
+    public void setClipBallPos(int x, int y) {
+        sp.edit().putInt(K_CLIP_BALL_X, x).putInt(K_CLIP_BALL_Y, y).apply();
     }
 }

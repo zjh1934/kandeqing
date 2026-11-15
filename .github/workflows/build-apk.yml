@@ -106,7 +106,7 @@ jobs:
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.18：新增剪贴板朗读。双击悬浮球念剪贴板（开关「双击球读剪贴板」默认开），复制新内容自动念（开关「复制后自动朗读」默认关）。两个开关都在「朗读」页的「剪贴板」分组。双击判定用系统双击超时，单击不加任何等待；第一次点球进入选字态、第二次直接作废改读剪贴板，不叠音。自动朗读在放大/选字/朗读中会让路，不打断主动点字；内容去重、App 自己复制的分享文案和微信号不念。剪贴板内容只在本地传给 TTS，日志只记字数不记正文，零网络权限不变。Android 10 起系统可能限制后台读剪贴板，取不到时会提示，需真机验证。抓字、放大、球定位、四态形态、TTS 其余部分一行没动。verify_all 7 套三轮全绿。versionCode 48 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.19：复制朗读改成两个独立悬浮球，取代 3.9.18 的双击方案（双击抢手势，且 Android 10+ 后台读剪贴板被系统拒绝，功能等于没实现）。「复制朗读」开关默认开，打开后多一个绿色喇叭球，样子照开源项目 DLWangSan/tapread（点读）的 #0F7A4F 实心圆 + 白色喇叭。两个球各有独立 WindowManager 窗口、独立拖动、独立记位置，互不抢手势；白球仍管按住放大与点字朗读，绿球点一下念剪贴板、朗读中再点一下停止，没有双击。剪贴板读取按平台规则：getPrimaryClip 无清单权限，Android 10 起只有默认输入法或当前有输入焦点的应用能读，所以删掉全部后台剪贴板监听，改走 1×1 TYPE_ACCESSIBILITY_OVERLAY 焦点窗临时取得焦点再读（点读无障碍服务的原版做法）；TYPE_ACCESSIBILITY_OVERLAY 不需要 SYSTEM_ALERT_WINDOW，Manifest 没新增 INTERNET/READ_CLIPBOARD。「复制后自动朗读」默认关，改为无障碍复制事件驱动：监听点了「复制/copy」节点或「已复制/copied」反馈，延迟 280/120ms 后读，服务连接 200ms 记基线不念旧内容，内容去重，过滤少于 2 字、超 4000 字、验证码与纯 4-8 位数字，1200ms 内同内容不重复；放大/选字/朗读中让路。日志只记字数不记正文，零网络权限不变。Android 13 起系统自己弹的「已读取剪贴板」提示无法抑制，个别 ROM 焦点窗可能仍读不到，需真机验证。抓字、放大、球心对齐触点、四态形态、TTS 其余一行没动。verify_all 7 套三轮全绿。versionCode 49 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

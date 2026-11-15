@@ -7,7 +7,6 @@ import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -27,8 +26,6 @@ public class BallController implements View.OnTouchListener {
 
         void onTap();
 
-        void onDoubleTap();
-
         void onMoved(int x, int y);
     }
 
@@ -37,7 +34,6 @@ public class BallController implements View.OnTouchListener {
     private static final int ST_DRAG_BALL = 2;
     private static final int ST_ZOOMING = 3;
     private static final long IDLE_MS = 2500;
-    private static final int DOUBLE_TAP_MS = ViewConfiguration.getDoubleTapTimeout();
 
     private final Context ctx;
     private final WindowManager wm;
@@ -54,9 +50,6 @@ public class BallController implements View.OnTouchListener {
     private float downRawX, downRawY;
     private float lastFx, lastFy;
     private boolean faded = false;
-    private long lastTapMs = 0;
-    private float lastTapX = 0, lastTapY = 0;
-    private final int doubleSlop;
 
     private int screenW = 0, screenH = 0;
     private ValueAnimator settleAnim = null;
@@ -67,7 +60,6 @@ public class BallController implements View.OnTouchListener {
         prefs = p;
         zoom = z;
         this.cb = cb;
-        doubleSlop = ViewConfiguration.get(c).getScaledTouchSlop() * 2;
         measure();
     }
 
@@ -334,24 +326,10 @@ public class BallController implements View.OnTouchListener {
 
                 if (st == ST_PENDING) {
                     if (!cancel && cb != null) {
-                        long now = SystemClock.uptimeMillis();
-                        boolean isDouble = lastTapMs > 0
-                                && (now - lastTapMs) <= DOUBLE_TAP_MS
-                                && Math.abs(fx - lastTapX) <= doubleSlop
-                                && Math.abs(fy - lastTapY) <= doubleSlop;
-                        if (isDouble) {
-                            lastTapMs = 0;
-                            cb.onDoubleTap();
-                        } else {
-                            lastTapMs = now;
-                            lastTapX = fx;
-                            lastTapY = fy;
-                            cb.onTap();
-                        }
+                        cb.onTap();
                     }
-                } else {
-                    lastTapMs = 0;
-                    if (st == ST_ZOOMING && cb != null) {
+                } else if (st == ST_ZOOMING) {
+                    if (cb != null) {
                         cb.onZoomEnd();
                     }
                 }

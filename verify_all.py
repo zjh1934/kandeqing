@@ -9,7 +9,7 @@
   verify_speak.py     —— TtsManager 长文本切段（4000 字上限）
   verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
   verify_ball.py      —— 球定位数值模拟 + 控制实心/朗读空心的静态断言
-  verify_clipboard.py —— 双击读剪贴板 / 复制后自动朗读 / 隐私与默认值
+  verify_clipboard.py —— 双球独立 / 无双击 / 焦点读剪贴板 / 复制事件驱动 / 隐私
 
 跑三遍，全绿才准提交。
 

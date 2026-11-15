@@ -1,9 +1,9 @@
 """
-剪贴板朗读自检（3.9.18）。
+剪贴板朗读自检（3.9.19）。
 
-沙盒没有 Android 运行时，用静态断言 + 纯逻辑镜像兜底：
-开关默认值、双击判定不给单击加延迟、自动朗读不打断用户操作、
-剪贴板正文不进日志、App 自己写入的剪贴板不念、监听成对注销。
+对照开源项目 DLWangSan/tapread（点读）的实现做静态断言 + 纯逻辑镜像：
+两个独立悬浮球、没有双击手势冲突、Android 10+ 靠无障碍焦点读剪贴板、
+复制事件驱动自动读、文本过滤与去重、隐私边界。
 
 跑两遍，全绿才算过。
 """
@@ -30,118 +30,188 @@ def read(name):
     return io.open(os.path.join(JAVA, name), encoding="utf-8").read()
 
 
-@case("默认：双击读剪贴板开，复制后自动朗读关")
+@case("默认：复制朗读开（第二球出现），复制后自动朗读关")
 def c_defaults():
     t = read("Prefs.java")
-    ok = ("DEF_CLIP_TAP_READ = true" in t
+    ok = ("DEF_CLIP_READ = true" in t
           and "DEF_CLIP_AUTO_READ = false" in t
-          and re.search(r"clipTapRead\(\)\s*\{\s*return sp\.getBoolean\(K_CLIP_TAP_READ,\s*DEF_CLIP_TAP_READ\)", t) is not None
+          and re.search(r"clipRead\(\)\s*\{\s*return sp\.getBoolean\(K_CLIP_READ,\s*DEF_CLIP_READ\)", t) is not None
           and re.search(r"clipAutoRead\(\)\s*\{\s*return sp\.getBoolean\(K_CLIP_AUTO_READ,\s*DEF_CLIP_AUTO_READ\)", t) is not None)
-    return ok, t[:0]
+    return ok, ""
 
 
-@case("两个开关都在朗读页，且都接 Prefs")
+@case("两个开关在朗读页，复制朗读开关会立刻刷新服务")
 def c_ui():
     t = read("MainActivity.java")
-    ok = ("Ui.switchRow(this, \"双击球读剪贴板\", prefs.clipTapRead()" in t
+    ok = ("Ui.switchRow(this, \"复制朗读\", prefs.clipRead()" in t
           and "Ui.switchRow(this, \"复制后自动朗读\", prefs.clipAutoRead()" in t
-          and "prefs.setClipTapRead(on);" in t
+          and "prefs.setClipRead(on);" in t
+          and "ComboService.refresh();" in t
           and "prefs.setClipAutoRead(on);" in t
           and "Ui.group(this, \"剪贴板\"" in t)
-    return ok, t[:0]
+    return ok, ""
 
 
-@case("双击判定用系统超时 + 位移容差，且单击没有被延迟")
-def c_double():
+@case("单击零延迟：BallController 里没有任何双击残留")
+def c_no_double():
     t = read("BallController.java")
-    ok = ("ViewConfiguration.getDoubleTapTimeout()" in t
-          and "(now - lastTapMs) <= DOUBLE_TAP_MS" in t
-          and "Math.abs(fx - lastTapX) <= doubleSlop" in t
-          and "Math.abs(fy - lastTapY) <= doubleSlop" in t
-          and "cb.onDoubleTap();" in t
-          and "cb.onTap();" in t
-          and "void onDoubleTap();" in t)
-    no_delay = not re.search(r"postDelayed\([^;]*onTap", t)
-    i_restore = t.find("view.setState(BallView.ST_NORMAL);")
-    i_tap = t.find("cb.onTap();")
-    ok = ok and no_delay and 0 < i_restore < i_tap
-    return ok, ("no_delay=%s order=%s" % (no_delay, 0 < i_restore < i_tap))
+    banned = ["onDoubleTap", "DOUBLE_TAP_MS", "lastTapMs", "lastTapX",
+              "doubleSlop", "SystemClock", "isDouble"]
+    left = [x for x in banned if x in t]
+    ok = (not left and "cb.onTap();" in t)
+    return ok, left
 
 
-def mirror(now, last_ms, fx, last_x, fy, last_y, timeout=300, slop=20):
-    is_double = (last_ms > 0 and now - last_ms <= timeout
-                 and abs(fx - last_x) <= slop and abs(fy - last_y) <= slop)
-    return "double" if is_double else "single"
+@case("第二球是独立的 WindowManager 球，位置单独存")
+def c_second_ball():
+    t = read("ClipBallController.java")
+    ok = ("new ClipBallView(ctx)" in t
+          and "TYPE_ACCESSIBILITY_OVERLAY" in t
+          and "wm.addView(view, lp)" in t
+          and "prefs.hasClipBallPos()" in t
+          and "prefs.setClipBallPos" not in t
+          and "cb.onClipTap();" in t
+          and "cb.onClipMoved(lp.x, lp.y);" in t)
+    return ok, ""
 
 
-@case("镜像：窗口内且近 → 双击；超时 / 位移大 → 单击；第三次不算双击")
+@case("第二球外观抄点读：绿色 #0F7A4F + 白色喇叭")
+def c_look():
+    t = read("ClipBallView.java")
+    ok = ("0xFF0F7A4F" in t and "GREEN_DEEP" in t
+          and "drawCircle" in t and "drawPath" in t
+          and "drawArc" in t and "Color.WHITE" in t)
+    return ok, ""
+
+
+@case("服务持有两个球，开关同步显隐")
+def c_service_balls():
+    t = read("ComboService.java")
+    ok = ("implements BallController.Callback, ClipBallController.Callback" in t
+          and "private ClipBallController clipBall;" in t
+          and "private ClipReader clipReader;" in t
+          and "clipBall = new ClipBallController(this, prefs, this);" in t
+          and "clipReader = new ClipReader(this);" in t
+          and "syncClipBall();" in t
+          and "public void onClipTap()" in t
+          and "public void onClipMoved(int x, int y)" in t
+          and "clipBall.setSpeaking(true)" in t
+          and "clipBall.setSpeaking(false)" in t)
+    return ok, ""
+
+
+@case("点第二球：朗读中停止，否则读剪贴板（无双击）")
+def c_tap_path():
+    t = read("ComboService.java")
+    ok = ("if (state == ST_SPEAKING)" in t
+          and "stopSpeaking();" in t
+          and "readClipAndSpeak(false);" in t
+          and "Haptics.tap();" in t)
+    return ok, ""
+
+
+@case("Android 10+ 不靠后台剪贴板监听，改靠无障碍焦点窗")
+def c_focus():
+    t = read("ClipReader.java")
+    svc = read("ComboService.java")
+    ok = ("readWithFocusProxy" in t
+          and "TYPE_ACCESSIBILITY_OVERLAY" in t
+          and "v.requestFocus()" in t
+          and "postDelayed" in t
+          and "removeFocusProxy()" in t
+          and "addPrimaryClipChangedListener" not in t
+          and "addPrimaryClipChangedListener" not in svc
+          and "OnPrimaryClipChangedListener" not in t
+          and "OnPrimaryClipChangedListener" not in svc)
+    return ok, ""
+
+
+@case("自动读由复制事件驱动，不是靠剪贴板轮询")
+def c_auto_event():
+    t = read("ComboService.java")
+    ok = ("maybeScheduleAutoRead(event)" in t
+          and "TYPE_NOTIFICATION_STATE_CHANGED" in t
+          and "TYPE_ANNOUNCEMENT" in t
+          and "TYPE_VIEW_CLICKED" in t
+          and "ClipReader.isCopyFeedback(event)" in t
+          and "ClipReader.isCopyClick(event)" in t
+          and "delay = 120" in t and "delay = 280" in t
+          and "h.postDelayed(clipAutoTask, delay)" in t
+          and "prefs.clipAutoRead()" in t
+          and "state != ST_IDLE" in t)
+    return ok, ""
+
+
+@case("文本过滤：短文本 / 超长 / 验证码 / 纯数字")
+def c_cleaner():
+    t = read("ClipReader.java")
+    ok = ("s.length() < 2 || s.length() > 4000" in t
+          and "验证码|校验码|code" in t
+          and "d{4,8}$" in t
+          and "shouldSpeakAuto" in t
+          and "baselineReady" in t
+          and "lastSpoken" in t
+          and "1200" in t)
+    return ok, ""
+
+
+@case("镜像：clean / shouldSkip 与点读一致")
 def c_mirror():
-    seq = [
-        (1000, 0, 200, 0, 300, 0, "single"),
-        (1200, 1000, 205, 200, 303, 300, "double"),
-        (1500, 0, 200, 200, 300, 300, "single"),
-        (1001, 700, 200, 200, 300, 300, "single"),
-        (1000, 900, 260, 200, 300, 300, "single"),
+    def clean(raw):
+        s = re.sub(r"[\r\n]+", "。", raw.replace("\u00a0", " "))
+        s = re.sub(r"\s+", " ", s).strip()
+        s = s.strip("。，, . \t")
+        return s.strip()
+
+    def skip(raw):
+        s = clean(raw)
+        if len(s) < 2 or len(s) > 4000:
+            return True
+        return (re.match(r"(?i)^(验证码|校验码|code)[:：\s]*\d{4,8}$", s)
+                is not None) or (re.match(r"^\d{4,8}$", s) is not None)
+
+    samples = [
+        ("  复制的文字\n换行  ", False),
+        ("a", True),
+        ("", True),
+        ("验证码：123456", True),
+        ("123456", True),
+        ("这是一段正常的文字，应该念出来。", False),
     ]
-    bad = [(a, mirror(*a[:6]), a[6]) for a in seq if mirror(*a[:6]) != a[6]]
-    return not bad, bad
+    bad = [(raw, skip(raw), want) for raw, want in samples if skip(raw) != want]
+    ok = clean("  甲\n乙  ") == "甲。乙"
+    return (not bad and ok), (bad, clean("  甲\n乙  "))
 
 
-@case("自动朗读：只在待命态、开关开、内容不同才读")
-def c_auto():
-    t = read("ComboService.java")
-    ok = ("if (prefs == null || !prefs.clipAutoRead())" in t
-          and "if (zooming || waitingSpeak || state != ST_IDLE)" in t
-          and "if (text.equals(lastAutoClipText))" in t
-          and "lastAutoClipText = text;" in t
-          and "h.removeCallbacks(clipAutoTask);" in t)
-    return ok, t[:0]
-
-
-@case("双击：开关关时退回原行为，开时作废选字并读剪贴板")
-def c_tap():
-    t = read("ComboService.java")
-    ok = ("public void onDoubleTap()" in t
-          and "if (!prefs.clipTapRead())" in t
-          and "onTap();" in t
-          and "abortPendingGrab(true);" in t
-          and "removeOverlay();" in t
-          and "readClipboardAloud(false);" in t)
-    return ok, t[:0]
-
-
-@case("监听成对注册 / 注销")
-def c_listener():
-    t = read("ComboService.java")
-    ok = ("addPrimaryClipChangedListener(clipListener)" in t
-          and "removePrimaryClipChangedListener(clipListener)" in t
-          and "registerClipListener();" in t
-          and "OnPrimaryClipChangedListener" in t)
-    return ok, t[:0]
-
-
-@case("日志只记字数，剪贴板正文一个字都不进日志")
+@case("隐私：日志只记字数，自写剪贴板不念，零网络")
 def c_privacy():
-    t = read("ComboService.java")
-    clip_logs = re.findall(r"Log\.[a-z]+\(\"clip\"[^;]*;", t)
-    bad = [x for x in clip_logs if "text" in x and ".length()" not in x]
-    ok = len(clip_logs) >= 1 and not bad
-    return ok, (clip_logs, bad)
+    t = read("ClipReader.java")
+    svc = read("ComboService.java")
+    logs = re.findall(r"Log\.[a-z]+\(\"clip\"[^;]*;", svc)
+    bad = [x for x in logs if "cleaned" in x and ".length()" not in x]
+    ok = ('l.startsWith("看得清")' in t
+          and 'l.equals("微信号")' in t
+          and not bad and len(logs) >= 1)
+    return ok, (logs, bad)
 
 
-@case("App 自己复制的分享文案 / 微信号不念")
-def c_self():
-    t = read("ComboService.java")
-    return ("l.startsWith(\"看得清\")" in t
-            and "l.equals(\"微信号\")" in t), t[:0]
+@case("Manifest 没有新增网络 / 剪贴板权限")
+def c_manifest():
+    p = os.path.join(ROOT, "app", "src", "main", "AndroidManifest.xml")
+    t = io.open(p, encoding="utf-8").read()
+    bad = [k for k in ("android.permission.INTERNET",
+                       "android.permission.READ_CLIPBOARD",
+                       "android.permission.WRITE_CLIPBOARD") if k in t]
+    ok = not bad
+    return ok, bad
 
 
-@case("抓字链路仍复用同一份 speakNow，没有第二套朗读")
+@case("两个球共用一套 TTS，没有第二套朗读")
 def c_single_speak():
     t = read("ComboService.java")
     ok = (t.count("TtsManager.speak(") == 1
-          and "speakNow(text);" in t
-          and "private void startSpeak(String text, int seq)" in t)
+          and "speakNow(cleaned);" in t
+          and "speakNow(text);" in t)
     return ok, t.count("TtsManager.speak(")
 
 

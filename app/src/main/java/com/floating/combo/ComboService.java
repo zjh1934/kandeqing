@@ -5,9 +5,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.ClipData;
-import android.content.ClipDescription;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -26,7 +23,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
 public class ComboService extends AccessibilityService
-        implements BallController.Callback {
+        implements BallController.Callback, ClipBallController.Callback {
 
     private static final int ST_IDLE = 0;
     private static final int ST_PICKING = 1;
@@ -36,6 +33,8 @@ public class ComboService extends AccessibilityService
 
     private Prefs prefs;
     private BallController ball;
+    private ClipBallController clipBall;
+    private ClipReader clipReader;
     private ZoomController zoom;
     private TextGrabber grabber;
 
@@ -57,9 +56,6 @@ public class ComboService extends AccessibilityService
 
     private boolean pickAbortedByUser = true;
 
-    private ClipboardManager clipMgr;
-    private ClipboardManager.OnPrimaryClipChangedListener clipListener;
-    private String lastAutoClipText = null;
 
     public static boolean isRunning() {
         return instance != null;
@@ -126,7 +122,15 @@ public class ComboService extends AccessibilityService
         });
 
         startFg();
-        registerClipListener();
+        h.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (clipReader != null) {
+                    clipReader.snapshotBaseline();
+                }
+            }
+        }, 200);
+        syncClipBall();
         if (prefs.ballOn()) {
             Log.i("svc", "开关是开的，准备显示球");
             ball.show();
@@ -142,7 +146,13 @@ public class ComboService extends AccessibilityService
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null || state != ST_PICKING) {
+        if (event == null) {
+            return;
+        }
+        if (prefs != null && prefs.clipAutoRead()) {
+            maybeScheduleAutoRead(event);
+        }
+        if (state != ST_PICKING) {
             return;
         }
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
@@ -157,6 +167,25 @@ public class ComboService extends AccessibilityService
         abortPendingGrab(systemUi);
         removeOverlay();
         toIdle();
+    }
+
+    private void maybeScheduleAutoRead(AccessibilityEvent event) {
+        int type = event.getEventType();
+        long delay = 0;
+        if (type == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
+                || type == AccessibilityEvent.TYPE_ANNOUNCEMENT) {
+            if (ClipReader.isCopyFeedback(event)) {
+                delay = 120;
+            }
+        } else if (type == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            if (ClipReader.isCopyClick(event)) {
+                delay = 280;
+            }
+        }
+        if (delay > 0) {
+            h.removeCallbacks(clipAutoTask);
+            h.postDelayed(clipAutoTask, delay);
+        }
     }
 
     private static boolean isSystemUiEvent(AccessibilityEvent e, CharSequence pkg) {
@@ -181,6 +210,9 @@ public class ComboService extends AccessibilityService
             return;
         }
         ball.remeasure();
+        if (clipBall != null) {
+            clipBall.remeasure();
+        }
         refreshZoomScreen();
         ball.applyPrefs();
     }
@@ -206,6 +238,7 @@ public class ComboService extends AccessibilityService
             return;
         }
         ball.applyPrefs();
+        syncClipBall();
     }
 
     private void initOnce() {
@@ -229,6 +262,12 @@ public class ComboService extends AccessibilityService
         if (ball == null) {
             ball = new BallController(this, prefs, zoom, this);
             refreshZoomScreen();
+        }
+        if (clipBall == null) {
+            clipBall = new ClipBallController(this, prefs, this);
+        }
+        if (clipReader == null) {
+            clipReader = new ClipReader(this);
         }
     }
 
@@ -277,6 +316,9 @@ public class ComboService extends AccessibilityService
         state = ST_IDLE;
         if (ball != null) {
             ball.hide();
+        }
+        if (clipBall != null) {
+            clipBall.hide();
         }
     }
 
@@ -367,35 +409,46 @@ public class ComboService extends AccessibilityService
     }
 
     @Override
-    public void onDoubleTap() {
-        if (prefs == null) {
-            initOnce();
+    public void onClipTap() {
+        if (zooming) {
+            return;
         }
-        if (!prefs.clipTapRead()) {
-            onTap();
+        if (state == ST_SPEAKING) {
+            Log.i("clip", "朗读中点复制球 → 停止");
+            stopSpeaking();
+            toast("已停止");
+            return;
+        }
+        if (!TtsManager.isReady()) {
+            toast("语音引擎还在初始化，等一两秒");
+            Haptics.error();
             return;
         }
         Haptics.tap();
         abortPendingGrab(true);
         removeOverlay();
         h.removeCallbacks(pickTimeout);
-        readClipboardAloud(false);
+        readClipAndSpeak(false);
     }
 
-    private void registerClipListener() {
-        try {
-            clipMgr = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            if (clipMgr == null) {
-                return;
-            }
-            clipListener = new ClipboardManager.OnPrimaryClipChangedListener() {
-                @Override
-                public void onPrimaryClipChanged() {
-                    h.post(clipAutoTask);
-                }
-            };
-            clipMgr.addPrimaryClipChangedListener(clipListener);
-        } catch (Throwable ignored) {
+    @Override
+    public void onClipMoved(int x, int y) {
+        if (prefs != null) {
+            prefs.setClipBallPos(x, y);
+        }
+    }
+
+    private void syncClipBall() {
+        if (clipBall == null) {
+            initOnce();
+        }
+        if (clipBall == null) {
+            return;
+        }
+        if (prefs.clipRead()) {
+            clipBall.show();
+        } else {
+            clipBall.hide();
         }
     }
 
@@ -411,21 +464,24 @@ public class ComboService extends AccessibilityService
             if (zooming || waitingSpeak || state != ST_IDLE) {
                 return;
             }
-            String text = readClipboardText();
-            if (text == null || text.trim().length() == 0) {
-                return;
-            }
-            if (text.equals(lastAutoClipText)) {
-                return;
-            }
-            lastAutoClipText = text;
-            speakClipboardText(text, true);
+            readClipAndSpeak(true);
         }
     };
 
-    private void readClipboardAloud(boolean auto) {
-        String text = readClipboardText();
-        if (text == null) {
+    private void readClipAndSpeak(final boolean auto) {
+        if (clipReader == null) {
+            return;
+        }
+        clipReader.readOnce(new ClipReader.Result() {
+            @Override
+            public void onText(String text) {
+                onClipText(text, auto);
+            }
+        });
+    }
+
+    private void onClipText(String text, boolean auto) {
+        if (text == null || text.trim().length() == 0) {
             if (!auto) {
                 toast("读不到剪贴板，可能受系统限制");
                 Haptics.error();
@@ -433,16 +489,16 @@ public class ComboService extends AccessibilityService
             }
             return;
         }
-        speakClipboardText(text, auto);
-    }
-
-    private void speakClipboardText(String text, boolean auto) {
-        if (text.trim().length() == 0) {
+        String cleaned = ClipReader.clean(text);
+        if (cleaned.length() == 0) {
             if (!auto) {
                 toast("剪贴板是空的");
                 Haptics.error();
                 toIdle();
             }
+            return;
+        }
+        if (auto && !clipReader.shouldSpeakAuto(cleaned)) {
             return;
         }
         if (!TtsManager.isReady()) {
@@ -453,40 +509,9 @@ public class ComboService extends AccessibilityService
             }
             return;
         }
-        Log.i("clip", (auto ? "自动" : "双击") + "朗读剪贴板 " + text.length() + " 字");
-        speakNow(text);
-    }
-
-    private String readClipboardText() {
-        try {
-            if (clipMgr == null) {
-                clipMgr = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            }
-            if (clipMgr == null) {
-                return null;
-            }
-            ClipData clip = clipMgr.getPrimaryClip();
-            if (clip == null || clip.getItemCount() == 0) {
-                return null;
-            }
-            ClipDescription desc = clip.getDescription();
-            if (desc != null) {
-                CharSequence label = desc.getLabel();
-                if (label != null) {
-                    String l = label.toString();
-                    if (l.startsWith("看得清") || l.equals("微信号")) {
-                        return null;
-                    }
-                }
-            }
-            CharSequence cs = clip.getItemAt(0).getText();
-            if (cs == null) {
-                cs = clip.getItemAt(0).coerceToText(this);
-            }
-            return cs == null ? null : cs.toString();
-        } catch (Throwable ignored) {
-            return null;
-        }
+        Log.i("clip", (auto ? "自动" : "点复制球") + "朗读剪贴板 "
+                + cleaned.length() + " 字");
+        speakNow(cleaned);
     }
 
     private void speakNow(String text) {
@@ -521,6 +546,9 @@ public class ComboService extends AccessibilityService
         if (ball != null) {
             ball.setState(BallView.ST_SPEAKING);
         }
+        if (clipBall != null) {
+            clipBall.setSpeaking(true);
+        }
         h.postDelayed(speakWatchdog, guardMs(text.length()));
     }
 
@@ -542,6 +570,9 @@ public class ComboService extends AccessibilityService
         state = ST_IDLE;
         if (ball != null) {
             ball.resetLook();
+        }
+        if (clipBall != null) {
+            clipBall.setSpeaking(false);
         }
     }
 
@@ -848,14 +879,14 @@ public class ComboService extends AccessibilityService
                 }
                 n = new Notification.Builder(this, id)
                         .setContentTitle("看得清运行中")
-                        .setContentText("点球选字朗读 · 按住放大")
+                        .setContentText("白球选字放大 · 绿球复制朗读")
                         .setSmallIcon(android.R.drawable.ic_btn_speak_now)
                         .setContentIntent(pi)
                         .build();
             } else {
                 n = new Notification.Builder(this)
                         .setContentTitle("看得清运行中")
-                        .setContentText("点球选字朗读 · 按住放大")
+                        .setContentText("白球选字放大 · 绿球复制朗读")
                         .setSmallIcon(android.R.drawable.ic_btn_speak_now)
                         .setContentIntent(pi)
                         .build();
@@ -900,15 +931,14 @@ public class ComboService extends AccessibilityService
     private void teardown() {
         closeAll();
         h.removeCallbacks(clipAutoTask);
-        if (clipMgr != null && clipListener != null) {
-            try {
-                clipMgr.removePrimaryClipChangedListener(clipListener);
-            } catch (Throwable ignored) {
-            }
+        if (clipReader != null) {
+            clipReader.release();
+            clipReader = null;
         }
-        clipMgr = null;
-        clipListener = null;
-        lastAutoClipText = null;
+        if (clipBall != null) {
+            clipBall.hide();
+            clipBall = null;
+        }
         TtsManager.setSpeechListener(null);
         TtsManager.release();
         if (grabThread != null) {

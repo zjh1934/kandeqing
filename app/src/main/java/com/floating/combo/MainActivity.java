@@ -458,15 +458,19 @@ public class MainActivity extends Activity
                         })), groupLp());
 
         TextView clipHint = Ui.caption(this,
-                "复制的文字只在本地朗读，不记录、不上传；部分系统可能限制后台读剪贴板");
+                "复制朗读开启后多一个绿色喇叭球，可单独拖动；点一下念复制的文字，"
+                        + "朗读中再点一下停止。Android 10 起系统限制后台读剪贴板，"
+                        + "我们靠无障碍焦点读取，不用截图、不联网；Android 13 起系统"
+                        + "自己会弹「已读取剪贴板」提示。");
         clipHint.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
                 Ui.dp(this, 12), Ui.dp(this, 8));
         page.addView(Ui.group(this, "剪贴板",
-                Ui.switchRow(this, "双击球读剪贴板", prefs.clipTapRead(),
+                Ui.switchRow(this, "复制朗读", prefs.clipRead(),
                         new OnToggle() {
                             @Override
                             public void on(boolean on) {
-                                prefs.setClipTapRead(on);
+                                prefs.setClipRead(on);
+                                ComboService.refresh();
                             }
                         }),
                 Ui.switchRow(this, "复制后自动朗读", prefs.clipAutoRead(),
