@@ -55,6 +55,9 @@ public class ComboService extends AccessibilityService
     private int pickSeq = 0;
 
     private boolean pickAbortedByUser = true;
+    private long lastAutoScheduleAt = 0;
+    private boolean autoFromExplicitCopy = false;
+    private long lastAutoFailHintAt = 0;
 
 
     public static boolean isRunning() {
@@ -122,6 +125,10 @@ public class ComboService extends AccessibilityService
         });
 
         startFg();
+        if (clipReader != null) {
+            clipReader.setOnClipChanged(clipChangedTask);
+            clipReader.registerClipListener();
+        }
         h.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -183,9 +190,26 @@ public class ComboService extends AccessibilityService
             }
         }
         if (delay > 0) {
-            h.removeCallbacks(clipAutoTask);
-            h.postDelayed(clipAutoTask, delay);
+            scheduleAutoRead("copy-event", delay, true);
         }
+    }
+
+    private final Runnable clipChangedTask = new Runnable() {
+        @Override
+        public void run() {
+            scheduleAutoRead("clip-listener", 80, false);
+        }
+    };
+
+    private void scheduleAutoRead(String reason, long delay, boolean explicitCopy) {
+        long now = System.currentTimeMillis();
+        if (now - lastAutoScheduleAt < 80 && reason.equals("clip-listener")) {
+            return;
+        }
+        lastAutoScheduleAt = now;
+        autoFromExplicitCopy = explicitCopy;
+        h.removeCallbacks(clipAutoTask);
+        h.postDelayed(clipAutoTask, delay);
     }
 
     private static boolean isSystemUiEvent(AccessibilityEvent e, CharSequence pkg) {
@@ -472,12 +496,14 @@ public class ComboService extends AccessibilityService
         if (clipReader == null) {
             return;
         }
+        ClipReader.FocusHost host = (!auto && clipBall != null && clipBall.isShown())
+                ? clipBall : null;
         clipReader.readOnce(new ClipReader.Result() {
             @Override
             public void onText(String text) {
                 onClipText(text, auto);
             }
-        });
+        }, host);
     }
 
     private void onClipText(String text, boolean auto) {
@@ -486,6 +512,13 @@ public class ComboService extends AccessibilityService
                 toast("读不到剪贴板，可能受系统限制");
                 Haptics.error();
                 toIdle();
+            } else if (autoFromExplicitCopy) {
+                long now = System.currentTimeMillis();
+                if (now - lastAutoFailHintAt > 60000) {
+                    lastAutoFailHintAt = now;
+                    Log.w("clip", "自动读没取到剪贴板内容");
+                    toast("自动读没取到，点一下绿色球就能听");
+                }
             }
             return;
         }

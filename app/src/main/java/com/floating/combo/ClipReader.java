@@ -24,6 +24,10 @@ public class ClipReader {
         void onText(String text);
     }
 
+    public interface FocusHost {
+        void withFocus(Runnable block);
+    }
+
     private static final String[] COPY_FEEDBACK = {
             "已复制", "复制成功", "已拷贝", "copied to clipboard", "copied"
     };
@@ -46,6 +50,8 @@ public class ClipReader {
     private boolean baselineReady;
     private String lastSpoken;
     private long lastSpokenAt;
+    private ClipboardManager.OnPrimaryClipChangedListener clipListener;
+    private Runnable onClipChanged;
 
     public ClipReader(Context c) {
         ctx = c;
@@ -193,6 +199,30 @@ public class ClipReader {
         return t.contains(":id/copy") || t.endsWith("/copy") || t.contains("copy_btn");
     }
 
+    public void setOnClipChanged(Runnable r) {
+        onClipChanged = r;
+    }
+
+    public void registerClipListener() {
+        if (cm == null || clipListener != null) {
+            return;
+        }
+        clipListener = new ClipboardManager.OnPrimaryClipChangedListener() {
+            @Override
+            public void onPrimaryClipChanged() {
+                if (onClipChanged != null) {
+                    h.post(onClipChanged);
+                }
+            }
+        };
+        try {
+            cm.addPrimaryClipChangedListener(clipListener);
+        } catch (Throwable t) {
+            Log.w("clip", "剪贴板变化监听注册失败");
+            clipListener = null;
+        }
+    }
+
     public void snapshotBaseline() {
         String raw = readText();
         lastKnown = raw == null ? "" : clean(raw);
@@ -225,10 +255,24 @@ public class ClipReader {
         return true;
     }
 
-    public void readOnce(final Result cb) {
+    public void readOnce(final Result cb, final FocusHost host) {
         final String direct = readText();
         if (direct != null && direct.trim().length() > 0) {
             cb.onText(direct);
+            return;
+        }
+        if (host != null) {
+            host.withFocus(new Runnable() {
+                @Override
+                public void run() {
+                    String text = readText();
+                    if (text != null && text.trim().length() > 0) {
+                        cb.onText(text);
+                    } else {
+                        readWithFocusProxy(cb);
+                    }
+                }
+            });
             return;
         }
         readWithFocusProxy(cb);
@@ -315,6 +359,14 @@ public class ClipReader {
 
     public void release() {
         h.removeCallbacksAndMessages(null);
+        onClipChanged = null;
+        if (cm != null && clipListener != null) {
+            try {
+                cm.removePrimaryClipChangedListener(clipListener);
+            } catch (Throwable ignored) {
+            }
+        }
+        clipListener = null;
         removeFocusProxy();
     }
 }

@@ -4,6 +4,50 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+## 3.9.20 · 复制朗读真正能读到：补回剪贴板变化监听（versionCode 50）
+
+**为什么 3.9.19 的「复制后自动朗读」像空壳**：逐行重读
+[DLWangSan/tapread](https://github.com/DLWangSan/tapread) 的无障碍服务源码，
+发现它的 `onServiceConnected()` 里**注册了 `addPrimaryClipChangedListener`**，
+`clipboardListener` → `scheduleClipboardRead("clip-listener", 80)` →
+`readClipboardRaw()`；复制动作事件只是**第二通道**。我上一版把整条 listener
+删了，只靠 `TYPE_VIEW_CLICKED` 里认「复制/copy」字样、或 Announcement 里认
+「已复制」。问题是长按菜单、WebView 内复制、分享菜单、多数 App 的复制按钮
+**根本不发这种可识别事件** → `clipAutoTask` 从不被 post → 自动读静默无反应。
+不是检测不到剪贴板，是**压根没去检测**。
+
+这版照点读补齐三条：
+
+1. **剪贴板变化监听回归**：`ClipReader.registerClipListener()` 在服务连接时
+   注册，回调切主线程触发 `clipAutoTask`（80ms）；`release()` 成对注销。
+   复制动作事件保留为第二通道，两通道按点读 `scheduleClipboardRead` 的
+   80ms 让位规则去重，不会重复念。
+2. **读取从两级改成三级**：直接 `getPrimaryClip()` → 绿球窗口临时摘掉
+   `FLAG_NOT_FOCUSABLE` + `requestFocus()` + 40ms 后读（点读
+   `OverlayService.withFocusForClipboard` 原做法，焦点生效慢于第一帧的 ROM
+   靠这 40ms 兜底）→ 仍读不到再上 1×1 `TYPE_ACCESSIBILITY_OVERLAY` 焦点窗
+   80ms 读。手动点绿球走完整三级，自动读走第 1、3 级。
+3. **失败不再静默**：自动读确实由复制动作触发、但系统不肯给内容时，
+   60 秒节流提示「自动读没取到，点一下绿色球就能听」，不再黑盒。
+
+**如实交代平台边界**（官方 `ClipboardManager` JavaDoc + AOSP `ClipboardService`
++ Android 10 安全增强说明）：`getPrimaryClip()` 没有清单权限；Android 10 起
+**只有默认输入法或当前拥有输入焦点的应用能读**，前台服务、悬浮窗、常驻无障碍
+服务本身都不是豁免。所以「复制后自动朗读」在 10+ 上是 **best-effort**：
+点读自己也把「复制后点悬浮球」当作 10+ 默认用法，「无障碍复制即读」只是可选项。
+界面文案已改成这个口径，不再暗示自动读万能。**最稳的用法始终是复制后点绿球。**
+
+**双击**：3.9.19 起就已删除，本版同样没有双击。如果你还在试双击，装的是
+3.9.18 或更旧；装 3.9.20 后是白球 + 绿球两个独立球。
+
+**订阅**：Release 现在额外上传一份固定名 `kandeqing-latest.apk`，配合
+`releases.atom`，下载器里订阅后每次发版链接不变。
+
+其余不动：两个球独立窗口/拖动/位置、抓字、放大、球心对齐触点、四态形态、
+共用一套 TTS、日志只记字数不记正文、零网络权限。`verify_clipboard.py` 补
+4 条断言（监听成对、双通道去重、三级读取、失败可见）；`verify_all` 7 套三轮全绿。
+versionCode 50 可覆盖升级，固定签名不变。
+
 ## 3.9.19 · 复制朗读：两个独立悬浮球（versionCode 49）
 
 **3.9.18 作废**：那一版用「双击球读剪贴板」+ 后台 `OnPrimaryClipChangedListener`

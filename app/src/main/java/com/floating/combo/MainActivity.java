@@ -458,10 +458,11 @@ public class MainActivity extends Activity
                         })), groupLp());
 
         TextView clipHint = Ui.caption(this,
-                "复制朗读开启后多一个绿色喇叭球，可单独拖动；点一下念复制的文字，"
-                        + "朗读中再点一下停止。Android 10 起系统限制后台读剪贴板，"
-                        + "我们靠无障碍焦点读取，不用截图、不联网；Android 13 起系统"
-                        + "自己会弹「已读取剪贴板」提示。");
+                "复制后点一下绿色球最稳（点读也是这个用法）。「复制后自动朗读」"
+                        + "在 Android 10 起受系统限制：只有复制动作被识别、且系统肯把"
+                        + "剪贴板给本应用时才念，个别机型或 App 里会没反应，这时点绿球"
+                        + "即可。不截图、不联网、不记内容；Android 13 起系统自己会弹"
+                        + "「已读取剪贴板」提示。");
         clipHint.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
                 Ui.dp(this, 12), Ui.dp(this, 8));
         page.addView(Ui.group(this, "剪贴板",

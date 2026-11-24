@@ -10,7 +10,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 
-public class ClipBallController implements View.OnTouchListener {
+public class ClipBallController implements View.OnTouchListener, ClipReader.FocusHost {
 
     public interface Callback {
         void onClipTap();
@@ -157,6 +157,38 @@ public class ClipBallController implements View.OnTouchListener {
             return Math.max(0, screenH - sizePx);
         }
         return y;
+    }
+
+    @Override
+    public void withFocus(final Runnable block) {
+        if (!isShown() || lp == null) {
+            block.run();
+            return;
+        }
+        final int original = lp.flags;
+        lp.flags = original & ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        try {
+            wm.updateViewLayout(view, lp);
+        } catch (Throwable ignored) {
+        }
+        view.setFocusableInTouchMode(true);
+        view.requestFocus();
+        view.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    view.requestFocus();
+                    block.run();
+                } finally {
+                    lp.flags = original;
+                    view.setFocusableInTouchMode(false);
+                    try {
+                        wm.updateViewLayout(view, lp);
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        }, 40);
     }
 
     @Override

@@ -6,7 +6,7 @@
 
 **No internet permission · No OCR · No account · No gestures to memorize · Free & open source**
 
-[![version](https://img.shields.io/badge/version-3.9.19-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![version](https://img.shields.io/badge/version-3.9.20-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![no internet permission](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -40,6 +40,13 @@ Android 10+ blocks background clipboard reads, so the green ball briefly obtains
 an accessibility focus window to read. No screenshots, no OCR, no network;
 clipboard text stays on device and is never written to logs. Android 13+ may show
 its own "app read clipboard" toast — that is a system behavior.
+
+**Auto-read is best-effort on Android 10+**: the platform only grants clipboard
+access to the default IME or the app currently holding input focus, and an
+accessibility service is not an exemption. TapRead makes "copy, then tap the ball"
+the default for exactly this reason. If nothing is read automatically, tap the
+green ball. Subscribe for updates: [releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) ·
+[fixed APK link](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk).
 
 Enable the accessibility service once after install. No sign-up, no login, no network.
 
@@ -82,7 +89,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 ## Install
 
-**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.19.apk` under Assets).
+**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.20.apk` under Assets).
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.

@@ -110,19 +110,46 @@ def c_tap_path():
     return ok, ""
 
 
-@case("Android 10+ 不靠后台剪贴板监听，改靠无障碍焦点窗")
+@case("读取三级兜底：直接读 → 绿球取焦 → 1×1 焦点窗")
 def c_focus():
     t = read("ClipReader.java")
-    svc = read("ComboService.java")
-    ok = ("readWithFocusProxy" in t
+    ball = read("ClipBallController.java")
+    ok = ("readOnce(final Result cb, final FocusHost host)" in t
+          and "host.withFocus(" in t
+          and "readWithFocusProxy" in t
           and "TYPE_ACCESSIBILITY_OVERLAY" in t
           and "v.requestFocus()" in t
-          and "postDelayed" in t
           and "removeFocusProxy()" in t
-          and "addPrimaryClipChangedListener" not in t
-          and "addPrimaryClipChangedListener" not in svc
-          and "OnPrimaryClipChangedListener" not in t
-          and "OnPrimaryClipChangedListener" not in svc)
+          and "public void withFocus(final Runnable block)" in ball
+          and "~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE" in ball
+          and "postDelayed" in ball
+          and "lp.flags = original" in ball)
+    return ok, ""
+
+
+@case("剪贴板变化监听回归（点读主通道），成对注册/注销")
+def c_listener():
+    t = read("ClipReader.java")
+    svc = read("ComboService.java")
+    ok = ("addPrimaryClipChangedListener(clipListener)" in t
+          and "removePrimaryClipChangedListener(clipListener)" in t
+          and "public void registerClipListener()" in t
+          and "clipReader.setOnClipChanged(clipChangedTask)" in svc
+          and "clipReader.registerClipListener()" in svc
+          and "clipReader.release()" in svc)
+    return ok, ""
+
+
+@case("双通道 80ms 去重，自动读失败有可见反馈")
+def c_schedule():
+    t = read("ComboService.java")
+    ok = ("scheduleAutoRead(\"clip-listener\", 80, false)" in t
+          and "scheduleAutoRead(\"copy-event\", delay, true)" in t
+          and "now - lastAutoScheduleAt < 80" in t
+          and "autoFromExplicitCopy" in t
+          and "lastAutoFailHintAt > 60000" in t
+          and "自动读没取到，点一下绿色球就能听" in t
+          and "state != ST_IDLE" in t)
     return ok, ""
 
 
@@ -136,6 +163,7 @@ def c_auto_event():
           and "ClipReader.isCopyFeedback(event)" in t
           and "ClipReader.isCopyClick(event)" in t
           and "delay = 120" in t and "delay = 280" in t
+          and "scheduleAutoRead" in t
           and "h.postDelayed(clipAutoTask, delay)" in t
           and "prefs.clipAutoRead()" in t
           and "state != ST_IDLE" in t)
