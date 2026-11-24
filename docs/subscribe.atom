@@ -5,13 +5,13 @@
   <id>https://github.com/zjh1934/kandeqing/releases</id>
   <link rel="self" type="application/atom+xml" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom" />
   <link rel="alternate" type="text/html" href="https://github.com/zjh1934/kandeqing" />
-  <updated>2026-11-24T08:23:36Z</updated>
+  <updated>2026-11-24T08:24:30Z</updated>
   <author><name>zjh1934</name></author>
   <entry>
     <title>看得清 3.9.21</title>
     <id>tag:github.com,2026:zjh1934/kandeqing:3.9.21</id>
-    <updated>2026-11-24T08:23:36Z</updated>
-    <summary type="text">看得清 3.9.21 · 656835 字节 · SHA256 b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc</summary>
+    <updated>2026-11-24T08:24:30Z</updated>
+    <summary type="text">看得清 3.9.21 · 656835 字节 · SHA256 a8a9d7fb035389067819c42f86fcbdc0a35c2acf941072efdac9aaeace1eeef7</summary>
     <link rel="alternate" type="application/vnd.android.package-archive" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk" />
     <link rel="enclosure" type="application/vnd.android.package-archive" length="656835" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk" />
     <content type="text">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</content>
