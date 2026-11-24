@@ -13,6 +13,14 @@
 > 全部改成文件直链，并把「版本通知」与「安装包下载」分开写清。安装包字节没变、
 > 版本号没升，签名不变。
 
+> **3.9.21 订阅二次修订**：`releases.atom` 与 GitHub raw / jsDelivr 都不该被当作
+> 下载器里的「订阅地址」填 —— Atom 返回 HTML 页面（截图里的报错），raw 域在国内
+> 移动端偶发超时。新增 **GitHub Pages 托管**的固定直链
+> `https://zjh1934.github.io/kandeqing/kandeqing-latest.apk`（`docs/` 下同一份
+> APK，不重定向、不返回 HTML、链接永不变），CI 每次发版同时同步 `apk/` 与
+> `docs/` 两份。中文 / 英文 README、落地页主按钮与订阅说明、Release 说明主推链接
+> 全部改为 Pages 直链，raw 与 jsDelivr 降为备用。安装包字节与版本号未变。
+
 ## 3.9.21 · 配色重做 + UI 层级优化（versionCode 51）
 
 **只动外观与层级，功能一行没改。** 按「先画出来看、看到不合适就改」的要求，
