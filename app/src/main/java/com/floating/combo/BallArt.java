@@ -69,6 +69,16 @@ public final class BallArt {
                     new float[]{0f, 0.72f, 0.90f, 1f},
                     Shader.TileMode.CLAMP));
             c.drawCircle(cx, cy, r, p);
+            if (((rgb >> 16) & 0xFF) > 225
+                    && ((rgb >> 8) & 0xFF) > 225
+                    && (rgb & 0xFF) > 225) {
+                p.setShader(null);
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(Math.max(1.2f, r * 0.045f));
+                p.setColor(Color.argb((int) (110 * alpha), 90, 105, 125));
+                c.drawCircle(cx, cy, r * 0.985f, p);
+                p.setStyle(Paint.Style.FILL);
+            }
         } else {
             float ringA = (shape == 2 ? 0.94f : 0.82f) * alpha;
             p.setShader(new RadialGradient(cx, cy, r,

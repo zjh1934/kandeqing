@@ -10,6 +10,7 @@
   verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
   verify_ball.py      —— 球定位数值模拟 + 控制实心/朗读空心的静态断言
   verify_clipboard.py —— 双球独立 / 无双击 / 焦点读剪贴板 / 复制事件驱动 / 隐私
+  verify_ui.py       —— 3.9.21 配色 / 主题强调色 / 层级常量 / 字号 / 白球描边
 
 跑三遍，全绿才准提交。
 
@@ -26,7 +27,7 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["verify_structure.py", "verify_textlayout.py",
           "verify_grabber.py", "verify_speak.py", "verify_calls.py",
-          "verify_ball.py", "verify_clipboard.py"]
+          "verify_ball.py", "verify_clipboard.py", "verify_ui.py"]
 PASSES = 3
 
 def main():

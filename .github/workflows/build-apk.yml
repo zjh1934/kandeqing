@@ -106,7 +106,7 @@ jobs:
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.20：修好「复制后自动朗读」与剪贴板读取。3.9.19 把点读的剪贴板变化监听整个删掉了，只靠无障碍事件里认「复制」两个字，大量 App（长按菜单、WebView、分享菜单）根本不发这种事件，所以自动读静默无反应，等于空壳；这版照 DLWangSan/tapread 无障碍服务原版补回 addPrimaryClipChangedListener 作为主触发通道，复制动作事件保留为第二通道，两通道 80ms 去重（点读 scheduleClipboardRead 原逻辑）。读取链路补成三级：直接读 → 绿球窗口临时摘掉 FLAG_NOT_FOCUSABLE 并 requestFocus 后读（点读 OverlayService.withFocusForClipboard 原做法，40ms 兜底等焦点生效）→ 1×1 TYPE_ACCESSIBILITY_OVERLAY 焦点窗 80ms 后读。自动读仍读不到时不再静默，60s 节流提示「点一下绿色球就能听」。官方契约如实说明：Android 10 起只有默认输入法或当前有输入焦点的应用能读剪贴板，无障碍与悬浮窗不构成豁免，所以自动读是 best-effort，稳定用法是复制后点绿球；界面文案已写清楚。双击在 3.9.19 就已删除，本版同样没有双击。Manifest 没新增 INTERNET/READ_CLIPBOARD，日志只记字数不记正文，零网络权限不变。两个球、抓字、放大、球心对齐触点、四态形态、TTS 其余一行没动。Release 额外上传固定名 kandeqing-latest.apk 供下载器订阅。verify_all 7 套三轮全绿。versionCode 50 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.21：配色重做 + UI 层级优化，功能一行没改。球色板换成统一明度的清釉七色（月白/霁蓝/青瓷/麦金/藕红/鸢尾/岩青），复制朗读绿球提亮到 #1E8A68，主题强调色深色 #6FA8CF / 浅色 #3F6FA8 跟随球色统一，白球加浅描边解决浅色壁纸上消失。设置页行高 48→40、组距 12→8、圆角 14→12、组标题 13→12sp 降为次要信息、正文 14→13sp、说明 12→11sp，主开关卡片是唯一强调；剪贴板四行长说明压成一行，试听一句并入声音组，朗读页一屏看完。改前/三套候选/UI 改前改后/定稿共 4 张代码自绘预览图已逐张看过并修了两轮（绿球裁切、候选被洗白、改前屏没画出滚动）。预览是示意不是真机截图。剪贴板链路、两个独立球、抓字、放大、TTS 全部没动。Release 仍额外上传固定名 kandeqing-latest.apk，Atom 订阅不变。verify_all 8 套三轮全绿。versionCode 51 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

@@ -189,7 +189,7 @@ public class MainActivity extends Activity
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                Ui.dp(this, Theme.HIT)));
+                Ui.dp(this, Theme.HIT + 8)));
         int pad = Ui.dp(this, 12);
         row.setPadding(pad, 0, pad, 0);
 
@@ -425,7 +425,9 @@ public class MainActivity extends Activity
                 prefs.setReadScope(pos);
             }
         });
-        page.addView(Ui.group(this, "声音", spEngine, spVoice, spScope), groupLp());
+        btnTry = Ui.primaryButton(this, "试听一句");
+        page.addView(Ui.group(this, "声音",
+                spEngine, spVoice, spScope, btnTry), groupLp());
 
         page.addView(Ui.group(this, "调节",
                 Ui.sliderRow(this, "语速", 50, 300,
@@ -458,11 +460,7 @@ public class MainActivity extends Activity
                         })), groupLp());
 
         TextView clipHint = Ui.caption(this,
-                "复制后点一下绿色球最稳（点读也是这个用法）。「复制后自动朗读」"
-                        + "在 Android 10 起受系统限制：只有复制动作被识别、且系统肯把"
-                        + "剪贴板给本应用时才念，个别机型或 App 里会没反应，这时点绿球"
-                        + "即可。不截图、不联网、不记内容；Android 13 起系统自己会弹"
-                        + "「已读取剪贴板」提示。");
+                "复制后点绿球最稳 · 自动读受系统限制 · 不联网不记内容");
         clipHint.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
                 Ui.dp(this, 12), Ui.dp(this, 8));
         page.addView(Ui.group(this, "剪贴板",
@@ -483,7 +481,6 @@ public class MainActivity extends Activity
                         }),
                 clipHint), groupLp());
 
-        btnTry = Ui.primaryButton(this, "试听一句");
         btnTry.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -509,7 +506,6 @@ public class MainActivity extends Activity
                 btnTry.postDelayed(tryEnd, 4000);
             }
         });
-        page.addView(btnTry, Ui.lp(this, 0, 0, 0, 0));
         return page;
     }
 

@@ -6,16 +6,16 @@ import android.content.SharedPreferences;
 public class Prefs {
 
     public static final int[] COLORS = new int[]{
-            0xFFFAFAFA,
-            0xFF4A7FD4,
-            0xFF2E9E8F,
-            0xFFD9963F,
-            0xFFD96B6B,
-            0xFF8B74D6,
-            0xFF5A7494,
+            0xFFF4F7FA,
+            0xFF6FA8CF,
+            0xFF79C2AE,
+            0xFFE0B873,
+            0xFFE08E86,
+            0xFF9C90D8,
+            0xFF6E8B9B,
     };
     public static final String[] COLOR_NAMES = new String[]{
-            "纯白", "雾蓝", "松绿", "蜜金", "陶红", "薰紫", "石板"
+            "月白", "霁蓝", "青瓷", "麦金", "藕红", "鸢尾", "岩青"
     };
 
     private static final String P = "cfg";

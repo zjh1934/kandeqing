@@ -10,8 +10,8 @@ import android.view.View;
 
 public final class ClipBallView extends View {
 
-    private static final int GREEN = 0xFF0F7A4F;
-    private static final int GREEN_DEEP = 0xFF0A5A3A;
+    private static final int GREEN = 0xFF1E8A68;
+    private static final int GREEN_DEEP = 0xFF166A50;
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);

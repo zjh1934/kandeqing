@@ -63,15 +63,15 @@ public final class Ui {
     }
 
     public static TextView body(Context c, String s) {
-        return text(c, s, 14, Theme.TEXT, false);
+        return text(c, s, 13, Theme.TEXT, false);
     }
 
     public static TextView caption(Context c, String s) {
-        return text(c, s, 12, Theme.TEXT_2, false);
+        return text(c, s, 11, Theme.TEXT_2, false);
     }
 
     public static TextView value(Context c, String s) {
-        TextView t = text(c, s, 14, Theme.ACCENT, true);
+        TextView t = text(c, s, 13, Theme.ACCENT, true);
         tnum(t);
         return t;
     }
@@ -112,8 +112,8 @@ public final class Ui {
         View bar = new View(c);
         bar.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
                 dp(c, 1.5f), 0, 0));
-        head.addView(bar, new LinearLayout.LayoutParams(dp(c, 3), dp(c, 14)));
-        TextView h = text(c, title, 13, Theme.TEXT, true);
+        head.addView(bar, new LinearLayout.LayoutParams(dp(c, 2), dp(c, 12)));
+        TextView h = text(c, title, 12, Theme.TEXT_2, true);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -123,8 +123,8 @@ public final class Ui {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         hlp.leftMargin = dp(c, 4);
-        hlp.topMargin = dp(c, 8);
-        hlp.bottomMargin = dp(c, 6);
+        hlp.topMargin = dp(c, 6);
+        hlp.bottomMargin = dp(c, 4);
         wrap.addView(head, hlp);
 
         LinearLayout box = new LinearLayout(c);
