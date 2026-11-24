@@ -91,9 +91,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          cp "${{ steps.ver.outputs.path }}" apk/kandeqing-latest.apk
-          cp "${{ steps.ver.outputs.path }}" docs/kandeqing-latest.apk
-          git add -f "${{ steps.ver.outputs.path }}" apk/kandeqing-latest.apk docs/kandeqing-latest.apk
+          APK="${{ steps.ver.outputs.path }}"
+          VER="${{ steps.ver.outputs.ver }}"
+          cp "$APK" apk/kandeqing-latest.apk
+          cp "$APK" docs/kandeqing-latest.apk
+          python3 tools/make_feed.py "$APK" "$VER" docs
+          git add -f "$APK" apk/kandeqing-latest.apk docs/kandeqing-latest.apk \
+            docs/subscribe.atom docs/subscribe.json tools/make_feed.py
           if git diff --cached --quiet; then
             echo "安装包无变化，跳过提交"
           else

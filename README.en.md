@@ -50,9 +50,19 @@ previews are attached to the Release.
 access to the default IME or the app currently holding input focus, and an
 accessibility service is not an exemption. TapRead makes "copy, then tap the ball"
 the default for exactly this reason. If nothing is read automatically, tap the
-green ball. **Download / subscribe (do not confuse these)**: `releases.atom` is a
-**release feed**, not an APK — every entry links to an HTML page, so a downloader
-that treats it as a file will get "server returned HTML page". Use a **file URL**:
+green ball. **Two kinds of links — do not mix them:**
+
+**1) "New subscription / RSS 2.0 · Atom · JSON Feed" field** (a feed, paste either):
+
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom) (Atom, verified `application/atom+xml`)
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json) (JSON Feed, verified `application/json`)
+
+Our own feed points every `enclosure` / `attachments` directly at the APK file,
+never at a Release HTML page; CI refreshes version, size and SHA256 on each
+release. **Do not** use GitHub's built-in `releases.atom` — its entries link to
+HTML pages and cause "server returned HTML page".
+
+**2) "New download / direct file" field** (a file URL, not a feed):
 
 - **Recommended** (verified real APK, no redirect, permanent): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
 - Fallback A (GitHub raw): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)

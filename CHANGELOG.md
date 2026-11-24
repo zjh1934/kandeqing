@@ -21,6 +21,17 @@
 > `docs/` 两份。中文 / 英文 README、落地页主按钮与订阅说明、Release 说明主推链接
 > 全部改为 Pages 直链，raw 与 jsDelivr 降为备用。安装包字节与版本号未变。
 
+> **3.9.21 订阅三次修订（这次才对）**：截图里那个框写的是
+> 「订阅链接（RSS 2.0 / Atom / JSON Feed）」——它要的是 **feed 文档**，不是 APK
+> 文件直链。前两轮给的 `releases.atom` 条目指向 Release 网页、给的
+> `kandeqing-latest.apk` 是二进制文件，填进这个框都不对。新增自建订阅源
+> `docs/subscribe.atom`（Atom）与 `docs/subscribe.json`（JSON Feed），由
+> jsDelivr 托管，条目的 `enclosure` / `attachments` 直指
+> `cdn.jsdelivr.net/.../apk/kandeqing-latest.apk`（真 APK），CI 每次发版自动
+> 重生成版本、大小、SHA256。实测 feed 返回 `application/atom+xml` /
+> `application/json`。README / 英文 README / 落地页 / Release 说明把
+> 「订阅源」与「文件直链」分成两类写清。安装包字节与版本号未变。
+
 ## 3.9.21 · 配色重做 + UI 层级优化（versionCode 51）
 
 **只动外观与层级，功能一行没改。** 按「先画出来看、看到不合适就改」的要求，

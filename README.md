@@ -48,9 +48,19 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 **「复制后自动朗读」在 Android 10+ 上不保证每次都触发** —— 官方只允许默认
 输入法或当前有输入焦点的应用读剪贴板，无障碍服务不是豁免。点读也是把
 「复制后点球」当默认用法，自动读只是可选项。没自动念时，点一下绿球即可。
-**下载与订阅（别填错）**：`releases.atom` 是**版本动态通知**，里面每条链接是
-Release 网页（`text/html`），**不是 APK**，下载器拿它当文件下会报
-「server returned HTML page」。要下安装包请用下面任一条**文件直链**：
+**两种链接，别填混**：
+
+**① 「新建订阅 / RSS 2.0 · Atom · JSON Feed」框**（订阅源，填下面任一条）：
+
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom) （Atom，实测 `application/atom+xml`）
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json) （JSON Feed，实测 `application/json`）
+
+自建订阅源里每条条目的 `enclosure` / `attachments` **直接指向 APK 文件**，
+不指向 Release 网页；CI 每次发版自动更新版本、大小与 SHA256。
+**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接是 HTML 网页，
+下载器会报「server returned HTML page」。
+
+**② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 
 - **主推**（实测返回真 APK、国内最稳、不重定向、链接永不变）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
 - 备用 A（GitHub raw，国内偶发超时）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
