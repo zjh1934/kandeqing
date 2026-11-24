@@ -8,8 +8,8 @@
     {
       "id": "3.9.21",
       "title": "看得清 3.9.21",
-      "date_modified": "2026-11-24T08:24:30Z",
-      "content_text": "看得清 3.9.21 安装包 · 656835 字节 · SHA256 a8a9d7fb035389067819c42f86fcbdc0a35c2acf941072efdac9aaeace1eeef7",
+      "date_modified": "2026-11-24T08:23:36Z",
+      "content_text": "看得清 3.9.21 安装包 · 656835 字节 · SHA256 b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
       "attachments": [
         {
@@ -21,7 +21,7 @@
       ],
       "_kandeqing": {
         "version": "3.9.21",
-        "sha256": "a8a9d7fb035389067819c42f86fcbdc0a35c2acf941072efdac9aaeace1eeef7",
+        "sha256": "b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
         "size": 656835
       }
     }

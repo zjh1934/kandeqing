@@ -112,7 +112,7 @@ jobs:
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
           NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.21：配色重做 + UI 层级优化，功能一行没改。球色板换成统一明度的清釉七色（月白/霁蓝/青瓷/麦金/藕红/鸢尾/岩青），复制朗读绿球提亮到 #1E8A68，主题强调色深色 #6FA8CF / 浅色 #3F6FA8 跟随球色统一，白球加浅描边解决浅色壁纸上消失。设置页行高 48→40、组距 12→8、圆角 14→12、组标题 13→12sp 降为次要信息、正文 14→13sp、说明 12→11sp，主开关卡片是唯一强调；剪贴板四行长说明压成一行，试听一句并入声音组，朗读页一屏看完。改前/三套候选/UI 改前改后/定稿共 4 张代码自绘预览图已逐张看过并修了两轮（绿球裁切、候选被洗白、改前屏没画出滚动）。预览是示意不是真机截图。剪贴板链路、两个独立球、抓字、放大、TTS 全部没动。Release 仍额外上传固定名 kandeqing-latest.apk，Atom 订阅不变。verify_all 8 套三轮全绿。versionCode 51 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.22：接回被 3.9.21 层级改造弄坏的调节控件，并把诊断日志入口接回第四选项卡。逐条核对 12 条「控件 → 回调 → 存值 → 服务生效」链路，回调其实一行没删，坏在 3.9.21 把 ROW_SLIDER 56→48、ROW_SELECT 48→44 后，sliderRow / SelectRow 仍用固定行高，内容溢出被裁，SeekBar 拖不到、下拉展开被压，于是「不透明度 / 发音人」这些看着全都不管用。这版把两者外层改成 WRAP_CONTENT + setMinimumHeight，SeekBar 给足 36dp，所有滑块和下拉完整可点；层级收紧的视觉效果保留。音色链再加固：回前台重新枚举音色、空列表不再静默失败、选中即强制 applyVoice 并给可见反馈。诊断与日志按早期版本（7ab4511ce）的折叠二级入口接回「更多」页：查看 / 复制 / 导出 / 刷新 / 显示全部 / 清空，接 Log.recent/content/export/clear，只记状态与字数不记正文。配色、抓字、放大、球定位、四态、剪贴板链路、TTS 其余一行没动。Release 仍额外上传固定名 kandeqing-latest.apk，订阅源不变。verify_all 8 套三轮全绿。versionCode 52 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

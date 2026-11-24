@@ -32,6 +32,51 @@
 > `application/json`。README / 英文 README / 落地页 / Release 说明把
 > 「订阅源」与「文件直链」分成两类写清。安装包字节与版本号未变。
 
+## 3.9.22 · 调节控件接回 + 诊断日志归位（versionCode 52）
+
+**为什么「不透明度」「发音人」全都不管用了**：拿 3.9.20（`595b9d86`）与
+3.9.21 逐文件 diff，12 条「控件 → 回调 → 存值 → 生效」链路**回调一行没删**。
+坏在 3.9.21 为了「一屏看完」把 `ROW_SLIDER` 56→48、`ROW_SELECT` 48→44，
+而 `Ui.sliderRow()` 与 `Ui.SelectRow` 的主行仍用 `rowLp()` 的**固定行高**：
+滑块行内容 = padding 4 + 文字约 20 + SeekBar 30 = 54dp 塞进 48dp，
+底部被 LinearLayout 裁掉；下拉主行 44dp 也压到文字与箭头贴边。
+结果就是手指按在滑块/下拉上没反应 —— 不是电路断，是**控件被裁没了**。
+
+**逐条核对（12 条，通 / 断）**
+
+| 控件 | 回调 | 存值 → 生效 | 结论 |
+|---|---|---|---|
+| 语速 / 音调 | `OnValue` | `setRate/setPitch` → `speak()` 读 | 通，但被裁 |
+| 倍率 / 触发时长 | `OnValue` | `setScale/setHoldMs` → 预览/服务 | 通，但被裁 |
+| 大小 / 不透明度 / 闲置时 | `OnValue` | `setSizeDp/setAlpha/setIdleAlpha` → `ComboService.refresh()` → `ball.applyPrefs()` | 通，但被裁 |
+| 读多少 / 语音引擎 / 音色 | `OnSelected` | `setReadScope` / `saveEngine+rebind` / `saveVoice+applyVoice` | 通，但被裁 |
+| 复制朗读 / 自动朗读 | `OnToggle` | `Prefs` → `refresh()` | 通 |
+| 贴边 / 震动 / 放大跟随 | `OnToggle` | `Prefs` → `Haptics/refresh()` | 通 |
+| 颜色 chips / 主题 segment | `Runnable` / `OnValue` | `Prefs` → `Theme.apply` | 通 |
+
+**这版改的**
+- `Ui.sliderRow()` 外层改 `WRAP_CONTENT` + `setMinimumHeight(ROW_SLIDER)`，
+  SeekBar 给足 36dp、补 4dp 下内边距；`Ui.SelectRow` 主行同样改
+  `WRAP_CONTENT` + 最小高度。**层级收紧的视觉全部保留，只是不再裁内容。**
+- 音色链加固：`onResume` 每次回前台且引擎 ready 就 `reloadVoices()`；
+  `voices` 为空不再静默 return；选中即 `applyVoice()` 并给「已切换音色 /
+  这个音色当前引擎用不了」可见反馈，选同一项也重新应用。
+- 新增 `Ui.smallButton()` 供日志区用。
+
+**诊断日志归位**：早期提交 `7ab4511ce` 里「更多」页有折叠二级入口
+`logSection()`（复制 / 导出 / 刷新 / 显示全部 / 清空），后来在重做界面时被删掉，
+`Log.java` 的 `recent/content/export/clear/exportTo` 一直都在，只是没人调。
+这版按现有 `Ui` 件把它接回**第四选项卡**的「诊断与日志」组：点「查看诊断日志」
+展开，接 `Log.recent()` 渲染最多 8 条（可切全部 60 条）、`Log.content()` 复制、
+`Log.export()` 导出、`Log.clear()` 清空，并写明「只记手势、状态、错误和字数，
+不记你读的内容」。
+
+**其余不动**：清釉七色、绿球、白球描边、抓字、放大、球心对齐触点、四态形态、
+剪贴板链路、两个独立球、TTS、订阅源。
+
+`verify_ui.py` 新增 4 条断言（滑块不裁 / 下拉不裁 / 第四页日志接线 / 音色接线），
+`verify_all` 8 套三轮全绿。versionCode 52 可覆盖升级，固定签名不变。
+
 ## 3.9.21 · 配色重做 + UI 层级优化（versionCode 51）
 
 **只动外观与层级，功能一行没改。** 按「先画出来看、看到不合适就改」的要求，

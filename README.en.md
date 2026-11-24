@@ -6,7 +6,7 @@
 
 **No internet permission · No OCR · No account · No gestures to memorize · Free & open source**
 
-[![version](https://img.shields.io/badge/version-3.9.21-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![version](https://img.shields.io/badge/version-3.9.22-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![no internet permission](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -67,7 +67,7 @@ HTML pages and cause "server returned HTML page".
 - **Recommended** (verified real APK, no redirect, permanent): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
 - Fallback A (GitHub raw): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
 - Fallback B (GitHub Pages): [https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
-- Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk)
+- Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - For Obtainium-like apps, add the repo `https://github.com/zjh1934/kandeqing`
   and let it resolve the `.apk` asset; use [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) only for version notices.
 
@@ -112,7 +112,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 ## Install
 
-**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.21.apk` under Assets).
+**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.22.apk` under Assets).
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.

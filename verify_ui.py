@@ -71,10 +71,49 @@ def c_page():
             and "page.addView(btnTry, Ui.lp" not in t
             and t.count("btnTry = Ui.primaryButton") == 1), ""
 
-@case("版本 3.9.21 / versionCode 51")
+@case("滑块不再被固定行高裁切（3.9.21 回归点）")
+def c_slider():
+    t = rd("Ui.java")
+    seg = t[t.find("public static LinearLayout sliderRow"):t.find("public static LinearLayout switchRow")]
+    return ("WRAP_CONTENT" in seg
+            and "setMinimumHeight(dp(c, Theme.ROW_SLIDER))" in seg
+            and "dp(c, 36)" in seg
+            and "rowLp(c, Theme.ROW_SLIDER)" not in seg), ""
+
+@case("下拉主行不再被固定行高裁切，展开菜单完整")
+def c_select():
+    t = rd("Ui.java")
+    seg = t[t.find("public SelectRow(Context"):t.find("public void setItems")]
+    return ("WRAP_CONTENT" in seg
+            and "row.setMinimumHeight(dp(c, Theme.ROW_SELECT))" in seg
+            and "rowLp(c, Theme.ROW_SELECT)" not in seg), ""
+
+@case("第四选项卡接回诊断与日志：查看/复制/导出/刷新/清空")
+def c_log():
+    t = rd("MainActivity.java")
+    seg = t[t.find("private LinearLayout pageMore()"):]
+    return ('Ui.group(this, "诊断与日志", logSection())' in seg
+            and "private LinearLayout logSection()" in t
+            and "private void refreshLog()" in t
+            and "Log.content()" in t
+            and "Log.export(MainActivity.this)" in t
+            and "Log.clear()" in t
+            and "Log.recent()" in t
+            and "Ui.smallButton" in t), ""
+
+@case("音色接线：空列表不静默、切换即 apply 且有反馈")
+def c_voice():
+    t = rd("MainActivity.java")
+    return ("voices.isEmpty()" in t
+            and "TtsManager.applyVoice(name)" in t
+            and "已切换音色" in t
+            and "TtsManager.saveVoice(MainActivity.this, name)" in t
+            and "else if (TtsManager.isReady())" in t), ""
+
+@case("版本 3.9.22 / versionCode 52")
 def c_ver():
     g = io.open(os.path.join(ROOT,"app","build.gradle"),encoding="utf-8").read()
-    return ("versionCode 51" in g and 'versionName "3.9.21"' in g), ""
+    return ("versionCode 52" in g and 'versionName "3.9.22"' in g), ""
 
 @case("订阅资产仍为固定名 kandeqing-latest.apk")
 def c_subscribe():

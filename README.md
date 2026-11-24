@@ -6,7 +6,7 @@
 
 **不联网 · 不上传 · 不用 OCR · 不学手势 · 免费开源**
 
-[![版本](https://img.shields.io/badge/version-3.9.21-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![版本](https://img.shields.io/badge/version-3.9.22-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![网络权限](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![协议](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -65,7 +65,7 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 - **主推**（实测返回真 APK、国内最稳、不重定向、链接永不变）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
 - 备用 A（GitHub raw，国内偶发超时）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
 - 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
-- Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk)
+- Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
   Release 里的 `.apk` 资产；版本通知才订阅 [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom)。
 
@@ -109,7 +109,7 @@ flowchart LR
 
 ## 装上就能用
 
-**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kanqing-3.9.21.apk`）
+**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kanqing-3.9.22.apk`）
 
 1. 点开下载好的文件 → 提示「未知来源」时选 **允许 / 继续**（安卓对所有非商店应用的统一提醒，不是软件有问题）
 2. 装完打开 → 按首页提示去 **设置 → 无障碍 → 看得清 → 打开**

@@ -181,7 +181,10 @@ public final class Ui {
             row = new LinearLayout(c);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setLayoutParams(rowLp(c, Theme.ROW_SELECT));
+            row.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            row.setMinimumHeight(dp(c, Theme.ROW_SELECT));
             int p = dp(c, 12);
             row.setPadding(dp(c, 5), 0, p, 0);
 
@@ -352,9 +355,12 @@ public final class Ui {
                                          final Fmt fmt, final OnValue cb) {
         LinearLayout r = new LinearLayout(c);
         r.setOrientation(LinearLayout.VERTICAL);
-        r.setLayoutParams(rowLp(c, Theme.ROW_SLIDER));
+        r.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        r.setMinimumHeight(dp(c, Theme.ROW_SLIDER));
         int p = dp(c, 12);
-        r.setPadding(p, dp(c, 4), p, 0);
+        r.setPadding(p, dp(c, 4), p, dp(c, 4));
 
         LinearLayout head = new LinearLayout(c);
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -396,7 +402,7 @@ public final class Ui {
             }
         });
         r.addView(sb, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 30)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(c, 36)));
         return r;
     }
 
@@ -634,6 +640,19 @@ public final class Ui {
         b.setBackgroundDrawable(Theme.rounded(Theme.ACCENT,
                 dp(c, Theme.CTRL_R), 0, 0));
         b.setMinimumHeight(dp(c, 48));
+        return b;
+    }
+
+    public static Button smallButton(Context c, String label) {
+        Button b = new Button(c);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextSize(12);
+        b.setTextColor(Theme.TEXT);
+        b.setBackgroundDrawable(Theme.rounded(Theme.SURFACE_2,
+                dp(c, Theme.CTRL_R), 0, 0));
+        b.setMinimumHeight(dp(c, 36));
+        b.setPadding(dp(c, 8), 0, dp(c, 8), 0);
         return b;
     }
 

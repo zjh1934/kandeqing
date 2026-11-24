@@ -6,6 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -59,6 +60,11 @@ public class MainActivity extends Activity
     private ZoomPreview zoomPreview;
     private BallPreview ballPreview;
     private int colorIndex = 0;
+
+    private LinearLayout logBody;
+    private TextView tvLog;
+    private boolean logOpen = false;
+    private boolean logFull = false;
 
     private static final String WECHAT_ID = "Vssfsg";
 
@@ -166,6 +172,8 @@ public class MainActivity extends Activity
         if (!enginesLoaded) {
             enginesLoaded = true;
             reloadEngines();
+        } else if (TtsManager.isReady()) {
+            reloadVoices();
         }
     }
 
@@ -574,16 +582,26 @@ public class MainActivity extends Activity
         spVoice.setOnSelected(new Ui.SelectRow.OnSelected() {
             @Override
             public void on(int pos) {
-                if (voices == null || pos >= voices.size()) {
+                if (voices == null || voices.isEmpty()) {
+                    reloadVoices();
+                    Ui.toast(MainActivity.this, "引擎还在准备，稍后再选一次", false);
+                    return;
+                }
+                if (pos >= voices.size()) {
                     return;
                 }
                 String name = voices.get(pos).name;
                 if (name.equals(shownVoice)) {
+                    boolean ok = TtsManager.applyVoice(name);
+                    Ui.toast(MainActivity.this,
+                            ok ? "已应用当前音色" : "这个音色当前引擎用不了", ok);
                     return;
                 }
                 shownVoice = name;
                 TtsManager.saveVoice(MainActivity.this, name);
-                TtsManager.applyVoice(name);
+                boolean ok = TtsManager.applyVoice(name);
+                Ui.toast(MainActivity.this,
+                        ok ? "已切换音色" : "这个音色当前引擎用不了", ok);
             }
         });
     }
@@ -833,7 +851,143 @@ public class MainActivity extends Activity
 
         page.addView(Ui.group(this, "联系作者",
                 Ui.qrRow(this, R.drawable.wechat_qr, WECHAT_ID)), groupLp());
+
+        page.addView(Ui.group(this, "诊断与日志", logSection()), groupLp());
         return page;
+    }
+
+    private LinearLayout logSection() {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        wrap.addView(Ui.actionRow(this, "查看诊断日志", Ui.GlyphView.CHEVRON,
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        logOpen = !logOpen;
+                        logBody.setVisibility(logOpen ? View.VISIBLE : View.GONE);
+                        if (logOpen) {
+                            refreshLog();
+                        }
+                    }
+                }));
+
+        logBody = new LinearLayout(this);
+        logBody.setOrientation(LinearLayout.VERTICAL);
+        logBody.setVisibility(View.GONE);
+        logBody.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
+                Ui.dp(this, 12), Ui.dp(this, 8));
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        Button bCopy = Ui.smallButton(this, "复制日志");
+        bCopy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String t = Log.content();
+                if (t.length() == 0) {
+                    Ui.toast(MainActivity.this, "还没有产生日志", false);
+                    return;
+                }
+                try {
+                    ClipboardManager cm = (ClipboardManager)
+                            getSystemService(Context.CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(ClipData.newPlainText("看得清日志", t));
+                    Haptics.tap();
+                    Ui.iconToast(MainActivity.this, "日志已复制，可直接粘贴给我");
+                } catch (Exception e) {
+                    Ui.toast(MainActivity.this, "复制失败", false);
+                }
+            }
+        });
+        row.addView(bCopy, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Button bExport = Ui.smallButton(this, "导出日志");
+        bExport.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String p = Log.export(MainActivity.this);
+                Ui.toast(MainActivity.this,
+                        p == null ? "导出失败，可能还没产生日志" : "已导出：" + p,
+                        p != null);
+            }
+        });
+        LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        ep.leftMargin = Ui.dp(this, 6);
+        row.addView(bExport, ep);
+        Button bRefresh = Ui.smallButton(this, "刷新");
+        bRefresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                refreshLog();
+            }
+        });
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        rp.leftMargin = Ui.dp(this, 6);
+        row.addView(bRefresh, rp);
+        logBody.addView(row);
+
+        tvLog = Ui.text(this, "", 11, Theme.TEXT_2, false);
+        tvLog.setTypeface(Typeface.MONOSPACE);
+        tvLog.setSingleLine(false);
+        logBody.addView(tvLog, Ui.lp(this, 0, 8, 0, 8));
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setOrientation(LinearLayout.HORIZONTAL);
+        final Button bMore = Ui.smallButton(this, "显示全部");
+        bMore.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                logFull = !logFull;
+                bMore.setText(logFull ? "只看最近 8 条" : "显示全部");
+                refreshLog();
+            }
+        });
+        row2.addView(bMore, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Button bClear = Ui.smallButton(this, "清空日志");
+        bClear.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.clear();
+                refreshLog();
+                Ui.iconToast(MainActivity.this, "已清空");
+            }
+        });
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        cp.leftMargin = Ui.dp(this, 6);
+        row2.addView(bClear, cp);
+        logBody.addView(row2);
+
+        TextView hint = Ui.caption(this,
+                "只记手势、状态、错误和字数，不记你读的内容。");
+        logBody.addView(hint, Ui.lp(this, 0, 8, 0, 0));
+
+        wrap.addView(logBody);
+        return wrap;
+    }
+
+    private void refreshLog() {
+        if (tvLog == null) {
+            return;
+        }
+        ArrayList<String> lines = Log.recent();
+        StringBuilder sb = new StringBuilder();
+        if (lines.isEmpty()) {
+            sb.append("（暂无日志）");
+        } else {
+            int show = Math.min(logFull ? Log.MAX_RENDER : 8, lines.size());
+            for (int k = 0; k < show; k++) {
+                sb.append(lines.get(lines.size() - 1 - k)).append("\n");
+            }
+        }
+        tvLog.setText(sb.toString());
     }
 
     private void rebuild() {
