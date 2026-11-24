@@ -66,8 +66,8 @@ CDN 缓存可能还显示单条目版本，订阅请一律用上面 `docs/feed.a
 
 **② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 
-- **主推**（实测返回真 APK、国内最稳、不重定向、链接永不变）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
-- 备用 A（GitHub raw，国内偶发超时）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- **主推**（实测已是 3.9.22、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.22，那条走版本化路径，不受缓存影响
 - 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析

@@ -71,8 +71,8 @@ with `docs/feed.atom` / `feed.json` above.
 
 **2) "New download / direct file" field** (a file URL, not a feed):
 
-- **Recommended** (verified real APK, no redirect, permanent): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
-- Fallback A (GitHub raw): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- **Recommended** (verified 3.9.22, no CDN staleness, no redirect, permanent): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- Fallback (jsDelivr): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) — a same-named file can be one release behind at the CDN edge; for the newest, pick the first entry (3.9.22) in the feed, which uses a versioned path with no cache.
 - Fallback B (GitHub Pages): [https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - For Obtainium-like apps, add the repo `https://github.com/zjh1934/kandeqing`
