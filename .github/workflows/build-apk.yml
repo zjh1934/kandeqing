@@ -91,7 +91,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f "${{ steps.ver.outputs.path }}"
+          cp "${{ steps.ver.outputs.path }}" apk/kandeqing-latest.apk
+          git add -f "${{ steps.ver.outputs.path }}" apk/kandeqing-latest.apk
           if git diff --cached --quiet; then
             echo "安装包无变化，跳过提交"
           else
@@ -126,3 +127,4 @@ jobs:
             --data-binary "@$APK" \
             "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=kandeqing-latest.apk" >/dev/null
           echo "已发布固定订阅名 kandeqing-latest.apk"
+          echo "仓库固定直链：apk/kandeqing-latest.apk（不重定向，下载器可直接订阅）"

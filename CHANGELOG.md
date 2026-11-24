@@ -4,6 +4,15 @@
 > 本文是逐版本的详细改动记录，给开发者和需要回退版本的人看。
 > 下载：[最新版](https://github.com/zjh1934/kandeqing/releases/latest) · [历史安装包](apk/)
 
+> **3.9.21 订阅修订（同版本，不重出包）**：`releases.atom` 的每条 entry 链接是
+> `releases/tag/vX.Y.Z` 网页（`text/html`），不是 APK；下载器订阅它会拿到 HTML
+> 页面并报「server returned HTML page」。仓库新增不重定向的固定文件
+> `apk/kandeqing-latest.apk`，CI 每次发版同步覆盖，直链为
+> `https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk`
+> （备用 jsDelivr 镜像）。README / 英文 README / 落地页主下载按钮 / Release 说明
+> 全部改成文件直链，并把「版本通知」与「安装包下载」分开写清。安装包字节没变、
+> 版本号没升，签名不变。
+
 ## 3.9.21 · 配色重做 + UI 层级优化（versionCode 51）
 
 **只动外观与层级，功能一行没改。** 按「先画出来看、看到不合适就改」的要求，

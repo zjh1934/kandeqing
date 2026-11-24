@@ -50,8 +50,15 @@ previews are attached to the Release.
 access to the default IME or the app currently holding input focus, and an
 accessibility service is not an exemption. TapRead makes "copy, then tap the ball"
 the default for exactly this reason. If nothing is read automatically, tap the
-green ball. Subscribe for updates: [releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) ·
-[fixed APK link](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk).
+green ball. **Download / subscribe (do not confuse these)**: `releases.atom` is a
+**release feed**, not an APK — every entry links to an HTML page, so a downloader
+that treats it as a file will get "server returned HTML page". Use a **file URL**:
+
+- Recommended (no redirect, no HTML, permanent link): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- China mirror (jsDelivr): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
+- Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk)
+- For Obtainium-like apps, add the repo `https://github.com/zjh1934/kandeqing`
+  and let it resolve the `.apk` asset; use [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) only for version notices.
 
 Enable the accessibility service once after install. No sign-up, no login, no network.
 

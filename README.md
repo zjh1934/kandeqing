@@ -48,8 +48,15 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 **「复制后自动朗读」在 Android 10+ 上不保证每次都触发** —— 官方只允许默认
 输入法或当前有输入焦点的应用读剪贴板，无障碍服务不是豁免。点读也是把
 「复制后点球」当默认用法，自动读只是可选项。没自动念时，点一下绿球即可。
-下载器订阅：[releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) ·
-[固定直链](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)。
+**下载与订阅（别填错）**：`releases.atom` 是**版本动态通知**，里面每条链接是
+Release 网页（`text/html`），**不是 APK**，下载器拿它当文件下会报
+「server returned HTML page」。要下安装包请用下面任一条**文件直链**：
+
+- 推荐（不重定向、不返回 HTML、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- 国内备用（jsDelivr 加速）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
+- Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk)
+- Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
+  Release 里的 `.apk` 资产；版本通知才订阅 [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom)。
 
 装完开一次无障碍，以后不用管。**不需要注册、不需要登录、不需要联网。**
 
