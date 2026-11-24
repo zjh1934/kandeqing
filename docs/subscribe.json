@@ -1,0 +1,30 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "看得清 KanDeQing · 安装包更新",
+  "home_page_url": "https://github.com/zjh1934/kandeqing",
+  "feed_url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json",
+  "description": "条目附件直接指向 APK 文件，不指向 Release 网页。",
+  "items": [
+    {
+      "id": "3.9.21",
+      "title": "看得清 3.9.21",
+      "date_modified": "2026-11-24T08:16:56Z",
+      "content_text": "看得清 3.9.21 安装包 · 656835 字节 · SHA256 b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
+      "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
+      "attachments": [
+        {
+          "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
+          "mime_type": "application/vnd.android.package-archive",
+          "size_in_bytes": 656835,
+          "title": "kandeqing-latest.apk"
+        }
+      ],
+      "_kandeqing": {
+        "version": "3.9.21",
+        "versionCode": 51,
+        "sha256": "b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
+        "size": 656835
+      }
+    }
+  ]
+}
