@@ -101,6 +101,7 @@ jobs:
           cp "$APK" docs/kandeqing-latest.apk
           python3 tools/make_feed.py apk docs --repo "$GITHUB_REPOSITORY"
           git add -f "$APK" apk/kandeqing-latest.apk docs/kandeqing-latest.apk \
+            docs/feed.atom docs/feed.json \
             docs/subscribe.atom docs/subscribe.json tools/make_feed.py
           if git diff --cached --quiet; then
             echo "安装包无变化，跳过提交"

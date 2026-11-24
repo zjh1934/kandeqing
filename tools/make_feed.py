@@ -173,18 +173,22 @@ def main():
     a = ap.parse_args()
 
     repo = a.repo
-    feed_atom = "https://cdn.jsdelivr.net/gh/%s@main/docs/subscribe.atom" % repo
-    feed_json = "https://cdn.jsdelivr.net/gh/%s@main/docs/subscribe.json" % repo
+    feed_atom = "https://cdn.jsdelivr.net/gh/%s@main/docs/feed.atom" % repo
+    feed_json = "https://cdn.jsdelivr.net/gh/%s@main/docs/feed.json" % repo
     items = collect(a.apk_dir, repo, a.token)
     if not items:
         raise SystemExit("no APK found in " + a.apk_dir)
     os.makedirs(a.out_dir, exist_ok=True)
 
-    with open(os.path.join(a.out_dir, "subscribe.atom"), "w", encoding="utf-8") as fp:
-        fp.write(atom(items, repo, feed_atom))
-    with open(os.path.join(a.out_dir, "subscribe.json"), "w", encoding="utf-8") as fp:
-        fp.write(json.dumps(jsonfeed(items, repo, feed_json),
-                            ensure_ascii=False, indent=2) + "\n")
+    text_atom = atom(items, repo, feed_atom)
+    text_json = json.dumps(jsonfeed(items, repo, feed_json),
+                           ensure_ascii=False, indent=2) + "\n"
+    for name in ("feed.atom", "subscribe.atom"):
+        with open(os.path.join(a.out_dir, name), "w", encoding="utf-8") as fp:
+            fp.write(text_atom)
+    for name in ("feed.json", "subscribe.json"):
+        with open(os.path.join(a.out_dir, name), "w", encoding="utf-8") as fp:
+            fp.write(text_json)
     print("feed: %d versions | newest %s | oldest %s"
           % (len(items), items[0]["ver"], items[-1]["ver"]))
 

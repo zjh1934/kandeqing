@@ -54,8 +54,8 @@ green ball. **Two kinds of links — do not mix them:**
 
 **1) "New subscription / RSS 2.0 · Atom · JSON Feed" field** (a feed, paste either):
 
-- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom) (Atom, verified `application/atom+xml`)
-- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json) (JSON Feed, verified `application/json`)
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom) (Atom, verified `application/atom+xml`)
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) (JSON Feed, verified `application/json`)
 
 The feed lists **every historical version** (currently 39, from qiuqiu 2.0 up
 to 3.9.22), newest first. Each `enclosure` / `attachments` points directly at
@@ -64,6 +64,10 @@ size and SHA256; CI appends a new entry on every release without dropping older
 ones. For "always just the newest" use the fixed file URL in section 2.
 **Do not** use GitHub's built-in `releases.atom` — its entries link to HTML
 pages and cause "server returned HTML page".
+
+The older `docs/subscribe.atom` / `subscribe.json` paths serve the same file,
+but their CDN cache may still show the old single-entry feed. Always subscribe
+with `docs/feed.atom` / `feed.json` above.
 
 **2) "New download / direct file" field** (a file URL, not a feed):
 

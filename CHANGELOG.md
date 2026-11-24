@@ -41,6 +41,13 @@
 > 不含任何 HTML 网页链接。CI 每次发版追加一条、旧版本不删；`kandeqing-latest.apk`
 > 作为「永远最新」别名不重复列条目。中英 README 与落地页同步说明。
 > 安装包字节、版本号、签名均未变。
+>
+> **再补一条（CDN 缓存）**：`docs/subscribe.atom` / `subscribe.json` 这两个旧路径
+> 在 jsDelivr 边缘节点的缓存仍是早期单条目版本（实测仍返回 1338 B / 1 条），
+> 而 purge 接口在本环境被网络策略挡住。因此订阅源同时输出到全新路径
+> `docs/feed.atom` / `docs/feed.json`（无历史缓存，实测立即返回 39 条），
+> README / 英文 README / 落地页 / Release 说明主推链接全部换成新路径，
+> 旧路径保留同内容兼容、缓存过期后自然一致。CI 每次发版同时维护四个文件。
 
 ## 3.9.22 · 调节控件接回 + 诊断日志归位（versionCode 52）
 
