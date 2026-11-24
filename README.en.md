@@ -57,10 +57,13 @@ green ball. **Two kinds of links — do not mix them:**
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom) (Atom, verified `application/atom+xml`)
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json) (JSON Feed, verified `application/json`)
 
-Our own feed points every `enclosure` / `attachments` directly at the APK file,
-never at a Release HTML page; CI refreshes version, size and SHA256 on each
-release. **Do not** use GitHub's built-in `releases.atom` — its entries link to
-HTML pages and cause "server returned HTML page".
+The feed lists **every historical version** (currently 39, from qiuqiu 2.0 up
+to 3.9.22), newest first. Each `enclosure` / `attachments` points directly at
+that version's APK file, never at a Release HTML page, and carries version,
+size and SHA256; CI appends a new entry on every release without dropping older
+ones. For "always just the newest" use the fixed file URL in section 2.
+**Do not** use GitHub's built-in `releases.atom` — its entries link to HTML
+pages and cause "server returned HTML page".
 
 **2) "New download / direct file" field** (a file URL, not a feed):
 

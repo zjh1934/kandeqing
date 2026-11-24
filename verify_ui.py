@@ -120,6 +120,17 @@ def c_subscribe():
     w = io.open(os.path.join(ROOT,".github","workflows","build-apk.yml"),encoding="utf-8").read()
     return "kandeqing-latest.apk" in w, ""
 
+@case("订阅源包含全部历史版本，不是单条目覆盖")
+def c_feed_multi():
+    t = io.open(os.path.join(ROOT,"tools","make_feed.py"),encoding="utf-8").read()
+    a = io.open(os.path.join(ROOT,"docs","subscribe.atom"),encoding="utf-8").read()
+    return ("for name in sorted(os.listdir(apk_dir))" in t
+            and "LATEST_ALIAS" in t
+            and "items.sort" in t
+            and "rel=\"enclosure\"" in a
+            and a.count("<entry>") >= 30
+            and "releases/tag/" not in a), ""
+
 def run_once():
     bad = 0
     for n, fn in CASES:

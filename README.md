@@ -55,10 +55,11 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.atom) （Atom，实测 `application/atom+xml`）
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/subscribe.json) （JSON Feed，实测 `application/json`）
 
-自建订阅源里每条条目的 `enclosure` / `attachments` **直接指向 APK 文件**，
-不指向 Release 网页；CI 每次发版自动更新版本、大小与 SHA256。
-**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接是 HTML 网页，
-下载器会报「server returned HTML page」。
+订阅源里是**全部历史版本**（目前 39 个，从球球 2.0 到 3.9.22），最新在最前，
+每条 `enclosure` / `attachments` **直接指向该版本的 APK 文件**，不指向 Release
+网页；带版本、大小、SHA256，CI 每次发版追加一条、旧版本不删。想永远只拿最新
+就用下面②的固定直链。**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接
+是 HTML 网页，下载器会报「server returned HTML page」。
 
 **② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 
