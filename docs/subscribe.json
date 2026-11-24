@@ -6,23 +6,23 @@
   "description": "条目附件直接指向 APK 文件，不指向 Release 网页。",
   "items": [
     {
-      "id": "3.9.21",
-      "title": "看得清 3.9.21",
-      "date_modified": "2026-11-24T08:23:36Z",
-      "content_text": "看得清 3.9.21 安装包 · 656835 字节 · SHA256 b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
+      "id": "3.9.22",
+      "title": "看得清 3.9.22",
+      "date_modified": "2026-11-24T09:09:31Z",
+      "content_text": "看得清 3.9.22 安装包 · 660930 字节 · SHA256 977e478b72632b0518efcfb64af3aec1130dc885932c5542071dcca4bc8bd997",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
       "attachments": [
         {
           "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
           "mime_type": "application/vnd.android.package-archive",
-          "size_in_bytes": 656835,
+          "size_in_bytes": 660930,
           "title": "kandeqing-latest.apk"
         }
       ],
       "_kandeqing": {
-        "version": "3.9.21",
-        "sha256": "b047f26fe5239f21b2994fae8bcb8da6bb914b4e11311ec5ad9c05f34e097ebc",
-        "size": 656835
+        "version": "3.9.22",
+        "sha256": "977e478b72632b0518efcfb64af3aec1130dc885932c5542071dcca4bc8bd997",
+        "size": 660930
       }
     }
   ]
