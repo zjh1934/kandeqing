@@ -52,9 +52,9 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 Release 网页（`text/html`），**不是 APK**，下载器拿它当文件下会报
 「server returned HTML page」。要下安装包请用下面任一条**文件直链**：
 
-- **主推**（Pages 托管、国内最稳、不重定向、链接永不变）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
-- 备用 A（GitHub raw）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
-- 备用 B（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
+- **主推**（实测返回真 APK、国内最稳、不重定向、链接永不变）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk)
+- 备用 A（GitHub raw，国内偶发超时）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/download/v3.9.21/kandeqing-latest.apk)
 - Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
   Release 里的 `.apk` 资产；版本通知才订阅 [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom)。
