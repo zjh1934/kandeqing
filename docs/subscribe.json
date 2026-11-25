@@ -9,7 +9,7 @@
       "id": "3.9.23",
       "title": "kandeqing-v3.9.23.apk · 看得清 3.9.23",
       "date_modified": "2026-11-25T05:00:37Z",
-      "content_text": "看得清 3.9.23 安装包 · 660930 字节 · SHA256 ffc3adb1911630b4545db36d01ace42c8b8836bcc39fddd307e28c3dea7e7961",
+      "content_text": "看得清 3.9.23 安装包 · 660930 字节 · SHA256 ef3ba09cab6ebf7b4e4660461d31da1db0f64d9a8ba1f478a859d2ca018382da",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk",
       "attachments": [
         {
@@ -21,7 +21,7 @@
       ],
       "_kandeqing": {
         "version": "3.9.23",
-        "sha256": "ffc3adb1911630b4545db36d01ace42c8b8836bcc39fddd307e28c3dea7e7961",
+        "sha256": "ef3ba09cab6ebf7b4e4660461d31da1db0f64d9a8ba1f478a859d2ca018382da",
         "size": 660930,
         "file": "kandeqing-v3.9.23.apk",
         "legacy": false
