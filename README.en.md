@@ -6,7 +6,7 @@
 
 **No internet permission · No OCR · No account · No gestures to memorize · Free & open source**
 
-[![version](https://img.shields.io/badge/version-3.9.22-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![version](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![no internet permission](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -41,10 +41,16 @@ an accessibility focus window to read. No screenshots, no OCR, no network;
 clipboard text stays on device and is never written to logs. Android 13+ may show
 its own "app read clipboard" toast — that is a system behavior.
 
-**3.9.21 palette & hierarchy**: unified "Qingyou" 7-color ball palette, brighter
-clipboard ball `#1E8A68`, theme accent matched to the balls, a light outline for the
-white ball, and a compacted settings page that fits on one screen. Before/after
-previews are attached to the Release.
+**3.9.23 palette & opacity**: the muted "Qingyou" 7 colors are replaced by a
+saturated "Bright" set (snow white / electric blue / emerald / amber / coral /
+violet / aqua), each with an auto-chosen dark or white contrast rim so the ball is
+easy to spot on both light and dark wallpapers. The speaking ring gets a contrast
+under-ring, and its two bars plus the loading dots now use ball color with a dark
+outline. **Opacity 100% is now truly opaque**: the old solid ball was a radial
+gradient peaking at 90% and fading to fully transparent at the edge; now the inner
+80% uses the full alpha and only the outer 20% is a short anti-alias falloff.
+Release files are named `kandeqing-v<version>.apk` so every subscription entry is
+distinguishable. Before / candidates / after previews are on the Release and Pages.
 
 **Auto-read is best-effort on Android 10+**: the platform only grants clipboard
 access to the default IME or the app currently holding input focus, and an
@@ -58,7 +64,7 @@ green ball. **Two kinds of links — do not mix them:**
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) (JSON Feed, verified `application/json`)
 
 The feed lists **every historical version** (currently 39, from qiuqiu 2.0 up
-to 3.9.22), newest first. Each `enclosure` / `attachments` points directly at
+to 3.9.23), newest first. Each `enclosure` / `attachments` points directly at
 that version's APK file, never at a Release HTML page, and carries version,
 size and SHA256; CI appends a new entry on every release without dropping older
 ones. For "always just the newest" use the fixed file URL in section 2.
@@ -71,8 +77,8 @@ with `docs/feed.atom` / `feed.json` above.
 
 **2) "New download / direct file" field** (a file URL, not a feed):
 
-- **Recommended** (verified 3.9.22, no CDN staleness, no redirect, permanent): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
-- Fallback (jsDelivr): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) — a same-named file can be one release behind at the CDN edge; for the newest, pick the first entry (3.9.22) in the feed, which uses a versioned path with no cache.
+- **Recommended** (verified 3.9.23, no CDN staleness, no redirect, permanent): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- Fallback (jsDelivr): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) — a same-named file can be one release behind at the CDN edge; for the newest, pick the first entry (3.9.23) in the feed, which uses a versioned path with no cache.
 - Fallback B (GitHub Pages): [https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - For Obtainium-like apps, add the repo `https://github.com/zjh1934/kandeqing`
@@ -119,7 +125,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 ## Install
 
-**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kanqing-3.9.22.apk` under Assets).
+**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kandeqing-v3.9.23.apk` under Assets).
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.

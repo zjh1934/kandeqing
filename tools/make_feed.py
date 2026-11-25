@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 APK_TYPE = "application/vnd.android.package-archive"
 LATEST_ALIAS = "kandeqing-latest.apk"
-NAME_RE = re.compile(r"-([0-9][0-9.]*)\.apk$")
+NAME_RE = re.compile(r"^kandeqing-v([0-9][0-9.]*)\.apk$")
 
 
 def utc(ts):
@@ -74,7 +74,7 @@ def collect(apk_dir, repo, token):
     for name in sorted(os.listdir(apk_dir)):
         if not name.endswith(".apk") or name == LATEST_ALIAS:
             continue
-        m = NAME_RE.search(name)
+        m = NAME_RE.match(name)
         if not m:
             continue
         ver = m.group(1).rstrip(".")
@@ -92,7 +92,7 @@ def collect(apk_dir, repo, token):
             "size": len(raw),
             "sha": hashlib.sha256(raw).hexdigest(),
             "url": url,
-            "legacy": name.startswith("球球"),
+            "legacy": ver == "2.0",
         })
     items.sort(key=lambda x: (version_key(x["ver"]), x["ver"]), reverse=True)
     return items
@@ -112,9 +112,10 @@ def atom(items, repo, feed_atom):
 """ % (len(items), latest, repo, feed_atom, now)
     parts = [head]
     for it in items:
-        title = "看得清 " + it["ver"] + ("（球球时期）" if it["legacy"] else "")
-        summary = ("看得清 %s · %d 字节 · SHA256 %s%s"
-                   % (it["ver"], it["size"], it["sha"],
+        title = ("kandeqing-v%s.apk · 看得清 %s%s"
+                 % (it["ver"], it["ver"], "（球球时期）" if it["legacy"] else ""))
+        summary = ("%s · 看得清 %s · %d 字节 · SHA256 %s%s"
+                   % (it["name"], it["ver"], it["size"], it["sha"],
                       " · 球球时期安装包" if it["legacy"] else ""))
         parts.append("""  <entry>
     <title>%s</title>
@@ -142,7 +143,8 @@ def jsonfeed(items, repo, feed_json):
                         "不指向 Release 网页。永久最新直链：%s" % (len(items), latest)),
         "items": [{
             "id": it["ver"],
-            "title": "看得清 " + it["ver"] + ("（球球时期）" if it["legacy"] else ""),
+            "title": ("kandeqing-v%s.apk · 看得清 %s%s"
+                      % (it["ver"], it["ver"], "（球球时期）" if it["legacy"] else "")),
             "date_modified": it["date"],
             "content_text": ("看得清 %s 安装包 · %d 字节 · SHA256 %s"
                              % (it["ver"], it["size"], it["sha"])),

@@ -6,7 +6,7 @@
 
 **不联网 · 不上传 · 不用 OCR · 不学手势 · 免费开源**
 
-[![版本](https://img.shields.io/badge/version-3.9.22-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![版本](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![网络权限](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![协议](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -40,10 +40,13 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 临时取得读取资格，不截图、不走 OCR、不联网；剪贴板内容只在本地交给语音引擎，
 日志不记正文。Android 13 起系统自己会弹「已读取剪贴板」提示，属系统行为。
 
-**3.9.21 配色与层级**：球色板换成统一明度的「清釉」七色（月白 / 霁蓝 / 青瓷 /
-麦金 / 藕红 / 鸢尾 / 岩青），复制朗读绿球提亮到 `#1E8A68`，主题强调色跟着球色统一；
-白球加浅描边，浅色壁纸上不再消失。设置页行高、组距、字号整体收紧，分组标题降级为
-次要信息，长说明压成一行，「朗读」页一屏能看完。改前 / 改后对比图见 Release 说明。
+**3.9.23 配色与不透明度**：旧「清釉」七色低饱和发灰、不醒目，换成高饱和「明朗」
+七色（雪白 / 电蓝 / 翠绿 / 琥珀 / 珊瑚 / 亮紫 / 青碧），按球色亮度自动配深或白对比描边，
+浅色深色壁纸都一眼能找到；朗读空心环加对比底环，竖线与转圈小点改成球色填充 + 深色描边。
+**不透明度调到 100% 现在真的完全不透明**：旧版实心球是径向渐变，中心最多 90%、
+边缘一路透明，调满也发虚；现在 0~80% 半径用完整 alpha，只有最外 20% 做短柔边抗锯齿。
+安装包文件名统一为 `kandeqing-v<版本>.apk`，订阅里每条都分得清。改前 / 候选 / 改后
+对比图见 Release 说明与 Pages。
 
 **「复制后自动朗读」在 Android 10+ 上不保证每次都触发** —— 官方只允许默认
 输入法或当前有输入焦点的应用读剪贴板，无障碍服务不是豁免。点读也是把
@@ -55,7 +58,7 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom) （Atom，实测 `application/atom+xml`）
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) （JSON Feed，实测 `application/json`）
 
-订阅源里是**全部历史版本**（目前 39 个，从球球 2.0 到 3.9.22），最新在最前，
+订阅源里是**全部历史版本**（目前 39 个，从球球 2.0 到 3.9.23），最新在最前，
 每条 `enclosure` / `attachments` **直接指向该版本的 APK 文件**，不指向 Release
 网页；带版本、大小、SHA256，CI 每次发版追加一条、旧版本不删。想永远只拿最新
 就用下面②的固定直链。**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接
@@ -66,8 +69,8 @@ CDN 缓存可能还显示单条目版本，订阅请一律用上面 `docs/feed.a
 
 **② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 
-- **主推**（实测已是 3.9.22、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
-- 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.22，那条走版本化路径，不受缓存影响
+- **主推**（实测已是 3.9.23、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.23，那条走版本化路径，不受缓存影响
 - 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
 - Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
@@ -113,7 +116,7 @@ flowchart LR
 
 ## 装上就能用
 
-**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kanqing-3.9.22.apk`）
+**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kandeqing-v3.9.23.apk`）
 
 1. 点开下载好的文件 → 提示「未知来源」时选 **允许 / 继续**（安卓对所有非商店应用的统一提醒，不是软件有问题）
 2. 装完打开 → 按首页提示去 **设置 → 无障碍 → 看得清 → 打开**

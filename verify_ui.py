@@ -1,8 +1,8 @@
 """
-3.9.21 配色与 UI 层级自检。
+3.9.23 配色与 UI 自检。
 
-静态断言：新色板、绿球色值、主题两端强调色、层级常量、字号、
-白球描边、试听归组、版本号、订阅资产名。两遍全绿才算过。
+静态断言：明朗七色、实心不透明、对比描边、绿球、主题强调色、
+安装包拼音命名、层级常量、字号、试听归组、版本号、订阅资产名。两遍全绿才算过。
 """
 import io, os, re, sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -13,29 +13,57 @@ def case(n):
     return d
 def rd(p): return io.open(os.path.join(J, p) if not p.startswith((".","/")) else os.path.join(ROOT,p), encoding="utf-8").read()
 
-@case("清釉七色：统一明度，旧灰调全清")
+@case("明朗七色：高饱和，清釉灰调全清")
 def c_palette():
     t = rd("Prefs.java")
-    new = ["0xFFF4F7FA","0xFF6FA8CF","0xFF79C2AE","0xFFE0B873",
+    new = ["0xFFFFFFFF","0xFF1E7BFF","0xFF00C48C","0xFFFFA51F",
+           "0xFFFF5A5F","0xFFA855F7","0xFF00B8D4"]
+    old = ["0xFFF4F7FA","0xFF6FA8CF","0xFF79C2AE","0xFFE0B873",
            "0xFFE08E86","0xFF9C90D8","0xFF6E8B9B"]
-    old = ["0xFFFAFAFA","0xFF4A7FD4","0xFF2E9E8F","0xFFD9963F",
-           "0xFFD96B6B","0xFF8B74D6","0xFF5A7494"]
-    names = ["月白","霁蓝","青瓷","麦金","藕红","鸢尾","岩青"]
+    names = ["雪白","电蓝","翠绿","琥珀","珊瑚","亮紫","青碧"]
     return (all(x in t for x in new) and not any(x in t for x in old)
             and all(n in t for n in names)), ""
 
-@case("绿球提亮 + 朗读态深绿")
+@case("不透明度 100% 真正不透明：实心盘 + 短柔边")
+def c_opaque():
+    t = rd("BallArt.java")
+    return ("argb(alpha, rgb)" in t
+            and "0.80f, 0.94f, 1f" in t
+            and "0.90f * alpha" not in t
+            and "0.46f * alpha" not in t
+            and "edgeOf(rgb)" in t
+            and "EDGE_DARK" in t), ""
+
+@case("对比描边 + 朗读底环 + 竖线/点阵双色可见")
+def c_outline():
+    t = rd("BallArt.java")
+    return ("p.setColor(argb(alpha, edge));" in t
+            and "p.setStrokeWidth(r * 0.20f);" in t
+            and "pass == 0 ? EDGE_DARK : rgb" in t
+            and "argb(a * alpha, EDGE_DARK)" in t
+            and "Paint.Style.STROKE" in t), ""
+
+@case("绿球提亮 + 白边")
 def c_green():
     t = rd("ClipBallView.java")
-    return ("0xFF1E8A68" in t and "0xFF166A50" in t
-            and "0xFF0F7A4F" not in t), ""
+    return ("0xFF00B578" in t and "0xFF00966A" in t
+            and "rim.setColor(Color.WHITE)" in t
+            and "r * 0.93f" in t), ""
 
-@case("主题强调色跟随球色：深亮蓝 / 浅沉蓝")
+@case("主题强调色跟随新球色：深亮蓝 / 浅沉蓝 / 亮绿")
 def c_accent():
     t = rd("Theme.java")
-    return ("0xFF6FA8CF" in t and "0xFF3F6FA8" in t
-            and "0xFF4AA8FF" not in t and "0xFF2F6BFF" not in t
-            and "0xFF1E8A68" in t), ""
+    return ("0xFF1E7BFF" in t and "0xFF2F6BFF" in t
+            and "0xFF00B578" in t
+            and "0xFF6FA8CF" not in t and "0xFF3F6FA8" not in t), ""
+
+@case("安装包统一拼音版本号命名")
+def c_filename():
+    w = io.open(os.path.join(ROOT,".github","workflows","build-apk.yml"),encoding="utf-8").read()
+    b = io.open(os.path.join(ROOT,"build_apk.sh"),encoding="utf-8").read()
+    return ("kandeqing-v$VER.apk" in w and "kandeqing-v$VER.apk" in b
+            and "apk/看得清-$VER.apk" not in w and "apk/看得清-$VER.apk" not in b
+            and 'NAME="kanqing-$VER.apk"' not in w), ""
 
 @case("层级收紧：行高 / 组距 / 圆角 / 命中区")
 def c_density():
@@ -54,13 +82,6 @@ def c_type():
             and "text(c, title, 12, Theme.TEXT_2, true)" in t
             and "dp(c, 2), dp(c, 12)" in t
             and "hlp.topMargin = dp(c, 6);" in t), ""
-
-@case("亮色球加浅描边，浅壁纸上不再消失")
-def c_outline():
-    t = rd("BallArt.java")
-    return ("(rgb >> 16) & 0xFF) > 225" in t
-            and "Paint.Style.STROKE" in t
-            and "90, 105, 125" in t), ""
 
 @case("主开关唯一强调 + 长说明压一行 + 试听并入声音组")
 def c_page():
@@ -110,10 +131,10 @@ def c_voice():
             and "TtsManager.saveVoice(MainActivity.this, name)" in t
             and "else if (TtsManager.isReady())" in t), ""
 
-@case("版本 3.9.22 / versionCode 52")
+@case("版本 3.9.23 / versionCode 53")
 def c_ver():
     g = io.open(os.path.join(ROOT,"app","build.gradle"),encoding="utf-8").read()
-    return ("versionCode 52" in g and 'versionName "3.9.22"' in g), ""
+    return ("versionCode 53" in g and 'versionName "3.9.23"' in g), ""
 
 @case("订阅资产仍为固定名 kandeqing-latest.apk")
 def c_subscribe():
@@ -129,6 +150,8 @@ def c_feed_multi():
             and "items.sort" in t
             and "rel=\"enclosure\"" in a
             and a.count("<entry>") >= 30
+            and a.count("kandeqing-v") >= 30
+            and "看得清-" not in a
             and "releases/tag/" not in a), ""
 
 def run_once():

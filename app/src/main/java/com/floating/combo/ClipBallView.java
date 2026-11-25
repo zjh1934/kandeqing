@@ -10,11 +10,12 @@ import android.view.View;
 
 public final class ClipBallView extends View {
 
-    private static final int GREEN = 0xFF1E8A68;
-    private static final int GREEN_DEEP = 0xFF166A50;
+    private static final int GREEN = 0xFF00B578;
+    private static final int GREEN_DEEP = 0xFF00966A;
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glyph = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint wave = new Paint(Paint.ANTI_ALIAS_FLAG);
     private boolean speaking = false;
@@ -23,6 +24,8 @@ public final class ClipBallView extends View {
         super(c);
         fill.setStyle(Paint.Style.FILL);
         shade.setStyle(Paint.Style.FILL);
+        rim.setStyle(Paint.Style.FILL);
+        rim.setColor(Color.WHITE);
         glyph.setStyle(Paint.Style.FILL);
         glyph.setColor(Color.WHITE);
         wave.setStyle(Paint.Style.STROKE);
@@ -52,8 +55,9 @@ public final class ClipBallView extends View {
         shade.setColor(Color.argb(38, 0, 0, 0));
         c.drawCircle(cx, cy + r * 0.06f, r * 1.02f, shade);
 
+        c.drawCircle(cx, cy, r, rim);
         fill.setColor(speaking ? GREEN_DEEP : GREEN);
-        c.drawCircle(cx, cy, r, fill);
+        c.drawCircle(cx, cy, r * 0.93f, fill);
 
         float s = (r * 2f * 0.50f) / 24f;
         float ox = cx - 12f * s;

@@ -98,7 +98,7 @@ def c_shape():
     ok_default = (d is not None and d.group(1) == "0"
                   and "ST_PICKING" not in m and "ST_LOADING" not in m)
     t = read(BA)
-    ok_bars = "shape == 2" in t and "drawRoundRect(x - bw" in t
+    ok_bars = "shape == 2" in t and "drawRoundRect(x - half" in t
     ok_dots = "drawDots" in t and "state == ST_LOADING" in t
     return (not bad and ok_default and ok_bars and ok_dots), \
         ("映射错=%r default=%s 竖线=%s 转圈=%s"

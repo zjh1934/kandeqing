@@ -32,9 +32,9 @@ VER=$(grep -oE 'versionName[[:space:]]+"[^"]+"' "$ROOT/app/build.gradle" \
 CODE=$(grep -oE 'versionCode[[:space:]]+[0-9]+' "$ROOT/app/build.gradle" \
       | grep -oE '[0-9]+' | head -1)
 [ -n "$VER" ] && [ -n "$CODE" ] || { echo "读不到版本号，检查 app/build.gradle"; exit 1; }
-APK="$ROOT/apk/看得清-$VER.apk"
+APK="$ROOT/apk/kandeqing-v$VER.apk"
 mkdir -p "$ROOT/apk"
-echo "版本：$VER (versionCode $CODE) → apk/看得清-$VER.apk"
+echo "版本：$VER (versionCode $CODE) → apk/kandeqing-v$VER.apk"
 
 cp -r "$ROOT/app/src/main/." "$SRC/"
 

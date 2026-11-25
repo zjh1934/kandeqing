@@ -81,11 +81,11 @@ jobs:
         run: |
           VER=$(grep -oE 'versionName[[:space:]]+"[^"]+"' app/build.gradle | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
-          echo "path=apk/看得清-$VER.apk" >> "$GITHUB_OUTPUT"
+          echo "path=apk/kandeqing-v$VER.apk" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: 看得清-${{ steps.ver.outputs.ver }}
+          name: kandeqing-v${{ steps.ver.outputs.ver }}
           path: ${{ steps.ver.outputs.path }}
           if-no-files-found: error
 
@@ -116,8 +116,8 @@ jobs:
         run: |
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
-          NAME="kanqing-$VER.apk"
-          NOTES="看得清 3.9.22：接回被 3.9.21 层级改造弄坏的调节控件，并把诊断日志入口接回第四选项卡。逐条核对 12 条「控件 → 回调 → 存值 → 服务生效」链路，回调其实一行没删，坏在 3.9.21 把 ROW_SLIDER 56→48、ROW_SELECT 48→44 后，sliderRow / SelectRow 仍用固定行高，内容溢出被裁，SeekBar 拖不到、下拉展开被压，于是「不透明度 / 发音人」这些看着全都不管用。这版把两者外层改成 WRAP_CONTENT + setMinimumHeight，SeekBar 给足 36dp，所有滑块和下拉完整可点；层级收紧的视觉效果保留。音色链再加固：回前台重新枚举音色、空列表不再静默失败、选中即强制 applyVoice 并给可见反馈。诊断与日志按早期版本（7ab4511ce）的折叠二级入口接回「更多」页：查看 / 复制 / 导出 / 刷新 / 显示全部 / 清空，接 Log.recent/content/export/clear，只记状态与字数不记正文。配色、抓字、放大、球定位、四态、剪贴板链路、TTS 其余一行没动。Release 仍额外上传固定名 kandeqing-latest.apk，订阅源不变。verify_all 8 套三轮全绿。versionCode 52 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NAME="kandeqing-v$VER.apk"
+          NOTES="看得清 3.9.23：悬浮球配色与不透明度重做，安装包文件名统一为拼音版本号。① 颜色：清釉七色是低饱和莫兰迪，全发灰、不醒目，换成「明朗」高饱和七色（雪白/电蓝/翠绿/琥珀/珊瑚/亮紫/青碧），并按球色亮度自动配深或白对比描边，浅色深色壁纸都能一眼找到；朗读空心环加了对比底环，两条竖线与等待转圈小点改成球色填充+深色描边，浅深壁纸都看得见；复制朗读绿球提亮并加白边；UI 强调色跟随新球色。② 不透明度：旧版实心球用径向渐变，中心最多 0.90×alpha、从 72% 半径一路衰减到边缘全透明，所以调到 100% 仍是半透明。现在 0~80% 半径用完整 alpha（100% 即完全不透明），只有最外 20% 做短柔边抗锯齿，不透明度滑块名副其实。③ 文件名：以后发布一律 apk/kandeqing-v<版本>.apk，仓库 39 个历史包同步改拼音名（字节不变），订阅源每条附件的文件名就是 kandeqing-vX.Y.Z.apk，下载器里不再全叫同一个名字；kandeqing-latest.apk 仍作永久最新直链。抓字、放大、球心对齐、剪贴板链路、四态、TTS 其余一行没动。改前/候选/改后共 2 张代码自绘预览图已逐张看过并修掉朗读态竖线发白的问题。verify_all 8 套三轮全绿。versionCode 53 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

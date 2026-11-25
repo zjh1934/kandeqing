@@ -18,6 +18,9 @@ public final class BallArt {
     public static final int ST_PAN = 6;
     public static final int ST_LOADING = 7;
 
+    private static final int EDGE_DARK = 0xFF25303C;
+    private static final int EDGE_LIGHT = 0xFFFFFFFF;
+
     private static final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private static final Paint pBar = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -44,6 +47,14 @@ public final class BallArt {
         }
     }
 
+    private static int edgeOf(int rgb) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        int l = (r * 299 + g * 587 + b * 114) / 1000;
+        return l > 165 ? EDGE_DARK : EDGE_LIGHT;
+    }
+
     public static void draw(Canvas c, float cx, float cy, float r,
                             int color, int state, float alpha) {
         if (r <= 1f) {
@@ -52,43 +63,52 @@ public final class BallArt {
         alpha = Math.max(0.12f, Math.min(1f, alpha));
         int rgb = color & 0xFFFFFF;
         int shape = shape(state);
+        int edge = edgeOf(rgb);
 
+        p.setStyle(Paint.Style.FILL);
         p.setShader(new RadialGradient(cx, cy, r * 1.10f,
-                new int[]{Color.argb((int) (16 * alpha), 0, 0, 0),
-                        Color.argb((int) (22 * alpha), 0, 0, 0),
+                new int[]{Color.argb((int) (18 * alpha), 0, 0, 0),
+                        Color.argb((int) (24 * alpha), 0, 0, 0),
                         Color.argb(0, 0, 0, 0)},
                 new float[]{0.35f, 0.68f, 1f}, Shader.TileMode.CLAMP));
         c.drawCircle(cx, cy, r * 1.10f, p);
 
+        p.setShader(null);
         if (shape == 1) {
-            p.setShader(new RadialGradient(cx, cy, r,
-                    new int[]{argb(0.90f * alpha, rgb),
-                            argb(0.90f * alpha, rgb),
-                            argb(0.46f * alpha, rgb),
-                            argb(0f, rgb)},
-                    new float[]{0f, 0.72f, 0.90f, 1f},
-                    Shader.TileMode.CLAMP));
+            p.setColor(argb(alpha, edge));
             c.drawCircle(cx, cy, r, p);
-            if (((rgb >> 16) & 0xFF) > 225
-                    && ((rgb >> 8) & 0xFF) > 225
-                    && (rgb & 0xFF) > 225) {
-                p.setShader(null);
-                p.setStyle(Paint.Style.STROKE);
-                p.setStrokeWidth(Math.max(1.2f, r * 0.045f));
-                p.setColor(Color.argb((int) (110 * alpha), 90, 105, 125));
-                c.drawCircle(cx, cy, r * 0.985f, p);
-                p.setStyle(Paint.Style.FILL);
-            }
+
+            p.setShader(new RadialGradient(cx, cy, r * 0.94f,
+                    new int[]{argb(alpha, rgb),
+                            argb(alpha, rgb),
+                            argb(alpha * 0.55f, rgb),
+                            argb(0f, rgb)},
+                    new float[]{0f, 0.80f, 0.94f, 1f},
+                    Shader.TileMode.CLAMP));
+            c.drawCircle(cx, cy, r * 0.94f, p);
+
+            p.setShader(new RadialGradient(cx - r * 0.30f, cy - r * 0.34f,
+                    r * 0.34f,
+                    new int[]{Color.argb((int) (46 * alpha), 255, 255, 255),
+                            Color.argb(0, 255, 255, 255)},
+                    new float[]{0f, 1f}, Shader.TileMode.CLAMP));
+            c.drawCircle(cx - r * 0.30f, cy - r * 0.34f, r * 0.34f, p);
         } else {
-            float ringA = (shape == 2 ? 0.94f : 0.82f) * alpha;
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(r * 0.20f);
+            p.setColor(argb(alpha * 0.92f, edge));
+            c.drawCircle(cx, cy, r * 0.77f, p);
+            p.setStyle(Paint.Style.FILL);
+
+            float ringA = (shape == 2 ? 1.0f : 0.96f) * alpha;
             p.setShader(new RadialGradient(cx, cy, r,
                     new int[]{argb(0f, rgb),
                             argb(0f, rgb),
                             argb(ringA, rgb),
-                            argb(ringA * 0.55f, rgb),
-                            argb(0f, rgb),
+                            argb(ringA, rgb),
+                            argb(ringA * 0.45f, rgb),
                             argb(0f, rgb)},
-                    new float[]{0f, 0.50f, 0.70f, 0.81f, 0.93f, 1f},
+                    new float[]{0f, 0.62f, 0.70f, 0.84f, 0.92f, 1f},
                     Shader.TileMode.CLAMP));
             c.drawCircle(cx, cy, r, p);
 
@@ -96,12 +116,17 @@ public final class BallArt {
                 float bw = r * 0.13f;
                 float gap = r * 0.29f;
                 float bh = r * 0.46f;
-                pBar.setColor(argb(0.95f * alpha, rgb));
-                for (int sgn = -1; sgn <= 1; sgn += 2) {
-                    float x = cx + sgn * gap;
-                    c.drawRoundRect(x - bw / 2f, cy - bh,
-                            x + bw / 2f, cy + bh,
-                            bw / 2f, bw / 2f, pBar);
+                float sw = Math.max(1.2f, r * 0.035f);
+                for (int pass = 0; pass < 2; pass++) {
+                    float half = bw / 2f + (pass == 0 ? sw : 0f);
+                    float ext = pass == 0 ? sw : 0f;
+                    pBar.setColor(argb(alpha, pass == 0 ? EDGE_DARK : rgb));
+                    for (int sgn = -1; sgn <= 1; sgn += 2) {
+                        float x = cx + sgn * gap;
+                        c.drawRoundRect(x - half, cy - bh - ext,
+                                x + half, cy + bh + ext,
+                                half, half, pBar);
+                    }
                 }
             }
         }
@@ -125,8 +150,11 @@ public final class BallArt {
                     - Math.PI / 2 - phase * Math.PI * 2;
             float x = cx + (float) Math.cos(ang) * orbit;
             float y = cy + (float) Math.sin(ang) * orbit;
+            float rad = dot * (0.62f + 0.38f * a);
+            pBar.setColor(argb(a * alpha, EDGE_DARK));
+            c.drawCircle(x, y, rad + Math.max(1f, r * 0.022f), pBar);
             pBar.setColor(argb(a * alpha, rgb));
-            c.drawCircle(x, y, dot * (0.62f + 0.38f * a), pBar);
+            c.drawCircle(x, y, rad, pBar);
         }
     }
 

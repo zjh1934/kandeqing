@@ -75,10 +75,11 @@ def c_second_ball():
     return ok, ""
 
 
-@case("第二球外观抄点读：绿色 #0F7A4F + 白色喇叭")
+@case("第二球外观：亮绿实心 + 白描边 + 白色喇叭")
 def c_look():
     t = read("ClipBallView.java")
-    ok = (("0xFF1E8A68" in t or "0xFF0F7A4F" in t) and "GREEN_DEEP" in t
+    ok = ("0xFF00B578" in t and "0xFF00966A" in t
+          and "rim.setColor(Color.WHITE)" in t and "r * 0.93f" in t
           and "drawCircle" in t and "drawPath" in t
           and "drawArc" in t and "Color.WHITE" in t)
     return ok, ""
