@@ -24,6 +24,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 提交前自检（含 AOCI 认知漂移门禁）
+        run: python3 verify_all.py
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

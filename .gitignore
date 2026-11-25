@@ -21,3 +21,10 @@ settings.json
 
 # 手工构建脚本在 Linux / Actions 上用的本地工具链与临时产物
 .toolchain/
+
+# AOCI 认知资产：正式文件入库，运行时状态留在本地
+.aoci/*
+!.aoci/.gitignore
+!.aoci/baseline.json
+!.aoci/config.json
+!.aoci/curation.json

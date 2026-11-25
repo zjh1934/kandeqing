@@ -1,3 +1,25 @@
+> **项目文件更新 · 接入 AOCI-CODE 认知层（不重出包，版本仍 3.9.23）**
+>
+> 新增随 Git 受管、但**不进 APK** 的项目配套文件：`aoci.txt`（Root）、
+> `aoci.meta.txt`（Meta）、`aoci.code.txt`（Code 卷，71 条 FRAS Entry）、
+> `AGENTS.md`（官方托管区块 + 本项目红线）、`.aoci/baseline.json` /
+> `config.json` / `curation.json` / `.gitignore`、`.gitattributes`、
+> `docs/aoci.md`、`tools/aoci_cognition.py`、`tools/aoci_sync.py`、
+> `tools/aoci_agents_block.txt`、`verify_aoci.py`。
+> 每个受管文件一条 F/R/A/S，把这一路踩过的坑写进 S 字段（球心恒等触点、
+> 不透明度真不透明、抓字只做减法、控件不许被裁、诊断日志在第四选项卡、
+> 订阅源全历史多条目、零 INTERNET 权限、固定签名、预览图代码自绘）。
+> `.aoci/baseline.json` 绑定 71 个受管文件的 SHA-256；`tools/aoci_sync.py --check`
+> + `verify_aoci.py` 纳入 `verify_all.py` 三轮，并加进 CI 构建前一步，
+> 于是「改了源码没更新认知」会在提交前被挡住 —— 这就是「受管」。
+> CI 自动产物（`apk/**`、`docs/feed.*`、`docs/subscribe.*`、`docs/preview/`、
+> `CHANGELOG.md`、`build.log`）明确排除，避免永久漂移。
+> 如实说明：沙盒下载不到官方二进制（Release 下载域 403、无 Go 工具链），
+> 静态资产按官方 `cognition-volumes/v1` + `object-fras/v2` 契约撰写、
+> Baseline 按源码原始字节生成，**未跑过官方 `init` / `scan`**；
+> 在装有 CLI 的机器上 `aoci --repo . init --agent <host>` 即可接管，
+> **已有索引的仓库禁止再跑 `scan`**。
+
 ## 3.9.23 · 明朗配色 + 不透明度修好 + 安装包统一拼音命名（versionCode 53）
 
 **① 不透明度调到 100% 还是透明的 —— 是代码写死的，不是错觉。**

@@ -1,0 +1,87 @@
+{
+  "version": 2,
+  "locale": "zh-CN",
+  "index_path": "aoci.txt",
+  "exclude_dirs": [
+    "apk",
+    "docs/preview",
+    "__pycache__",
+    ".toolchain",
+    ".git",
+    "build",
+    ".gradle",
+    "app/build"
+  ],
+  "exclude_files": [
+    "*.apk",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.pyc",
+    "build.log",
+    "*.bak",
+    "*.backup.*"
+  ],
+  "exclude_exts": [],
+  "curation_exclude": [
+    "build.log",
+    "docs/feed.atom",
+    "docs/feed.json",
+    "docs/subscribe.atom",
+    "docs/subscribe.json",
+    "docs/kandeqing-latest.apk",
+    "CHANGELOG.md",
+    ".aoci/baseline.json",
+    ".aoci/config.local.json"
+  ],
+  "hook_strict": false,
+  "ledger_enabled": true,
+  "line_ending_tolerance": false,
+  "cognition_refresh_threshold": 30,
+  "overview_delivery": {
+    "chunk_tokens": 14000
+  },
+  "managed_scope": {
+    "version": "managed-scope-policy/v2",
+    "profile": "production",
+    "observe_change_policy": "review_required",
+    "approval_mode": "review",
+    "approval_thresholds": {
+      "entry_removal_count": 25,
+      "entry_removal_percent": 25
+    },
+    "rules": [
+      {
+        "rule_id": "kandeqing-ci-feeds-exclude",
+        "action": "exclude",
+        "pattern": "docs/feed.*",
+        "pattern_kind": "glob",
+        "reason": "CI 每次发版重生成，纳入 Baseline 会造成永久漂移",
+        "source": "user",
+        "order": 100,
+        "enabled": true
+      },
+      {
+        "rule_id": "kandeqing-legacy-feeds-exclude",
+        "action": "exclude",
+        "pattern": "docs/subscribe.*",
+        "pattern_kind": "glob",
+        "reason": "与 feed.* 同内容的旧路径，同为 CI 产物",
+        "source": "user",
+        "order": 101,
+        "enabled": true
+      },
+      {
+        "rule_id": "kandeqing-apk-binaries-exclude",
+        "action": "exclude",
+        "pattern": "apk/**",
+        "pattern_kind": "glob",
+        "reason": "40 个历史安装包是二进制产物，不写语义 Entry",
+        "source": "user",
+        "order": 102,
+        "enabled": true
+      }
+    ]
+  },
+  "sensitive_name_rules": "v2"
+}

@@ -1,0 +1,7 @@
+#AOCI-ROOT-MANIFEST: 1
+#Format-Version: cognition-volumes/v1
+#Locale: zh-CN
+#Project: 看得清 KanDeQing — 单 Activity 的 Android 无障碍读屏工具：按住悬浮球放大、点一下把屏幕上的字念给你听、第二个球读剪贴板；零网络权限、不用 OCR、纯代码 UI、手工 aapt2+d8 构建链
+#Global-Invariants: 零 INTERNET 权限且日志不记朗读正文 | 放大态球心恒等于触点 | 剪贴板自动读在 Android 10+ 仅 best-effort，点绿球最稳 | 安装包固定签名可覆盖升级，文件名 kandeqing-v<版本>.apk | 订阅源是全部历史版本多条目且附件直指 APK 文件 | 预览图一律代码自绘不用生图模型 | 认知资产随 Git 受管，CI 自动产物不进受管范围
+#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled
+#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled

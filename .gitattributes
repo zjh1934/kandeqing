@@ -1,0 +1,3 @@
+# AOCI Baseline 绑定原始字节，全树必须以 LF 检出，
+# 否则 Windows 的 autocrlf 重写会让整棵树被判为 stale。
+* text=auto eol=lf

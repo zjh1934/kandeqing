@@ -1,0 +1,104 @@
+#AOCI-CODE-VOLUME: 1
+
+===/<repository>/===
+.gitattributes[FV5T]: F:强制全部文本以 LF 检出 | R:- | A:- | S:Baseline 绑定原始字节；autocrlf 重写会让整棵树被判 stale
+.gitignore[FV5T]: F:划定构建产物与本地工具的 Git 忽略边界 | R:- | A:- | S:AOCI 运行时状态必须留在 .aoci/.gitignore 的白名单之外；apk/ 与 docs/preview/ 是受版本管理的产物，不得顺手 ignore 掉
+AGENTS.md[SG9S]: F:任何编码 Agent 进入本仓库时的第一份上下文与红线 | R:- | A:- | S:AOCI 托管区块之外还有本项目硬约束；两者冲突时以本文件靠近被改文件的段落为准，且用户当前指令优先
+CODE_OF_CONDUCT.md[SG2T]: F:社区行为约定 | R:- | A:- | S:-
+CONTRIBUTING.md[SG3T]: F:贡献与验证要求 | R:- | A:- | S:-
+LICENSE[SG4T]: F:MIT 许可 | R:- | A:- | S:-
+README.en.md[SV6M]: F:英文入口，与中文 README 口径一致 | R:code:README.md | A:- | S:版本号与订阅地址必须与中文 README 同步，否则对外页面自相矛盾
+README.md[SV8M]: F:给人看的中文入口：功能、安装、两类链接、版本徽章 | R:- | A:- | S:订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page
+SECURITY.md[SS4T]: F:漏洞报告口径 | R:- | A:- | S:-
+build.gradle[FV3T]: F:顶层仓库声明 | R:- | A:- | S:真编译不走 gradle；build_apk.sh 用 aapt2 + d8 手工链
+build_apk.sh[FV9T]: F:aapt2 + javac + d8 + zipalign + apksigner 手工构建链 | R:code:app/build.gradle,code:.github/workflows/build-apk.yml | A:bash build_apk.sh | S:输出名固定 apk/kandeqing-v<版本>.apk；固定签名来自 secrets 恢复的 .toolchain/debug.keystore，换成临时密钥会导致用户无法覆盖安装
+settings.gradle[FV3T]: F:单模块工程声明 | R:- | A:- | S:-
+verify_all.py[TQ9T]: F:提交前总自检入口，跑三遍全部 suite | R:code:verify_aoci.py | A:python3 verify_all.py | S:沙盒没有 JDK / Android SDK，静态自检绿不等于编译过、更不等于真机好用；真编译只能靠 CI
+verify_aoci.py[TQ8S]: F:自检 AOCI 资产完整性、Entry 覆盖与 Baseline 对齐 | R:code:tools/aoci_sync.py,code:verify_all.py | A:- | S:绿只证明结构与哈希对齐，不证明 F/R/A/S 语义正确；语义仍需对照源码人工审阅
+verify_ball.py[TQ6S]: F:球定位数值模拟与四态形态断言 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_calls.py[TQ6S]: F:无点号方法调用解析 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_clipboard.py[TQ6M]: F:双球、无双击、焦点读取与隐私 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_grabber.py[TQ6L]: F:抓字全流程镜像 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_speak.py[TQ6S]: F:长文本切段与 4000 字上限 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_structure.py[TQ6M]: F:结构与跨文件符号解析 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_textcompare.py[TQ6T]: F:文本比较镜像 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_textlayout.py[TQ6L]: F:阅读顺序与断句纯逻辑镜像 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+verify_ui.py[TQ6S]: F:配色、透明度、层级与拼音命名断言 | R:- | A:- | S:断言绑死当前实现；改实现必须同步改断言，不能靠删断言让自检变绿
+使用说明.md[SU5S]: F:给长辈看的装包与无障碍开启步骤 | R:- | A:- | S:不得写死具体版本号的安装包文件名；下载页曾写死 3.9.7 导致长辈找不到文件
+
+===/<repository>/.github/===
+PULL_REQUEST_TEMPLATE.md[SG2T]: F:PR 模板 | R:- | A:- | S:-
+
+===/<repository>/.github/ISSUE_TEMPLATE/===
+bug_report.md[SG2T]: F:缺陷报告模板 | R:- | A:- | S:-
+config.yml[FG2T]: F:Issue 模板入口 | R:- | A:- | S:config.yml 里的 #常见问题 是 URL 锚点，不是注释
+feature_request.md[SG2T]: F:功能建议模板 | R:- | A:- | S:-
+
+===/<repository>/.github/workflows/===
+build-apk.yml[OV9S]: F:CI 真编译、回传安装包、发 Release、生成订阅源、清 CDN 缓存 | R:code:build_apk.sh,code:tools/make_feed.py | A:push main / workflow_dispatch | S:每次发版必须同时上传 kandeqing-v<版本>.apk 与固定名 kandeqing-latest.apk；NOTES 文案随版本更新；发版后清 jsDelivr 缓存；不得改固定签名来源；[skip ci] 提交避免自触发
+
+===/<repository>/app/===
+build.gradle[FV8T]: F:声明 versionCode / versionName / minSdk / 签名配置 | R:code:build_apk.sh | A:- | S:versionCode 必须单调递增且发版时与 workflow NOTES、README 徽章、落地页当前版本四处对齐；签名别名与密钥来源不可改
+
+===/<repository>/app/src/main/===
+AndroidManifest.xml[FS9T]: F:权限、Activity、无障碍服务声明 | R:code:app/src/main/res/xml/accessibility_service_config.xml | A:- | S:不得新增 INTERNET 权限；整个对外承诺建立在零网络权限上
+
+===/<repository>/app/src/main/java/com/floating/combo/===
+BallArt.java[KU9S]: F:绘制球的全部形态：实心、空心环、两竖线、等待转圈 | R:code:app/src/main/java/com/floating/combo/BallView.java,code:app/src/main/java/com/floating/combo/Prefs.java | A:- | S:alpha=1 时 0~0.80r 必须完整不透明，只有最外 20% 做短柔边；禁止退回中心 0.90 峰值的径向渐变，那样不透明度调到 100% 仍半透明；朗读竖线与等待点必须球色填充加深色描边，否则浅壁纸上消失
+BallController.java[DU9L]: F:悬浮球窗口定位：闲置拖动、放大态跟手、贴边 | R:code:app/src/main/java/com/floating/combo/BallView.java,code:app/src/main/java/com/floating/combo/ZoomController.java | A:- | S:放大态球心必须恒等于触点，唯一写法是 lp = 触点 − 半宽；禁止 getLocationOnScreen 测原点差、raw−local 反推、相对偏移或保持按下偏移等任何补偿方案；闲置拖球必须保持按下偏移，不得一起改
+BallPreview.java[DU4T]: F:设置页球外观预览 | R:code:app/src/main/java/com/floating/combo/BallArt.java | A:- | S:-
+BallView.java[DU7T]: F:球的 View 壳：颜色、alpha、状态、绘制缩放 | R:code:app/src/main/java/com/floating/combo/BallArt.java | A:setBallColor / setBallAlpha / setState | S:选字、朗读、等待态会把有效 alpha 抬到至少 0.94，不是普通 alpha 直通
+ClipBallController.java[DU7M]: F:第二个球（复制朗读）的窗口定位与点击 | R:code:app/src/main/java/com/floating/combo/ClipBallView.java,code:app/src/main/java/com/floating/combo/ClipReader.java | A:- | S:与白球共用服务但位置独立保存；朗读中点它停止，否则读剪贴板；不得接双击手势
+ClipBallView.java[DU6T]: F:第二球绘制：亮绿实心、白边、白色喇叭 | R:code:app/src/main/java/com/floating/combo/ClipBallController.java | A:- | S:绿球必须高饱和并带白描边，深色壁纸上才找得到
+ClipReader.java[IS9M]: F:剪贴板读取：变化监听、复制事件、三级焦点兜底、文本过滤 | R:code:app/src/main/java/com/floating/combo/ComboService.java | A:- | S:主通道是 addPrimaryClipChangedListener，复制动作事件只是第二通道；只认「复制」提示会漏掉长按菜单、WebView 与分享菜单；Android 10+ 后台读剪贴板受限，自动读是 best-effort，点绿球最稳；会跳过验证码与过短文本
+ComboService.java[AB9L]: F:无障碍服务主体：状态机、两球、抓字调度、剪贴板朗读 | R:code:app/src/main/java/com/floating/combo/BallController.java,code:app/src/main/java/com/floating/combo/ClipReader.java,code:app/src/main/java/com/floating/combo/TextGrabber.java | A:- | S:两个悬浮球彼此独立、可各自拖动；自动读只在待命态触发，不打断放大/选字/朗读；抓字失败不二次全树遍历；日志只记状态与字数，绝不记读到的正文
+Haptics.java[IH4S]: F:震动反馈封装 | R:- | A:- | S:-
+Log.java[OO7M]: F:诊断日志落盘、最近条目、导出与清空 | R:code:app/src/main/java/com/floating/combo/MainActivity.java | A:- | S:只记手势、状态、错误和字数，绝不记读到的正文；recent/content/export/clear 被第四选项卡日志区调用
+MainActivity.java[EU9L]: F:单 Activity 设置界面：四个选项卡、开关、滑块、下拉、诊断日志 | R:code:app/src/main/java/com/floating/combo/Ui.java,code:app/src/main/java/com/floating/combo/Prefs.java,code:app/src/main/java/com/floating/combo/TtsManager.java | A:- | S:诊断与日志折叠入口必须在第四选项卡 pageMore；音色列表为空时不得静默 return；onResume 且引擎 ready 时重新枚举音色；sliderRow/SelectRow 的可见性依赖 Ui 的 WRAP_CONTENT，改布局时先验证控件还能不能点
+Prefs.java[CC9M]: F:SharedPreferences 读写与全部默认值、七色表 | R:code:app/src/main/java/com/floating/combo/MainActivity.java,code:app/src/main/java/com/floating/combo/BallArt.java | A:- | S:七色必须是高饱和明朗色板，不得退回低饱和清釉；DEF_ALPHA 与 DEF_IDLE_ALPHA 为 1.0；密码保护键已删，不得恢复
+TextCompare.java[KB3T]: F:文本比较辅助 | R:- | A:- | S:-
+TextGrabber.java[KB9L]: F:无障碍树取字：单趟后序、命中窗口、逐字位置、句读回扫 | R:code:app/src/main/java/com/floating/combo/TextLayout.java,code:app/src/main/java/com/floating/combo/TextCompare.java | A:- | S:骨架是球球版：单趟后序收集、第一个命中窗口即返回、逐字位置只问命中段；MAX_SEG 只截收录不截遍历；不得往链路加判据、分支或二次全树兜底；密码保护整套已拔除，不得恢复
+TextLayout.java[KB7M]: F:按 y 落行、断句、拼接阅读顺序 | R:code:app/src/main/java/com/floating/combo/TextGrabber.java | A:- | S:正文逐字不改；读多少三档在拼接阶段生效
+Theme.java[CU7S]: F:深浅两套 UI 配色与行高、圆角、命中区常量 | R:code:app/src/main/java/com/floating/combo/Ui.java | A:- | S:强调色跟随球色；压行高曾把滑块与下拉裁没，改常量前先确认控件外层是 WRAP_CONTENT
+TtsManager.java[IR9L]: F:TTS 引擎枚举、音色、切段、朗读回调 | R:code:app/src/main/java/com/floating/combo/MainActivity.java | A:- | S:切换引擎后必须无条件刷新音色列表；保存的 voice 在新引擎不存在时会静默退回中文；朗读状态机的回调时序是显式取舍，不要顺手重构
+Ui.java[LU9L]: F:纯代码 UI 控件工厂：group / sliderRow / selectRow / switchRow 等 | R:code:app/src/main/java/com/floating/combo/Theme.java,code:app/src/main/java/com/floating/combo/MainActivity.java | A:- | S:sliderRow 与 SelectRow 主行必须 WRAP_CONTENT + setMinimumHeight，SeekBar 至少 36dp；改回固定行高会把控件裁到点不动；界面中文字符串必须原样保留
+ZoomController.java[DU7S]: F:放大覆盖层与放大中心计算 | R:code:app/src/main/java/com/floating/combo/BallController.java | A:- | S:放大中心取 getRealMetrics 的物理显示区；球的窗口位置由 BallController 负责，两套坐标不要混用
+ZoomPreview.java[DU3T]: F:放大倍率预览 | R:- | A:- | S:-
+
+===/<repository>/app/src/main/res/drawable/===
+ic_launcher.xml[FC2T]: F:启动图标资源 | R:- | A:- | S:-
+ic_launcher_background.xml[FC2T]: F:启动图标资源 | R:- | A:- | S:-
+ic_launcher_foreground.xml[FC2T]: F:启动图标资源 | R:- | A:- | S:-
+
+===/<repository>/app/src/main/res/mipmap-anydpi-v26/===
+ic_launcher.xml[FC2T]: F:启动图标资源 | R:- | A:- | S:-
+
+===/<repository>/app/src/main/res/values/===
+colors.xml[FC3T]: F:资源色值 | R:- | A:- | S:-
+strings.xml[FC7T]: F:app 名、无障碍描述、分享下载链接 | R:- | A:- | S:share_download_url 必须指向当前仓库，旧地址会让一键分享发出 404
+styles.xml[FC4T]: F:深浅主题样式 | R:- | A:- | S:-
+
+===/<repository>/app/src/main/res/xml/===
+accessibility_service_config.xml[FI8T]: F:无障碍服务能力声明 | R:code:app/src/main/AndroidManifest.xml | A:- | S:canRetrieveWindowContent 必须保留，否则无障碍树取不到字
+
+===/<repository>/app/src/test/java/com/floating/combo/===
+TextCompareTest.java[TQ3T]: F:文本比较用例 | R:- | A:- | S:-
+
+===/<repository>/docs/===
+aoci.md[SS7T]: F:说明 AOCI 认知层在本仓库的位置、受管边界与维护方式 | R:- | A:- | S:本仓库已带索引；clone 后只运行 init --agent 补机器侧配置，禁止再跑 scan，否则 Baseline 冲突
+index.html[SV7M]: F:GitHub Pages 落地页，含订阅/下载两类链接与配色预览 | R:- | A:- | S:当前版本文案与订阅地址必须随发版更新；订阅区主推 feed.atom，下载区主推 raw 直链
+privacy.md[SS6T]: F:隐私说明：本地处理、无网络权限、日志不记正文 | R:- | A:- | S:若新增 INTERNET 权限或让日志记下朗读内容，本页与对外承诺同时失效
+开发者.md[SS5S]: F:技术长文：抓字链路、状态机、发版流程 | R:- | A:- | S:历史版本号是事实记录，不是待同步的当前版本
+推广素材.md[SV3S]: F:站外分发的中英文发帖文案 | R:- | A:- | S:-
+
+===/<repository>/promo/===
+make_qr.py[XV3S]: F:生成下载页二维码 | R:- | A:- | S:二维码指向固定链接，不得写死某一版文件名
+下载页.html[SV4T]: F:离线下载页 | R:- | A:- | S:不得写死具体版本的 APK 文件名
+
+===/<repository>/tools/===
+aoci_agents_block.txt[SG7S]: F:AOCI 官方 AGENTS.md 托管区块原文 | R:code:AGENTS.md | A:- | S:这段由官方模板渲染，不得手写改写；AGENTS.md 中只有本区块之外的内容属于本项目
+aoci_cognition.py[XG8M]: F:生成 AOCI 正式认知资产（Root/Meta/Code/AGENTS/config） | R:code:tools/aoci_sync.py,code:verify_aoci.py | A:python3 tools/aoci_cognition.py [--check] | S:F/R/A/S 语义只能依据源码人工撰写；不得用文件名、AST、依赖扫描或模板机械生成；受管范围排除 CI 自动改写的文件
+aoci_sync.py[XG9S]: F:以源码 SHA-256 维护 AOCI Baseline 并检测索引漂移 | R:code:tools/aoci_cognition.py,code:verify_aoci.py | A:python3 tools/aoci_sync.py --check | --refresh | S:改动任何受管文件后必须 --refresh 再提交，否则索引与代码漂移；Baseline 绑定原始字节，不得用规范化后的内容代替
+make_feed.py[XV9S]: F:扫描全部历史安装包生成 Atom / JSON Feed 订阅源 | R:code:.github/workflows/build-apk.yml,code:docs/aoci.md | A:python3 tools/make_feed.py apk docs --repo <owner/repo> | S:订阅源必须是全部历史版本多条目，严禁每次发版覆盖成单条目；每条 enclosure/attachments 必须直指该版本 APK 文件，不得指向 Release 网页；kandeqing-latest.apk 只作永久别名不单列条目；标题与附件名都带 kandeqing-v<版本>.apk
+
+#代码索引完毕

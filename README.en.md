@@ -56,7 +56,20 @@ distinguishable. Before / candidates / after previews are on the Release and Pag
 access to the default IME or the app currently holding input focus, and an
 accessibility service is not an exemption. TapRead makes "copy, then tap the ball"
 the default for exactly this reason. If nothing is read automatically, tap the
-green ball. **Two kinds of links — do not mix them:**
+green ball. ## Repository cognition layer (AOCI)
+
+This repository carries a **Git-governed cognition index** maintained with
+[AOCI-CODE](https://github.com/aoci-spec/aoci-code): `aoci.txt`,
+`aoci.meta.txt`, `aoci.code.txt`, `AGENTS.md` and `.aoci/`. These files are
+**not compiled into the APK**, but they govern the source: each managed file has
+one FRAS Entry recording its responsibility, strong relations, public contract,
+and the non-obvious constraints an agent would otherwise break (ball center must
+equal the touch point, 100% opacity must be truly opaque, the text grabber only
+gets simpler, the feed must never collapse to a single entry).
+`.aoci/baseline.json` binds source SHA-256 digests, and `verify_all.py` blocks
+any commit where code changed but cognition did not. See [docs/aoci.md](docs/aoci.md).
+
+**Two kinds of links — do not mix them:**
 
 **1) "New subscription / RSS 2.0 · Atom · JSON Feed" field** (a feed, paste either):
 

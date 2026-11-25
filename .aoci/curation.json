@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "excluded": [
+    "build.log",
+    "docs/feed.atom",
+    "docs/feed.json",
+    "docs/subscribe.atom",
+    "docs/subscribe.json",
+    "docs/kandeqing-latest.apk",
+    "CHANGELOG.md",
+    ".aoci/baseline.json",
+    ".aoci/config.local.json"
+  ],
+  "note": "CI 自动改写或大体量历史记录；不写语义 Entry，不进 Baseline 覆盖校验。"
+}
