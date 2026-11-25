@@ -58,14 +58,18 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom) （Atom，实测 `application/atom+xml`）
 - [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) （JSON Feed，实测 `application/json`）
 
-订阅源里是**全部历史版本**（目前 39 个，从球球 2.0 到 3.9.23），最新在最前，
+订阅源里是**全部历史版本**（从球球 2.0 到当前版本，逐版一条），最新在最前，
 每条 `enclosure` / `attachments` **直接指向该版本的 APK 文件**，不指向 Release
 网页；带版本、大小、SHA256，CI 每次发版追加一条、旧版本不删。想永远只拿最新
 就用下面②的固定直链。**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接
 是 HTML 网页，下载器会报「server returned HTML page」。
 
-早期的 `docs/subscribe.atom` / `subscribe.json` 是同一份内容的旧路径，
-CDN 缓存可能还显示单条目版本，订阅请一律用上面 `docs/feed.atom` / `feed.json`。
+**CDN 缓存**：jsDelivr 对 `@main` 同名文件有几小时缓存，发版后订阅列表可能
+晚一点才出现新版本；CI 每次发版会主动清一次缓存。想立刻拿最新，用
+**GitHub Pages 备用订阅**（不走 jsDelivr、无缓存）：
+`https://zjh1934.github.io/kandeqing/feed.atom`；或直接用下面②的固定直链下最新版。
+早期的 `docs/subscribe.atom` / `subscribe.json` 是同一份内容的旧路径，订阅请一律
+用上面 `docs/feed.atom` / `feed.json`。
 
 **② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 

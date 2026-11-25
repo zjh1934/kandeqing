@@ -138,3 +138,13 @@ jobs:
             "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RID/assets?name=kandeqing-latest.apk" >/dev/null
           echo "已发布固定订阅名 kandeqing-latest.apk"
           echo "固定直链已同步：仓库 apk/ 与 Pages docs/ 各一份（不重定向，下载器可直接订阅）"
+
+      - name: 刷新订阅源 CDN 缓存
+        if: always()
+        run: |
+          for P in docs/feed.atom docs/feed.json docs/subscribe.atom docs/subscribe.json; do
+            curl -fsS -m 20 -X POST "https://purge.jsdelivr.net/" \
+              -H "Content-Type: application/json" \
+              -d "{\"path\":[\"/gh/$GITHUB_REPOSITORY@main/$P\"]}" \
+              && echo "已刷新 $P" || echo "刷新 $P 失败（不影响发版）"
+          done

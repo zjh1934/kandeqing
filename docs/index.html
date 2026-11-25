@@ -204,13 +204,16 @@
     <p style="font-size:13px;opacity:.75;margin:10px 0 0">
       或 JSON Feed：<a href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json" style="color:#74D99F;word-break:break-all">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json</a><br>
       实测返回 <code>application/atom+xml</code> / <code>application/json</code>。
-      <b>里面有全部 39 个历史版本</b>（球球 2.0 → 3.9.23），最新在最前，
+      <b>里面有全部历史版本</b>（球球 2.0 → 当前版本，逐版一条），最新在最前，
       每条附件直指<b>该版本</b>的真 APK，带大小与 SHA256；CI 每次发版追加一条，
       旧版本不删。只想永远拿最新，用下面②的固定直链。
     </p>
     <p style="font-size:13px;opacity:.75;margin:8px 0 0">
       旧路径 <code>docs/subscribe.atom</code> 内容相同，但 CDN 缓存可能还停在早期
-      「只有 1 个包」的版本，订阅请用上面的 <code>docs/feed.atom</code>。
+      「只有 1 个包」的版本，订阅请用上面的 <code>docs/feed.atom</code>。<br>
+      <b>CDN 缓存</b>：jsDelivr 对同名文件有几小时缓存，发版后列表可能晚一点才多一条；
+      CI 每次发版会主动清缓存。想立刻拿最新，用无缓存的 Pages 备用订阅
+      <a href="https://zjh1934.github.io/kandeqing/feed.atom" style="color:#74D99F;word-break:break-all">https://zjh1934.github.io/kandeqing/feed.atom</a>。
     </p>
     <p style="font-size:13px;opacity:.75;margin:8px 0 18px;color:#E0A08E">
       <b>别填</b> GitHub 自带的 <code>https://github.com/zjh1934/kandeqing/releases.atom</code>：它的条目链接是 Release 网页
