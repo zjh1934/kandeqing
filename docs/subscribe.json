@@ -3,13 +3,35 @@
   "title": "看得清 KanDeQing · 全部历史安装包",
   "home_page_url": "https://github.com/zjh1934/kandeqing",
   "feed_url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json",
-  "description": "共 39 个版本，最新在最前；每条附件直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
+  "description": "共 40 个版本，最新在最前；每条附件直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
   "items": [
+    {
+      "id": "3.9.23",
+      "title": "kandeqing-v3.9.23.apk · 看得清 3.9.23",
+      "date_modified": "2026-11-25T05:00:32Z",
+      "content_text": "看得清 3.9.23 安装包 · 660930 字节 · SHA256 19092d583fa02b6966225f77ec923c45ba4822e2ed135f487f06a77d0092a06f",
+      "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk",
+      "attachments": [
+        {
+          "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk",
+          "mime_type": "application/vnd.android.package-archive",
+          "size_in_bytes": 660930,
+          "title": "kandeqing-v3.9.23.apk"
+        }
+      ],
+      "_kandeqing": {
+        "version": "3.9.23",
+        "sha256": "19092d583fa02b6966225f77ec923c45ba4822e2ed135f487f06a77d0092a06f",
+        "size": 660930,
+        "file": "kandeqing-v3.9.23.apk",
+        "legacy": false
+      }
+    },
     {
       "id": "3.9.22",
       "title": "kandeqing-v3.9.22.apk · 看得清 3.9.22",
-      "date_modified": "2026-11-24T09:24:38Z",
-      "content_text": "看得清 3.9.22 安装包 · 660930 字节 · SHA256 977e478b72632b0518efcfb64af3aec1130dc885932c5542071dcca4bc8bd997",
+      "date_modified": "2026-11-24T09:10:08Z",
+      "content_text": "看得清 3.9.22 安装包 · 660930 字节 · SHA256 626cd33ed75c635bf0a503f63b991c5b1c8c7bc63eb5f5077a45a66032e1258a",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.22.apk",
       "attachments": [
         {
@@ -21,7 +43,7 @@
       ],
       "_kandeqing": {
         "version": "3.9.22",
-        "sha256": "977e478b72632b0518efcfb64af3aec1130dc885932c5542071dcca4bc8bd997",
+        "sha256": "626cd33ed75c635bf0a503f63b991c5b1c8c7bc63eb5f5077a45a66032e1258a",
         "size": 660930,
         "file": "kandeqing-v3.9.22.apk",
         "legacy": false
@@ -30,7 +52,7 @@
     {
       "id": "3.9.21",
       "title": "kandeqing-v3.9.21.apk · 看得清 3.9.21",
-      "date_modified": "2026-11-24T09:24:36Z",
+      "date_modified": "2026-11-24T03:23:05Z",
       "content_text": "看得清 3.9.21 安装包 · 656835 字节 · SHA256 a8a9d7fb035389067819c42f86fcbdc0a35c2acf941072efdac9aaeace1eeef7",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.21.apk",
       "attachments": [
@@ -52,7 +74,7 @@
     {
       "id": "3.9.20",
       "title": "kandeqing-v3.9.20.apk · 看得清 3.9.20",
-      "date_modified": "2026-11-24T09:24:32Z",
+      "date_modified": "2026-11-24T03:08:16Z",
       "content_text": "看得清 3.9.20 安装包 · 656834 字节 · SHA256 a27dd17e5445caa96fc17ba228c5a1f53a512897d563531e48ce2726cbe319de",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.20.apk",
       "attachments": [
@@ -74,7 +96,7 @@
     {
       "id": "3.9.19",
       "title": "kandeqing-v3.9.19.apk · 看得清 3.9.19",
-      "date_modified": "2026-11-24T09:23:31Z",
+      "date_modified": "2026-11-15T14:35:21Z",
       "content_text": "看得清 3.9.19 安装包 · 656837 字节 · SHA256 37c988f52247c65572496fb2f402fe31699f28799f4204ad6b75c4d519dd2e6f",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.19.apk",
       "attachments": [
@@ -96,7 +118,7 @@
     {
       "id": "3.9.18",
       "title": "kandeqing-v3.9.18.apk · 看得清 3.9.18",
-      "date_modified": "2026-11-24T09:23:21Z",
+      "date_modified": "2026-11-15T14:02:02Z",
       "content_text": "看得清 3.9.18 安装包 · 652738 字节 · SHA256 d80edb539d3d7167fc6b2189a2017477d696968b46771f9121fd7d5c94e87e03",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.18.apk",
       "attachments": [
@@ -118,7 +140,7 @@
     {
       "id": "3.9.17",
       "title": "kandeqing-v3.9.17.apk · 看得清 3.9.17",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-06T14:08:35Z",
       "content_text": "看得清 3.9.17 安装包 · 652738 字节 · SHA256 26e44d56bd3b4b10e00a58217dd1a6f8aa2137627ee5c6bf8fd984c7b88d28e0",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.17.apk",
       "attachments": [
@@ -140,7 +162,7 @@
     {
       "id": "3.9.16",
       "title": "kandeqing-v3.9.16.apk · 看得清 3.9.16",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-06T13:46:38Z",
       "content_text": "看得清 3.9.16 安装包 · 652741 字节 · SHA256 85a389eb01576ca02e6becf333b36e2bcf6cc1dd94a0d12b46cded85393843e7",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.16.apk",
       "attachments": [
@@ -162,7 +184,7 @@
     {
       "id": "3.9.15",
       "title": "kandeqing-v3.9.15.apk · 看得清 3.9.15",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-06T13:37:28Z",
       "content_text": "看得清 3.9.15 安装包 · 652741 字节 · SHA256 054dde7e0a06ca3037e2fd0d69ffd495624cc43a2329011424075a9203713c58",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.15.apk",
       "attachments": [
@@ -184,7 +206,7 @@
     {
       "id": "3.9.14",
       "title": "kandeqing-v3.9.14.apk · 看得清 3.9.14",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-06T13:26:58Z",
       "content_text": "看得清 3.9.14 安装包 · 652741 字节 · SHA256 6ce6221c431cb1fc8b9d5ef4956907050dea7f9a08acf979ae9e8332bbb20f4d",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.14.apk",
       "attachments": [
@@ -206,7 +228,7 @@
     {
       "id": "3.9.13",
       "title": "kandeqing-v3.9.13.apk · 看得清 3.9.13",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-06T13:02:07Z",
       "content_text": "看得清 3.9.13 安装包 · 652738 字节 · SHA256 d9d3448b4acb053653cadd17ec4ba86804a6e289affc4fe6f5e0eafcb9027d80",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.13.apk",
       "attachments": [
@@ -228,7 +250,7 @@
     {
       "id": "3.9.12",
       "title": "kandeqing-v3.9.12.apk · 看得清 3.9.12",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-06T12:49:47Z",
       "content_text": "看得清 3.9.12 安装包 · 652741 字节 · SHA256 af5ffbeab5e61ce738c74f25860890cc36e43877181f457682e2b848e5b27996",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.12.apk",
       "attachments": [
@@ -250,7 +272,7 @@
     {
       "id": "3.9.11",
       "title": "kandeqing-v3.9.11.apk · 看得清 3.9.11",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-06T12:25:31Z",
       "content_text": "看得清 3.9.11 安装包 · 652740 字节 · SHA256 e9d850943190b62a072c61a0770b515b1429d9ace3a9d1eae60c5151dbbcec12",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.11.apk",
       "attachments": [
@@ -272,7 +294,7 @@
     {
       "id": "3.9.10",
       "title": "kandeqing-v3.9.10.apk · 看得清 3.9.10",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-06T11:55:35Z",
       "content_text": "看得清 3.9.10 安装包 · 652739 字节 · SHA256 6dd0b87240920fd88ced0aef88a501e8d65f102db711135462bb893f8097961e",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.10.apk",
       "attachments": [
@@ -294,7 +316,7 @@
     {
       "id": "3.9.9",
       "title": "kandeqing-v3.9.9.apk · 看得清 3.9.9",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-06T11:35:36Z",
       "content_text": "看得清 3.9.9 安装包 · 652738 字节 · SHA256 59b2b602a85b70b3882b098a420bef6647ffaba226e839b767ebfb46f8a2a80b",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.9.apk",
       "attachments": [
@@ -316,7 +338,7 @@
     {
       "id": "3.9.8",
       "title": "kandeqing-v3.9.8.apk · 看得清 3.9.8",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-06T11:16:37Z",
       "content_text": "看得清 3.9.8 安装包 · 652739 字节 · SHA256 a0849deea523e2a4302c16b9ec238914d9f49c44feaa650b728972275d2d602a",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.8.apk",
       "attachments": [
@@ -338,7 +360,7 @@
     {
       "id": "3.9.7",
       "title": "kandeqing-v3.9.7.apk · 看得清 3.9.7",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-05T12:33:12Z",
       "content_text": "看得清 3.9.7 安装包 · 652739 字节 · SHA256 3979bc5e19004c4d228f84a84eab62eda09093fb16c963c18def08b22d994d82",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.7.apk",
       "attachments": [
@@ -360,7 +382,7 @@
     {
       "id": "3.9.6",
       "title": "kandeqing-v3.9.6.apk · 看得清 3.9.6",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-05T08:43:47Z",
       "content_text": "看得清 3.9.6 安装包 · 652739 字节 · SHA256 eb44025753604acdb9619a45fdaa3cc5a54b58158a8cef1fd283bade2524f238",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.6.apk",
       "attachments": [
@@ -382,7 +404,7 @@
     {
       "id": "3.9.5",
       "title": "kandeqing-v3.9.5.apk · 看得清 3.9.5",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-05T08:23:10Z",
       "content_text": "看得清 3.9.5 安装包 · 652738 字节 · SHA256 0c9adeb1ea016ac83953e8685c939045c37872424408d04a63347ec9f66c75aa",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.5.apk",
       "attachments": [
@@ -404,7 +426,7 @@
     {
       "id": "3.9.4",
       "title": "kandeqing-v3.9.4.apk · 看得清 3.9.4",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-05T08:01:19Z",
       "content_text": "看得清 3.9.4 安装包 · 648644 字节 · SHA256 01c75796e9e12de4fa5a1d58e8d886060c471974fecb2e93cad19e881186e257",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.4.apk",
       "attachments": [
@@ -426,7 +448,7 @@
     {
       "id": "3.9.3",
       "title": "kandeqing-v3.9.3.apk · 看得清 3.9.3",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-05T07:33:54Z",
       "content_text": "看得清 3.9.3 安装包 · 648643 字节 · SHA256 f23002c64a539bb7333d5fe389f470eabd2914dea570659e7246a6d99ea71dc3",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.3.apk",
       "attachments": [
@@ -448,7 +470,7 @@
     {
       "id": "3.9.2",
       "title": "kandeqing-v3.9.2.apk · 看得清 3.9.2",
-      "date_modified": "2026-11-15T13:52:40Z",
+      "date_modified": "2026-11-05T07:01:30Z",
       "content_text": "看得清 3.9.2 安装包 · 648643 字节 · SHA256 f3d4db0ed6a631744ea3456eb715c313d4d72c2ebfea65131db608c5a5abbd5b",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.2.apk",
       "attachments": [
@@ -470,7 +492,7 @@
     {
       "id": "3.9.1",
       "title": "kandeqing-v3.9.1.apk · 看得清 3.9.1",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-05T06:48:24Z",
       "content_text": "看得清 3.9.1 安装包 · 652740 字节 · SHA256 01137633083954426c7a0ab83be93303d24388125d2a8f8e02f2bb220a613cc7",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.1.apk",
       "attachments": [
@@ -492,7 +514,7 @@
     {
       "id": "3.9",
       "title": "kandeqing-v3.9.apk · 看得清 3.9",
-      "date_modified": "2026-11-15T13:52:41Z",
+      "date_modified": "2026-11-05T06:34:23Z",
       "content_text": "看得清 3.9 安装包 · 652740 字节 · SHA256 f003a9f65694cb1817ac53aaf2c4baffc26c2cf1cd613a11fd0f03e3d38e95b9",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.apk",
       "attachments": [
@@ -514,7 +536,7 @@
     {
       "id": "3.8",
       "title": "kandeqing-v3.8.apk · 看得清 3.8",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-05T06:09:19Z",
       "content_text": "看得清 3.8 安装包 · 652740 字节 · SHA256 502325134b3b3fc9c974d0d28be541bb64e1589486ce2e754f40a1b732046fa1",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.8.apk",
       "attachments": [
@@ -536,7 +558,7 @@
     {
       "id": "3.7",
       "title": "kandeqing-v3.7.apk · 看得清 3.7",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-04T01:59:53Z",
       "content_text": "看得清 3.7 安装包 · 619799 字节 · SHA256 8a8bf17b9646543669fed4303451ad3389e274df9940c62c5ea5c10fa9d1d4fe",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.7.apk",
       "attachments": [
@@ -558,7 +580,7 @@
     {
       "id": "3.6",
       "title": "kandeqing-v3.6.apk · 看得清 3.6",
-      "date_modified": "2026-11-15T13:52:39Z",
+      "date_modified": "2026-11-03T19:56:02Z",
       "content_text": "看得清 3.6 安装包 · 644549 字节 · SHA256 0e7083af393a66b4278489be642434c3398f1c9b9e2c6722d617cc749197a1e0",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.6.apk",
       "attachments": [
@@ -580,7 +602,7 @@
     {
       "id": "3.0",
       "title": "kandeqing-v3.0.apk · 看得清 3.0",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T19:39:30Z",
       "content_text": "看得清 3.0 安装包 · 640453 字节 · SHA256 cbc6da1906c4e0f10a4b4c088bc891e281a991ea3f82c7ba3f2d459f64c0198f",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.0.apk",
       "attachments": [
@@ -602,7 +624,7 @@
     {
       "id": "2.9",
       "title": "kandeqing-v2.9.apk · 看得清 2.9",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T19:26:28Z",
       "content_text": "看得清 2.9 安装包 · 640453 字节 · SHA256 4e1df03e4468b2dcac6704c15908db0220889138f0defd77b089699c6bf9eda7",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.9.apk",
       "attachments": [
@@ -624,7 +646,7 @@
     {
       "id": "2.8",
       "title": "kandeqing-v2.8.apk · 看得清 2.8",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T19:02:52Z",
       "content_text": "看得清 2.8 安装包 · 640452 字节 · SHA256 7ee9e92c0643404890248f99cc53663a9ed2e4a23b005f3278606a7401e3e328",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.8.apk",
       "attachments": [
@@ -646,7 +668,7 @@
     {
       "id": "2.7",
       "title": "kandeqing-v2.7.apk · 看得清 2.7",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T18:49:25Z",
       "content_text": "看得清 2.7 安装包 · 640452 字节 · SHA256 d32e8a3f19b43178a60e90aea1823c8968b7d0ebf959294d4741bec1d07f8349",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.7.apk",
       "attachments": [
@@ -668,7 +690,7 @@
     {
       "id": "2.6",
       "title": "kandeqing-v2.6.apk · 看得清 2.6",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T16:43:00Z",
       "content_text": "看得清 2.6 安装包 · 640452 字节 · SHA256 d45bec9181113948452b5a4a12d8b78101e526f5fc26eabcf61fa08be0bf5a3f",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.6.apk",
       "attachments": [
@@ -690,7 +712,7 @@
     {
       "id": "2.5",
       "title": "kandeqing-v2.5.apk · 看得清 2.5",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-10-24T16:27:28Z",
       "content_text": "看得清 2.5 安装包 · 636356 字节 · SHA256 463fca9c0ba3d912606bc0af1ca5131c09c52b1047aa79f01023a92f229b0c52",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.5.apk",
       "attachments": [
@@ -712,7 +734,7 @@
     {
       "id": "2.4",
       "title": "kandeqing-v2.4.apk · 看得清 2.4",
-      "date_modified": "2026-11-15T13:52:38Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.4 安装包 · 124285 字节 · SHA256 958687922e552527295b38e4483e0be1d6147475543ca40c93ae958381a85529",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.4.apk",
       "attachments": [
@@ -734,7 +756,7 @@
     {
       "id": "2.3.1",
       "title": "kandeqing-v2.3.1.apk · 看得清 2.3.1",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.3.1 安装包 · 120189 字节 · SHA256 ae0760fed4e9d69228b66dcee1d9253f055737ebf991afa48af8c6b8c34bbac2",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.3.1.apk",
       "attachments": [
@@ -756,7 +778,7 @@
     {
       "id": "2.3",
       "title": "kandeqing-v2.3.apk · 看得清 2.3",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.3 安装包 · 120189 字节 · SHA256 5bd24a0d27f5227e5aa979ef1486b3f2b98ed9883d7a01538dfad4f83f30f993",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.3.apk",
       "attachments": [
@@ -778,7 +800,7 @@
     {
       "id": "2.2",
       "title": "kandeqing-v2.2.apk · 看得清 2.2",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.2 安装包 · 120189 字节 · SHA256 624de50f353d16607c172451bc4ca7d11f50dbc4eb2fe7f75904d624194cb247",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.2.apk",
       "attachments": [
@@ -800,7 +822,7 @@
     {
       "id": "2.1.1",
       "title": "kandeqing-v2.1.1.apk · 看得清 2.1.1",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.1.1 安装包 · 120191 字节 · SHA256 935d32ee9e071ad2a3c97e356e3920ec34c0179382a6e6345215f3347fe985df",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.1.1.apk",
       "attachments": [
@@ -822,7 +844,7 @@
     {
       "id": "2.1",
       "title": "kandeqing-v2.1.apk · 看得清 2.1",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.1 安装包 · 120191 字节 · SHA256 b37fdc9d2cb7f752ca8a9e165661755c13501bf295de2a65f8cf335fb59967ba",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.1.apk",
       "attachments": [
@@ -844,7 +866,7 @@
     {
       "id": "2.0",
       "title": "kandeqing-v2.0.apk · 看得清 2.0（球球时期）",
-      "date_modified": "2026-11-15T13:52:37Z",
+      "date_modified": "2026-11-25T05:00:02Z",
       "content_text": "看得清 2.0 安装包 · 116093 字节 · SHA256 bce8f0b143f48d100555e89962c8924673d5e586acdf38956a4dbdc921afb8c3",
       "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v2.0.apk",
       "attachments": [
