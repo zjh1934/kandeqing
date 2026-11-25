@@ -4,13 +4,13 @@
   <subtitle>共 40 个版本，最新在最前；每条条目直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</subtitle>
   <id>https://github.com/zjh1934/kandeqing/releases</id>
   <link rel="self" type="application/atom+xml" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom" />
-  <updated>2026-11-25T05:00:32Z</updated>
+  <updated>2026-11-25T05:00:37Z</updated>
   <author><name>zjh1934</name></author>
   <entry>
     <title>kandeqing-v3.9.23.apk · 看得清 3.9.23</title>
     <id>tag:github.com,2026:zjh1934/kandeqing:3.9.23</id>
-    <updated>2026-11-25T05:00:32Z</updated>
-    <summary type="text">kandeqing-v3.9.23.apk · 看得清 3.9.23 · 660930 字节 · SHA256 19092d583fa02b6966225f77ec923c45ba4822e2ed135f487f06a77d0092a06f</summary>
+    <updated>2026-11-25T05:00:37Z</updated>
+    <summary type="text">kandeqing-v3.9.23.apk · 看得清 3.9.23 · 660930 字节 · SHA256 ffc3adb1911630b4545db36d01ace42c8b8836bcc39fddd307e28c3dea7e7961</summary>
     <link rel="alternate" type="application/vnd.android.package-archive" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk" />
     <link rel="enclosure" type="application/vnd.android.package-archive" length="660930" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk" />
     <content type="text">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.23.apk</content>
