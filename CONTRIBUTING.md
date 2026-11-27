@@ -31,7 +31,9 @@
 
 - 纯 Java，无第三方运行时依赖；`compileSdk 30 / minSdk 24 / targetSdk 29`
 - **不要引入联网、OCR、截图、统计、广告相关依赖** —— 零网络权限是这个项目的底线
-- 改 `TextGrabber.java` / `TextLayout.java` 的抓字逻辑，要同步改 `verify_grabber.py` / `verify_textlayout.py` 里的镜像用例，并跑 `python3 verify_all.py` 三遍
+- 改 `TextGrabber.java` / `TextLayout.java` 的抓字逻辑，要同步改 `verify_grabber.py` / `verify_textlayout.py` 里的镜像用例，并跑 `python3 verify_all.py` 三遍（共 10 套）
+- **改了任何受管源码，收尾跑 `python3 tools/aoci_sync.py --refresh`** 重建认知 Baseline；改了对外页面，`verify_pages.py` 会按当前版本逐页校验
+- 新增 / 修改对外页面（README、落地页、使用说明、隐私、安全、推广素材）时，同步把当前版本号、双球、明朗七色、订阅链接写对 —— 页面不能原地踏步
 - 沙盒没有 JDK 时以 GitHub Actions 真编译为准；提交后 CI 会自动出包
 - 一个 PR 只做一件事，说明「改之前是什么现象、改之后是什么现象」
 
@@ -43,7 +45,8 @@
 
 1. **只走官方无障碍树**，不加 OCR / 截图兜底。读不到图片里的字是已知取舍，不是待修 bug。
 2. **不申请 `INTERNET` 权限**，不引第三方 SDK。
-3. **只有两个动作**（按住 / 点一下）。新功能不能增加要学的手势。
+3. **白球就两个动作**（按住 / 点一下）；绿球是第二个独立球，点一下读剪贴板。
+   不增加要学的新手势、不引入双击 —— 双击会和单击抢手势，这套已经踩过坑。
 
 想加的能力如果和这三条冲突，先开 Issue 聊，别直接写。
 

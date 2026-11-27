@@ -2,9 +2,9 @@
 
 # KanDeQing · 看得清
 
-**One floating ball that does both: hold to magnify, tap to hear any text on screen read aloud.**
+**Two independent floating balls: hold to magnify, tap to read any text, tap the green ball to hear your clipboard.**
 
-**No internet permission · No OCR · No account · No gestures to memorize · Free & open source**
+**No internet permission · No OCR · No account · No gestures to memorize · Two balls · Free & open source**
 
 [![version](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
@@ -56,7 +56,9 @@ distinguishable. Before / candidates / after previews are on the Release and Pag
 access to the default IME or the app currently holding input focus, and an
 accessibility service is not an exemption. TapRead makes "copy, then tap the ball"
 the default for exactly this reason. If nothing is read automatically, tap the
-green ball. ## Repository cognition layer (AOCI)
+green ball.
+
+## Repository cognition layer (AOCI)
 
 This repository carries a **Git-governed cognition index** maintained with
 [AOCI-CODE](https://github.com/aoci-spec/aoci-code): `aoci.txt`,
@@ -101,7 +103,7 @@ same file but may still show the old single-entry feed — always subscribe with
 - For Obtainium-like apps, add the repo `https://github.com/zjh1934/kandeqing`
   and let it resolve the `.apk` asset; use [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom) only for version notices.
 
-Enable the accessibility service once after install. No sign-up, no login, no network.
+Enable the accessibility service once after install; auto-read is best-effort on Android 10+, so tapping the green ball is the reliable path. No sign-up, no login, no network.
 
 ```mermaid
 flowchart LR
@@ -110,6 +112,10 @@ flowchart LR
     C -->|tap again| A
     A -->|hold| D["Magnify / follow"]
     D -->|release| A
+    G["Green ball<br/>Copy & Read"] -->|tap| E["Reads clipboard"]
+    E -->|tap while speaking| G
+    style G fill:#00B578,stroke:#FFFFFF,color:#FFFFFF
+    style E fill:#121212,stroke:#00B578,color:#FFFFFF
     style A fill:#121212,stroke:#FFFFFF,color:#FFFFFF
     style B fill:#2F6BFF,stroke:#2F6BFF,color:#FFFFFF
     style C fill:#121212,stroke:#FFFFFF,color:#FFFFFF
@@ -128,10 +134,13 @@ We could not find another open-source project that integrates **live magnificati
 | Select to Speak / TalkBack | ❌ | partial | ✅ | **yes** | no |
 | OCR region readers | ❌ | ✅ | ✅ | drag a box | **screenshot + OCR** |
 | Clipboard readers | ❌ | copy first | ✅ | no | no |
-| **KanDeQing** | **✅** | **✅** | **✅** | **two actions** | **neither** |
+| **KanDeQing** | **✅** | **✅** | **✅** | **tap / hold / tap green ball** | **neither** |
 
 **Deliberate design decision:** it reads only the official Android `AccessibilityNodeInfo` tree.
 No screenshots, no OCR, no on-device model. That buys instant response, **zero network permission**, and screen content that never leaves the phone.
+Standalone clipboard-reader apps only solve that half; KanDeQing also integrates
+"copy, then tap the green ball to listen" (plus optional auto-read) into the same
+accessibility service, so there is no second app and no second gesture set.
 The trade-off: text baked into images, games, or custom-drawn canvases cannot be read.
 That is a chosen boundary, not an unfinished feature — use an OCR-based tool if you need that.
 
@@ -146,7 +155,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.
-3. The ball appears at the screen edge. Done.
+3. Two balls appear at the screen edge (white + green speaker). Done.
 
 On Huawei / Xiaomi / OPPO / vivo, set the app to **Unrestricted** in battery settings, otherwise the ROM may silently disable the accessibility service.
 
@@ -159,9 +168,14 @@ Since 3.7 the signing key is fixed, so new versions install over the old one wit
 Four tabs: **Voice / Zoom / Ball / More**.
 
 - **Voice**: TTS engine, voice (friendly Chinese names), rate, pitch, try-it button, and **Read how much** (one sentence / to paragraph end / to screen bottom)
+- **Read / Clipboard**: double-tap reading was removed in favour of two switches —
+  **Copy & Read** (on by default; the green ball exists only while it is on) and
+  **Auto-read new clipboard content** (off by default)
 - **Zoom**: 1.5–5.0×, hold threshold, whether the ball grows while magnifying
-- **Ball**: size, opacity, idle dimming, snap to edge, haptics, 7 colors
-- **More**: follow-system / light / dark theme, skip password fields, share with family, contact
+- **Ball**: size, opacity (100% is truly opaque since 3.9.23), idle dimming, snap to edge, haptics, 7 saturated "Bright" colors
+- **More**: follow-system / light / dark theme, share with family, contact, **Diagnostics & logs** (view / copy / export / clear; state and counts only, never the read text)
+
+There is deliberately no password-field special case: verification codes, short strings and pure numbers are skipped by the clipboard reader, but screen text is read wherever you tap.
 
 Every page has a **Restore defaults** button.
 
@@ -214,4 +228,4 @@ Found a phone where grabbing fails or the ball drops? Open an [Issue](https://gi
 
 ---
 
-**Topics**: android accessibility service · screen magnifier · select to speak · tap to read · text to speech · low vision · assistive technology · no OCR · on-device · privacy · elderly · presbyopia · floating ball
+**Topics**: android accessibility service · clipboard reader · two floating balls · screen magnifier · select to speak · tap to read · text to speech · low vision · assistive technology · no OCR · on-device · privacy · elderly · presbyopia · floating ball

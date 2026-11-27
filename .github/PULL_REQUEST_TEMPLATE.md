@@ -8,7 +8,9 @@
 
 ## 自检
 
-- [ ] `python3 verify_all.py` 跑过三遍全绿
+- [ ] `python3 verify_all.py` 跑过三遍全绿（10 套，含 `verify_aoci` 与 `verify_pages`）
+- [ ] 改了受管源码后跑过 `python3 tools/aoci_sync.py --refresh`
+- [ ] 对外页面（README / 落地页 / 使用说明 / 隐私 / 安全）已同步到当前版本，没有残留旧口径
 - [ ] 改了 `TextGrabber` / `TextLayout` 的话，同步改了对应 `verify_*.py` 镜像用例
 - [ ] 本地或 CI 真编译过（静态自检不验 API）
 - [ ] 没引入联网 / OCR / 截图 / 第三方 SDK

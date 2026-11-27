@@ -60,7 +60,7 @@ aoci --repo . init --agent codex          # 或 claude-code / cursor / opencode
 # 改完受管文件、收尾前
 python3 tools/aoci_sync.py --refresh       # 重建 SHA-256 Baseline
 python3 tools/aoci_cognition.py            # 若 F/R/A/S 语义也要改
-python3 verify_all.py                      # 8 套 + AOCI，三轮全绿
+python3 verify_all.py                      # 10 套含 AOCI 与页面门禁，三轮全绿
 aoci --repo . verify && aoci --repo . check
 
 # 只检查不写

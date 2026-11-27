@@ -2,9 +2,9 @@
 
 # 看得清
 
-**一个悬浮球，把「按住放大」和「点一下念给你听」装进同一套动作里。**
+**两个独立的小球，各管各的：按住放大、点字朗读、点绿球读剪贴板。**
 
-**不联网 · 不上传 · 不用 OCR · 不学手势 · 免费开源**
+**不联网 · 不上传 · 不用 OCR · 不学手势 · 两个球 · 免费开源**
 
 [![版本](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
@@ -51,6 +51,7 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 **「复制后自动朗读」在 Android 10+ 上不保证每次都触发** —— 官方只允许默认
 输入法或当前有输入焦点的应用读剪贴板，无障碍服务不是豁免。点读也是把
 「复制后点球」当默认用法，自动读只是可选项。没自动念时，点一下绿球即可。
+
 ## 项目认知层（AOCI）
 
 本仓库用 [AOCI-CODE](https://github.com/aoci-spec/aoci-code) 维护一份**随 Git 受管的认知索引**：
@@ -99,6 +100,10 @@ flowchart LR
     C -->|再点一下| A
     A -->|按住| D["放大跟手"]
     D -->|松手| A
+    G["绿喇叭球<br/>复制朗读"] -->|点一下| E["念剪贴板"]
+    E -->|朗读中再点| G
+    style G fill:#00B578,stroke:#FFFFFF,color:#FFFFFF
+    style E fill:#121212,stroke:#00B578,color:#FFFFFF
     style A fill:#121212,stroke:#FFFFFF,color:#FFFFFF
     style B fill:#2F6BFF,stroke:#2F6BFF,color:#FFFFFF
     style C fill:#121212,stroke:#FFFFFF,color:#FFFFFF
@@ -120,6 +125,7 @@ flowchart LR
 | **看得清** | **✅** | **✅** | **✅** | **点 / 按住 / 点绿球** | **都不需要** |
 
 **我们的取舍很明确**：屏幕取字只走 Android 官方 `AccessibilityNodeInfo` 树，不截图、不做 OCR、不引入模型；复制朗读走系统 `ClipboardManager` + 无障碍焦点窗口，同样零网络、零截图。
+第三方「剪贴板朗读」类 App 只做这一半，我们把**复制完点绿球朗读**（以及可选的复制后自动朗读）一起集成进了同一套无障碍服务里，不用再装第二个 App、不用学第二套手势。
 换来的是**点一下就出声、零网络权限、屏幕内容一步都不出手机**；代价是图片里的字、游戏/Canvas 自绘的字读不到。
 这不是缺陷没修完，是刻意选的路 —— 需要读图片里的字，OCR 类工具更合适。
 
@@ -134,7 +140,7 @@ flowchart LR
 
 1. 点开下载好的文件 → 提示「未知来源」时选 **允许 / 继续**（安卓对所有非商店应用的统一提醒，不是软件有问题）
 2. 装完打开 → 按首页提示去 **设置 → 无障碍 → 看得清 → 打开**
-3. 屏幕边上出现小球，就好了
+3. 屏幕边上出现**两个小球**（白球 + 绿喇叭球），就好了
 
 | 手机 | 无障碍入口 |
 |---|---|
@@ -174,9 +180,11 @@ flowchart LR
 打开 App，底部四个标签页：**声音 / 调节 / 悬浮球 / 更多**。
 
 - **声音**：语音引擎、音色（中文短名）、语速、音调、试听、**读多少**（只读一句 / 读到段末 / 读到屏底）
+- **朗读 / 剪贴板**：**双击球读剪贴板**已移除，改成两个开关 ——
+  「复制朗读」（默认开，打开才出现绿球）与「复制后自动朗读」（默认关，复制新内容时念出来）
 - **调节**：放大倍率 1.5–5.0、按住多久算放大、放大时球是否跟着变大
-- **悬浮球**：大小、不透明度、闲置淡出、松手贴边、震动反馈、7 种颜色
-- **更多**：主题跟随系统 / 浅色 / 深色、一键推荐给家人、联系作者
+- **悬浮球**：大小、不透明度（3.9.23 起调到 100% 是真不透明）、闲置淡出、松手贴边、震动反馈、7 种高饱和明朗色
+- **更多**：主题跟随系统 / 浅色 / 深色、一键推荐给家人、联系作者、**诊断与日志**（查看 / 复制 / 导出 / 清空，只记状态与字数、不记正文）
 
 每页底部都有「恢复默认」，调乱了点一下就好。
 
@@ -214,6 +222,12 @@ flowchart LR
 
 **声音不好听 / 太快？** 「声音」页换引擎和音色、调语速，旁边有「恢复默认」。
 
+**绿球不见了？** 「朗读 → 剪贴板」里的「复制朗读」开关默认开；关掉它绿球就收起，白球照常用。
+
+**复制完没自动念？** 「复制后自动朗读」默认关，要手动打开；Android 10 起系统限制后台读剪贴板，自动读属尽力而为，**点一下绿球最稳**。验证码、过短、纯数字内容会跳过，不会念出来。
+
+**想装旧版本？** 订阅源里是全部历史版本（从球球 2.0 到当前版），逐版一条，下载器里按文件名 `kandeqing-vX.Y.Z.apk` 挑就行。
+
 ---
 
 ## 已知边界（如实写）
@@ -233,7 +247,9 @@ flowchart LR
 - [架构、抓字链路、放大坐标公式、自检与构建](docs/%E5%BC%80%E5%8F%91%E8%80%85.md)（从 README 搬出来的技术详版）
 - [更新记录](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md) · [安全与反馈](SECURITY.md)
 - 纯 Java，无第三方运行时依赖，`compileSdk 30 / minSdk 24 / targetSdk 29`
-- push 到 `main` 会用固定密钥自动出包、回传 `apk/` 并发布 Release
+- push 到 `main` 会用固定密钥自动出包、回传 `apk/`、发布 Release、重建订阅源
+- 仓库带一份随 Git 受管的 [AOCI 认知索引](docs/aoci.md)；改了源码要 `python3 tools/aoci_sync.py --refresh`，
+  否则 `verify_all.py` 会挡住提交。对外页面由 `verify_pages.py` 按当前版本逐页校验，防止页面原地踏步
 
 ---
 
@@ -246,4 +262,4 @@ flowchart LR
 
 ---
 
-**关键词**：无障碍 · 低视力 · 弱视 · 老花 · 放大镜 · 屏幕放大 · 点读 · 朗读 · 悬浮球 · 老人手机 · 视疲劳 · 不联网 · 本地处理 · `android accessibility service` · `screen magnifier` · `select to speak` · `tap to read` · `text to speech` · `no OCR` · `on-device` · `assistive technology`
+**关键词**：无障碍 · 低视力 · 剪贴板朗读 · 复制朗读 · 双悬浮球 · 弱视 · 老花 · 放大镜 · 屏幕放大 · 点读 · 朗读 · 悬浮球 · 老人手机 · 视疲劳 · 不联网 · 本地处理 · `android accessibility service` · `screen magnifier` · `select to speak` · `tap to read` · `text to speech` · `no OCR` · `on-device` · `assistive technology`

@@ -2,7 +2,7 @@
 
 ## 这个项目的安全面很小，但很明确
 
-- **没有 `INTERNET` 权限**，不联网、不上传、不收集数据
+- **没有 `INTERNET` 权限**，不联网、不上传、不收集数据；剪贴板内容同样只在本机交给 TTS
 - 没有账号体系、没有服务器、没有第三方 SDK
 - 读到的屏幕文字只在内存里活几秒，不写文件、不进日志
 
@@ -26,9 +26,16 @@
 
 ## 关于安装包
 
-- 只从本仓库的 [Releases](https://github.com/zjh1934/kandeqing/releases/latest) 或项目主页下载
-- 从 3.7 起使用**固定签名密钥**，可直接覆盖安装；如果手机提示「签名不一致」，先别装，来提 Issue
-- Release 资产名是 `kanqing-<版本>.apk`，包名 `com.floating.combo`
+- 只从本仓库的 [Releases](https://github.com/zjh1934/kandeqing/releases/latest)、
+  [项目主页](https://zjh1934.github.io/kandeqing/) 或下面两条固定直链下载
+- 固定直链（不重定向、链接永不变）：
+  `https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk`
+- 全部历史版本订阅源：`https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom`
+- 从 3.7 起使用**固定签名密钥**（证书 SHA-256 指纹
+  `2D:3A:02:CB:E9:76:80:94:66:DA:04:12:A3:46:26:76:34:DE:42:D5:EB:60:69:8D:1D:08:48:39:3E:75:46:B5`），
+  可直接覆盖安装；如果手机提示「签名不一致」，先别装，来提 Issue
+- 3.9.23 起 Release 资产名统一为 `kandeqing-v<版本>.apk`（例 `kandeqing-v3.9.23.apk`），
+  另有一份固定名 `kandeqing-latest.apk`；包名 `com.floating.combo`
 
 ---
 
@@ -38,6 +45,6 @@
 
 | 版本 | 状态 |
 |---|---|
-| 3.9.x | ✅ 维护中 |
+| **3.9.23（当前）** | ✅ 维护中 |
 | 3.0 – 3.8 | 可用，不主动修 |
 | 2.x | 仅存档 |

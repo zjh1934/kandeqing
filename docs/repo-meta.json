@@ -1,0 +1,27 @@
+{
+  "version": "3.9.23",
+  "description": "看得清 KanDeQing — 两个独立悬浮球：按住白球放大、点字朗读、点绿球读剪贴板；两个开关、诊断日志、明朗七色、全历史版本订阅。零网络权限 / 不用 OCR / 无障碍树取字 / 低视力辅助 / MIT。 Two independent floating balls: hold to magnify, tap to read aloud, tap the green ball for clipboard. No internet permission, no OCR, on-device only.",
+  "homepage": "https://zjh1934.github.io/kandeqing/",
+  "topics": [
+    "android",
+    "accessibility",
+    "accessibility-service",
+    "assistive-technology",
+    "low-vision",
+    "visual-impairment",
+    "screen-reader",
+    "text-to-speech",
+    "tts",
+    "screen-magnifier",
+    "magnification",
+    "select-to-speak",
+    "tap-to-read",
+    "floating-ball",
+    "clipboard",
+    "clipboard-reader",
+    "no-ocr",
+    "on-device",
+    "privacy",
+    "aoci"
+  ]
+}

@@ -12,6 +12,7 @@
   verify_clipboard.py —— 双球独立 / 无双击 / 焦点读剪贴板 / 复制事件驱动 / 隐私
   verify_ui.py       —— 3.9.23 配色 / 不透明度 / 层级常量 / 字号 / 拼音命名
   verify_aoci.py     —— 认知资产 / Entry 覆盖 / SHA-256 Baseline 漂移 / 不进 APK
+  verify_pages.py    —— 对外页面是否与当前版本一致（防 GitHub 页面原地踏步）
 
 跑三遍，全绿才准提交。
 
@@ -29,7 +30,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 SUITES = ["verify_structure.py", "verify_textlayout.py",
           "verify_grabber.py", "verify_speak.py", "verify_calls.py",
           "verify_ball.py", "verify_clipboard.py", "verify_ui.py",
-          "verify_aoci.py"]
+          "verify_aoci.py", "verify_pages.py"]
 PASSES = 3
 
 def main():

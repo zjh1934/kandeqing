@@ -40,25 +40,28 @@ E[".gitattributes"] = ("F", "V", 5, "强制全部文本以 LF 检出",
                        "-", "-", "Baseline 绑定原始字节；autocrlf 重写会让整棵树被判 stale")
 E["AGENTS.md"] = ("S", "G", 9, "任何编码 Agent 进入本仓库时的第一份上下文与红线",
                   "-", "-", "AOCI 托管区块之外还有本项目硬约束；两者冲突时以本文件靠近被改文件的段落为准，且用户当前指令优先")
-E["README.md"] = ("S", "V", 8, "给人看的中文入口：功能、安装、两类链接、版本徽章",
-                  "-", "-", "订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page")
+E["README.md"] = ("S", "V", 8, "给人看的中文入口：双球功能、安装、两类链接、版本徽章",
+                  "-", "-", "订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page；首屏口径必须与当前软件一致，发新版由 verify_pages.py 点名漏更的页面")
 E["README.en.md"] = ("S", "V", 6, "英文入口，与中文 README 口径一致",
                      "code:README.md", "-", "版本号与订阅地址必须与中文 README 同步，否则对外页面自相矛盾")
 E["使用说明.md"] = ("S", "U", 5, "给长辈看的装包与无障碍开启步骤",
                     "-", "-", "不得写死具体版本号的安装包文件名；下载页曾写死 3.9.7 导致长辈找不到文件")
-E["docs/index.html"] = ("S", "V", 7, "GitHub Pages 落地页，含订阅/下载两类链接与配色预览",
-                        "-", "-", "当前版本文案与订阅地址必须随发版更新；订阅区主推 feed.atom，下载区主推 raw 直链")
+E["docs/index.html"] = ("S", "V", 7, "GitHub Pages 落地页：双球首屏、三动作、订阅/下载、3.9.23 预览、AOCI",
+                        "-", "-", "当前版本文案与订阅地址必须随发版更新；主下载按钮只能指向 raw 固定直链，jsDelivr 同名文件在 CDN 边缘会滞后一版；footer 必须在所有 section 之后，不得留已被取代的旧版本预览节")
 E["docs/privacy.md"] = ("S", "S", 6, "隐私说明：本地处理、无网络权限、日志不记正文",
                         "-", "-", "若新增 INTERNET 权限或让日志记下朗读内容，本页与对外承诺同时失效")
 E["docs/开发者.md"] = ("S", "S", 5, "技术长文：抓字链路、状态机、发版流程",
                        "-", "-", "历史版本号是事实记录，不是待同步的当前版本")
-E["docs/推广素材.md"] = ("S", "V", 3, "站外分发的中英文发帖文案",
-                         "-", "-", "-")
+E["docs/推广素材.md"] = ("S", "V", 3, "站外分发的中英文发帖文案与曝光复盘",
+                         "-", "-", "一句话定位与锚文本必须跟当前双球口径一致；曝光诊断表是改版前历史数据，不得当成现状")
 E["docs/aoci.md"] = ("S", "S", 7, "说明 AOCI 认知层在本仓库的位置、受管边界与维护方式",
                      "-", "-", "本仓库已带索引；clone 后只运行 init --agent 补机器侧配置，禁止再跑 scan，否则 Baseline 冲突")
+E["docs/repo-meta.json"] = ("F", "V", 8, "声明仓库 description / homepage / topics，推送脚本据此同步 GitHub 元数据",
+                            "code:README.md", "-", "description 是 GitHub 首页第一眼看到的文字，必须与当前双球口径一致；topics 覆盖剪贴板与 AOCI，改动后走推送脚本同步 API，不能只改本地文件")
 E["CODE_OF_CONDUCT.md"] = ("S", "G", 2, "社区行为约定", "-", "-", "-")
 E["CONTRIBUTING.md"] = ("S", "G", 3, "贡献与验证要求", "-", "-", "-")
-E["SECURITY.md"] = ("S", "S", 4, "漏洞报告口径", "-", "-", "-")
+E["SECURITY.md"] = ("S", "S", 4, "漏洞报告口径、官方下载渠道、签名指纹与版本支持表",
+                     "-", "-", "Release 资产名已统一 kandeqing-v<版本>.apk，写回 kanqing-<版本>.apk 是失效信息；固定签名指纹必须与 CI 恢复的密钥一致")
 E["LICENSE"] = ("S", "G", 4, "MIT 许可", "-", "-", "-")
 E["settings.gradle"] = ("F", "V", 3, "单模块工程声明", "-", "-", "-")
 E["build.gradle"] = ("F", "V", 3, "顶层仓库声明", "-", "-", "真编译不走 gradle；build_apk.sh 用 aapt2 + d8 手工链")
@@ -87,6 +90,9 @@ E["tools/aoci_agents_block.txt"] = ("S", "G", 7, "AOCI 官方 AGENTS.md 托管�
 E["tools/aoci_sync.py"] = ("X", "G", 9, "以源码 SHA-256 维护 AOCI Baseline 并检测索引漂移",
                            "code:tools/aoci_cognition.py,code:verify_aoci.py", "python3 tools/aoci_sync.py --check | --refresh",
                            "改动任何受管文件后必须 --refresh 再提交，否则索引与代码漂移；Baseline 绑定原始字节，不得用规范化后的内容代替")
+E["verify_pages.py"] = ("T", "Q", 9, "自检全部对外页面是否与当前软件版本一致",
+                        "code:verify_all.py,code:tools/aoci_sync.py", "-",
+                        "发新版只改 build.gradle 的版本号，这里必须点名漏更的页面；禁止出现旧首屏「一个悬浮球 / One floating ball」、旧资产名 kanqing-、3.9.21 过时预览节；落地页主下载按钮必须是 raw 无缓存直链")
 E["verify_aoci.py"] = ("T", "Q", 8, "自检 AOCI 资产完整性、Entry 覆盖与 Baseline 对齐",
                        "code:tools/aoci_sync.py,code:verify_all.py", "-",
                        "绿只证明结构与哈希对齐，不证明 F/R/A/S 语义正确；语义仍需对照源码人工审阅")
@@ -280,7 +286,7 @@ GUARDRAILS = """# AGENTS.md
 
 ## 命令
 
-- 自检：`python3 verify_all.py`（9 套含 AOCI，三轮全绿才算过）
+- 自检：`python3 verify_all.py`（10 套含 AOCI 与页面门禁，三轮全绿才算过）
 - 索引漂移：`python3 tools/aoci_sync.py --check`；改动受管文件后
   `python3 tools/aoci_sync.py --refresh` 再提交
 - 重建静态资产：`python3 tools/aoci_cognition.py`
@@ -300,6 +306,8 @@ GUARDRAILS = """# AGENTS.md
 - **订阅源是全部历史版本多条目**，不许覆盖成单条目；`enclosure` 不许指向
   Release 网页；安装包一律 `kandeqing-v<版本>.apk`。
 - **零 INTERNET 权限**、固定签名可覆盖升级、预览图一律代码自绘不用生图模型。
+- **对外页面不许原地踏步**：改版本、改功能就同步 README 中英 / 落地页 / 使用说明 /
+  隐私 / 安全 / 推广素材 / Issue 模板；`verify_pages.py` 会按当前版本逐页点名。
 - 界面中文字符串必须原样保留；源码里的解释性注释已清理，不要再加回来。
 
 ## 交付边界

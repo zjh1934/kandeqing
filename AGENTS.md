@@ -14,7 +14,7 @@
 
 ## 命令
 
-- 自检：`python3 verify_all.py`（9 套含 AOCI，三轮全绿才算过）
+- 自检：`python3 verify_all.py`（10 套含 AOCI 与页面门禁，三轮全绿才算过）
 - 索引漂移：`python3 tools/aoci_sync.py --check`；改动受管文件后
   `python3 tools/aoci_sync.py --refresh` 再提交
 - 重建静态资产：`python3 tools/aoci_cognition.py`
@@ -34,6 +34,8 @@
 - **订阅源是全部历史版本多条目**，不许覆盖成单条目；`enclosure` 不许指向
   Release 网页；安装包一律 `kandeqing-v<版本>.apk`。
 - **零 INTERNET 权限**、固定签名可覆盖升级、预览图一律代码自绘不用生图模型。
+- **对外页面不许原地踏步**：改版本、改功能就同步 README 中英 / 落地页 / 使用说明 /
+  隐私 / 安全 / 推广素材 / Issue 模板；`verify_pages.py` 会按当前版本逐页点名。
 - 界面中文字符串必须原样保留；源码里的解释性注释已清理，不要再加回来。
 
 ## 交付边界
