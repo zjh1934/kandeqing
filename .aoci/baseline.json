@@ -296,10 +296,10 @@
       "size": 7905
     },
     "docs/index.html": {
-      "normalized_sha256": "208fb5b7d6545371dd93a85e2fd38073e13c90eecc3d93f35de16cae1f690e03",
+      "normalized_sha256": "b1b739dfba6826d80ab5aadd646f3fcd3fb8a57a14fc6daaaebb6185057b8388",
       "role": "index",
-      "sha256": "208fb5b7d6545371dd93a85e2fd38073e13c90eecc3d93f35de16cae1f690e03",
-      "size": 41103
+      "sha256": "b1b739dfba6826d80ab5aadd646f3fcd3fb8a57a14fc6daaaebb6185057b8388",
+      "size": 41075
     },
     "docs/privacy.md": {
       "normalized_sha256": "3231be25322d229f1b2a9ef06c985471a0c61a4391e7b852a6c11199f91ed3f2",
@@ -446,6 +446,6 @@
       "size": 7384
     }
   },
-  "updated_at": "2026-11-27T13:27:06Z",
+  "updated_at": "2026-11-27T13:34:29Z",
   "version": 1
 }
