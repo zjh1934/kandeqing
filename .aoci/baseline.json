@@ -398,10 +398,10 @@
       "size": 16735
     },
     "verify_pages.py": {
-      "normalized_sha256": "c81c55c94c08d6b0e0f1744e13717c9c041c949dfed08c0a28f72f7400564b11",
+      "normalized_sha256": "89f8153ea27b7c859223f8932bf52e44b73f8ca8b8683bc44a918dffe94bda79",
       "role": "index",
-      "sha256": "c81c55c94c08d6b0e0f1744e13717c9c041c949dfed08c0a28f72f7400564b11",
-      "size": 8229
+      "sha256": "89f8153ea27b7c859223f8932bf52e44b73f8ca8b8683bc44a918dffe94bda79",
+      "size": 9120
     },
     "verify_speak.py": {
       "normalized_sha256": "d1f523f95234fa79fcc2f1cedcf7fc5b90831ebc2fc7b83b17d9bc0a19c5f967",
@@ -440,6 +440,6 @@
       "size": 7384
     }
   },
-  "updated_at": "2026-11-27T10:53:25Z",
+  "updated_at": "2026-11-27T10:59:18Z",
   "version": 1
 }

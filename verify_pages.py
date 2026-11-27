@@ -109,6 +109,30 @@ def c_required():
     return not bad, bad
 
 
+@case("页面上不残留任何过期版本标记（徽章 / 当前版本 / versionCode / 直链）")
+def c_stale_version():
+    pats = [
+        r"badge/version-(3\.9\.\d+)",
+        r"当前版本\s*(?:<b>)?(3\.9\.\d+)",
+        r"versionCode\s*(\d+)",
+        r"verified\s+(3\.9\.\d+)",
+        r"实测已是\s*(3\.9\.\d+)",
+        r"kandeqing-v(3\.9\.\d+)\.apk",
+    ]
+    scan = ["README.md", "README.en.md", "docs/index.html", "使用说明.md",
+            "docs/开发者.md", "docs/推广素材.md", "promo/下载页.html", "SECURITY.md"]
+    bad = []
+    for p in scan:
+        t = rd(p)
+        for pat in pats:
+            expect = CODE if "versionCode" in pat else VERSION
+            for m in re.finditer(pat, t):
+                v = m.group(1)
+                if v != expect:
+                    bad.append("%s -> %s (应为 %s)" % (p, v, expect))
+    return not bad, bad
+
+
 @case("页面上没有残留过时口径")
 def c_banned():
     bad = []
