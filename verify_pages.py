@@ -58,6 +58,8 @@ REQUIRED = {
     "app/src/main/res/values/strings.xml": ["两个独立悬浮球", "绿喇叭球"],
     "docs/aoci.md": ["aoci.txt", "baseline.json", "不进 APK"],
     "docs/repo-meta.json": ["VERSION_MARK", "两个独立悬浮球"],
+    "docs/design.md": ["Vite", "shadcn/ui", "Excalidraw", "零外部依赖",
+                       "信息架构", "可访问性"],
 }
 
 # 精确禁止的过时口径（只在「历史/否定」语境外用）
@@ -144,14 +146,68 @@ def c_banned():
     return not bad, bad
 
 
-@case("落地页主下载按钮是 raw 无缓存直链，不是会滞后一版的 jsDelivr")
+@case("落地页所有主 CTA 都是 raw 无缓存直链，不是会滞后一版的 jsDelivr")
 def c_landing_btn():
     h = rd("docs/index.html")
-    m = re.search(r'<a class="btn btn-p" href="([^"]+)">下载安装包', h)
-    if not m:
-        return False, "找不到主下载按钮"
     want = "https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk"
-    return m.group(1) == want, m.group(1)
+    hrefs = re.findall(r'<a class="btn btn-p" href="([^"]+)"', h)
+    if not hrefs:
+        return False, "找不到主下载按钮"
+    bad = [u for u in hrefs if u != want]
+    return not bad, bad or ("%d 个主 CTA 全部一致" % len(hrefs))
+
+
+@case("落地页设计基线：零外部依赖 / 可访问性 / 产品可视化 / 技术细节折叠")
+def c_design_rules():
+    h = rd("docs/index.html")
+    forbidden = ["<script", "fonts.googleapis", "cdn.tailwindcss",
+                 '<link rel="stylesheet"', "@import url("]
+    needed = {
+        "零外部依赖": not any(x in h for x in forbidden),
+        "跳过导航": 'class="skip"' in h and 'href="#main"' in h,
+        "焦点可见": ":focus-visible" in h,
+        "减少动效": "prefers-reduced-motion" in h,
+        "高对比偏好": "prefers-contrast" in h,
+        "深色跟随": "prefers-color-scheme" in h,
+        "语义化地标": all(t in h for t in ["<header", "<nav", "<main", "<footer"]),
+        "SVG 有替代文本": 'role="img"' in h and "aria-label" in h,
+        "图片懒加载与 alt": 'loading="lazy"' in h and "alt=" in h,
+        "Hero 产品示意": '<svg class="phone"' in h and 'class="legend"' in h,
+        "数字弹药库": "proof-grid" in h,
+        "技术细节折叠": "<details" in h and "<summary" in h,
+        "表格可滚动与语义": "table-wrap" in h and 'scope="col"' in h,
+        "收尾重复主 CTA": 'class="final"' in h,
+    }
+    bad = [k for k, v in needed.items() if not v]
+    return not bad, bad
+
+
+@case("数字弹药库是活数据，跟仓库实际一致（不写死会过期的数字）")
+def c_live_numbers():
+    h = rd("docs/index.html")
+    bad = []
+    n_files = len(json.loads(rd(".aoci/baseline.json"))["files"])
+    m = re.search(r"<b>(\d+)</b><span>个受管文件", h)
+    if not m or int(m.group(1)) != n_files:
+        bad.append("受管文件数应为 %d" % n_files)
+    feed_path = os.path.join(ROOT, "docs", "feed.atom")
+    if os.path.exists(feed_path):
+        n_rel = io.open(feed_path, encoding="utf-8").read().count("<entry>")
+        m = re.search(r"<b>(\d+)</b><span>个历史版本", h)
+        if not m or int(m.group(1)) != n_rel:
+            bad.append("历史版本数应为 %d" % n_rel)
+    n_suites = len(re.findall(r'"(verify_[a-z_]+\.py)"', rd("verify_all.py")))
+    m = re.search(r"<b>(\d+)</b><span>套自检", h)
+    if not m or int(m.group(1)) != n_suites:
+        bad.append("自检套数应为 %d" % n_suites)
+    if "android.permission.INTERNET" in rd("app/src/main/AndroidManifest.xml"):
+        bad.append("Manifest 出现 INTERNET，零联网承诺失效")
+    m = re.search(r"<b>(\d+)</b><span>项联网权限", h)
+    if not m or m.group(1) != "0":
+        bad.append("联网权限数应为 0")
+    if "MIT" not in rd("LICENSE"):
+        bad.append("LICENSE 不是 MIT")
+    return not bad, bad
 
 
 @case("落地页结构完整：footer 在最后，无页脚后悬挂 section，无过时预览")

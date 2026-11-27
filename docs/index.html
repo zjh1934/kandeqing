@@ -3,297 +3,669 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="看得清 — 两个独立悬浮球：按住放大、点字朗读、点绿球念刚复制的内容。Android 无障碍 / 低视力辅助，零联网权限、不用 OCR、不用学手势。">
+<meta name="theme-color" content="#FBFAF7">
+<meta name="description" content="看得清 — 两个独立小球：按住白球放大、点字朗读、点绿球念刚复制的内容。Android 无障碍 / 低视力辅助，零联网权限、不用 OCR、不用学手势。">
 <meta name="keywords" content="看得清,无障碍,低视力,老花,放大镜,屏幕放大,点读,朗读,剪贴板朗读,复制朗读,悬浮球,android accessibility service,screen magnifier,select to speak,tap to read,clipboard reader,no OCR">
-<meta property="og:title" content="看得清 · 两个球：按住放大，点字朗读，点绿球读剪贴板">
-<meta property="og:description" content="不联网 · 不上传 · 不用 OCR · 不学手势。给还看得见、但看得很吃力的人。">
+<meta property="og:title" content="看得清 · 字太小？按住放大。不想看？点一下，念给你听。">
+<meta property="og:description" content="两个独立小球，零联网权限，不用 OCR，不用学手势。给还看得见、但看得很吃力的人。">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://zjh1934.github.io/kandeqing/preview/ball-before-after-323.png">
-<title>看得清 · 按住放大，点字朗读，点绿球读剪贴板</title>
+<title>看得清 · 字太小？按住放大。不想看？点一下，念给你听。</title>
+<!--
+  设计说明见 docs/design.md。
+  约束：单文件、零外部依赖（不引字体 / CSS 框架 / JS），网络再差也能打开；
+  所有示意图代码自绘 SVG；可读性与对比度按 WCAG AA 自查。
+-->
 <style>
-  :root{--bg:#121212;--card:#1E1E1E;--line:#2C2C2C;--fg:#F2F2F2;--dim:#A6A6A6;
-        --blue:#1E7BFF;--green:#00B578;--warm:#F6F5F2}
+  :root{
+    --bg:#FBFAF7; --surface:#FFFFFF; --surface-2:#F2F5F9;
+    --ink:#12161C; --ink-2:#475161; --ink-3:#6B7686;
+    --line:#E3E7ED; --blue:#1E6BFF; --blue-ink:#0F4FD1;
+    --blue-soft:#EAF1FF; --green:#00A86B; --green-soft:#E5F7EF;
+    --btn-bg:#1E6BFF; --btn-fg:#FFFFFF;
+    --radius:18px;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 10px 30px rgba(16,24,40,.05);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E1116; --surface:#151A21; --surface-2:#1C232D;
+      --ink:#F5F7FA; --ink-2:#C3CCD8; --ink-3:#98A4B4;
+      --line:#2B3441; --blue:#6BA0FF; --blue-ink:#9CC0FF;
+      --blue-soft:#17263E; --green:#3ED9A0; --green-soft:#142B23;
+      --btn-bg:#2F6BFF; --btn-fg:#FFFFFF;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
+    }
+  }
+  @media (prefers-contrast: more){
+    :root{--ink:#000;--ink-2:#222;--ink-3:#333;--line:#000;--blue-ink:#0033AA}
+  }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{margin:0;background:var(--bg);color:var(--fg);
-       font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
-       -webkit-font-smoothing:antialiased;line-height:1.75}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+       font-size:17px;line-height:1.8;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
-  nav{display:flex;align-items:center;justify-content:space-between;gap:18px;
-      padding:20px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-  .brand{font-size:19px;font-weight:700;letter-spacing:.04em}
-  .navlinks{display:flex;gap:22px;font-size:14px;color:var(--dim);flex-wrap:wrap}
-  .navlinks a:hover{color:var(--fg)}
-  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;
-        padding:92px 0 84px}
-  .kicker{display:inline-block;font-size:13px;letter-spacing:.18em;color:var(--blue);
-          border:1px solid #2A3A5C;border-radius:99px;padding:6px 16px;margin-bottom:26px}
-  h1{font-size:clamp(36px,5.6vw,60px);line-height:1.18;margin:0 0 22px;letter-spacing:-.02em;font-weight:750}
+  img{max-width:100%}
+  :focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:6px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+           clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .skip{position:absolute;left:16px;top:-60px;z-index:99;background:var(--btn-bg);
+        color:var(--btn-fg);padding:10px 18px;border-radius:10px;font-weight:700}
+  .skip:focus{top:14px}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 28px}
+  section{scroll-margin-top:86px}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.2}
+  h1{font-size:clamp(34px,4.7vw,60px);font-weight:800;margin:0 0 24px}
   h1 em{font-style:normal;color:var(--blue)}
-  .lead{font-size:19px;color:var(--dim);max-width:560px;margin:0 0 20px}
-  .pills{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 36px}
-  .pill{font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:5px 14px}
-  .pill.new{color:#9AD8B0;border-color:#2A523F}
-  .btns{display:flex;gap:14px;flex-wrap:wrap}
-  .btn{display:inline-block;padding:15px 28px;border-radius:12px;font-size:17px;font-weight:650;transition:.2s}
-  .btn-p{background:var(--blue);color:#fff}
-  .btn-p:hover{background:#4A97FF;transform:translateY(-2px)}
-  .btn-s{border:1px solid #3A3A3A;color:var(--fg)}
-  .btn-s:hover{border-color:#777;transform:translateY(-2px)}
-  .ver{font-size:13px;color:#7E7E7E;margin-top:18px}
-  .orb{width:min(100%,420px);aspect-ratio:1;margin:0 auto;display:block}
-  section{padding:76px 0;border-top:1px solid var(--line)}
-  h2{font-size:clamp(26px,3.6vw,38px);margin:0 0 14px;letter-spacing:-.01em}
-  h3{font-size:17px;margin:22px 0 8px;color:var(--green)}
-  .sub{color:var(--dim);font-size:17px;margin:0 0 42px;max-width:760px}
-  .grid3{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 22px}
-  .card h4{margin:18px 0 8px;font-size:18px}
-  .card p{margin:0;color:var(--dim);font-size:14px}
-  .state{width:66px;height:66px;display:block}
-  .note{background:#172033;border:1px solid #2A3A5C;border-radius:14px;
-        padding:18px 22px;font-size:14px;color:#C7D6F0;margin-top:26px}
-  .note b{color:#fff}
-  table{width:100%;border-collapse:collapse;font-size:15px}
-  th,td{padding:15px 12px;text-align:center;border-bottom:1px solid var(--line)}
-  th{color:var(--dim);font-weight:600;font-size:14px}
-  td:first-child,th:first-child{text-align:left;padding-left:0}
-  .yes{color:#74D99F}.no{color:#6E6E6E}
-  tr.me td{background:#182338;color:#fff;font-weight:650}
-  tr.me td:first-child{border-radius:10px 0 0 10px}
-  tr.me td:last-child{border-radius:0 10px 10px 0}
-  .privacy{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
-  .privacy ul{margin:0;padding-left:20px;color:var(--dim);font-size:16px}
-  .privacy li{margin-bottom:10px}
-  .code{background:#0B0B0B;border:1px solid var(--line);border-radius:14px;padding:22px 24px;
-        font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:#9AD8B0;overflow:auto;
-        word-break:break-all}
-  .en{background:var(--warm);color:#1A1A1A;padding:60px 0}
-  .en h2{color:#1A1A1A}.en p{color:#555;font-size:16px;max-width:760px}
-  .en .btn-s{border-color:#CCC;color:#1A1A1A}
-  figure{margin:0 0 22px}
-  figure img{width:100%;border-radius:12px;display:block;border:1px solid var(--line)}
-  figcaption{font-size:12px;color:var(--dim);margin-top:6px}
-  .status{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}
-  .status div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;font-size:14px}
-  .status b{display:block;color:var(--fg);font-size:15px;margin-bottom:4px}
-  .status span{color:var(--dim)}
-  footer{border-top:1px solid var(--line);padding:38px 0 60px;color:var(--dim);font-size:14px}
-  footer a{color:var(--blue)}
-  @media(max-width:820px){
-    .hero{grid-template-columns:1fr;padding:56px 0 48px}
-    .orb{width:min(62%,300px);order:-1}
-    .grid3{grid-template-columns:1fr 1fr}
-    .privacy,.status{grid-template-columns:1fr}
-    section{padding:52px 0}
-    th,td{padding:12px 6px;font-size:13px}
+  h1 .ln{display:block;white-space:nowrap}
+  h2{font-size:clamp(28px,3.8vw,44px);font-weight:780;margin:0 0 16px}
+  h3{font-size:20px;font-weight:750;margin:0 0 8px}
+  p{max-width:68ch}
+  .note,.small,.download-hero p,.dbody p,.result,.two .card p{max-width:none}
+  .final p{max-width:52ch}
+  .muted{color:var(--ink-2)}
+  .small{font-size:14px;color:var(--ink-3)}
+
+  /* ── 顶栏 ── */
+  .site-head{position:sticky;top:0;z-index:20;background:var(--bg);
+             background:color-mix(in srgb,var(--bg) 88%,transparent);
+             backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+  .head-in{display:flex;align-items:center;justify-content:space-between;gap:20px;
+           min-height:70px;flex-wrap:wrap;padding:10px 28px}
+  .brand{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;letter-spacing:.02em}
+  .brand svg{flex:none}
+  .brand small{font-weight:500;font-size:13px;color:var(--ink-3);letter-spacing:.06em}
+  .navlinks{display:flex;gap:24px;font-size:15px;color:var(--ink-2);flex-wrap:wrap;align-items:center}
+  .navlinks a:hover{color:var(--blue)}
+  .head-cta{background:var(--btn-bg);color:var(--btn-fg);padding:9px 18px;border-radius:10px;
+            font-weight:700;font-size:15px;min-height:44px;display:inline-flex;align-items:center}
+
+  /* ── 按钮 ── */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+       min-height:56px;padding:14px 28px;border-radius:14px;font-size:17px;font-weight:750;
+       transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-p{background:var(--btn-bg);color:var(--btn-fg);box-shadow:0 8px 22px rgba(30,107,255,.22)}
+  .btn-s{border:1.5px solid var(--line);color:var(--ink);background:var(--surface)}
+  .btn-s:hover{border-color:var(--blue)}
+  .btns{display:flex;gap:14px;flex-wrap:wrap;margin:32px 0 22px}
+
+  /* ── 首屏 ── */
+  .hero{position:relative;padding:84px 0 72px}
+  .hero::before{content:"";position:absolute;right:0;top:-14%;width:600px;height:600px;
+                background:radial-gradient(circle,var(--blue-soft) 0%,transparent 66%);
+                opacity:.75;pointer-events:none;z-index:-1}
+  .hero-grid{display:grid;grid-template-columns:1.06fr .94fr;gap:56px;align-items:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:750;
+           letter-spacing:.02em;color:var(--blue-ink);
+           background:var(--blue-soft);border-radius:99px;padding:7px 16px;margin-bottom:26px}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--blue);display:block}
+  .lead{font-size:20px;line-height:1.75;color:var(--ink-2);margin:0;max-width:34ch}
+  .trust{display:flex;gap:8px 12px;flex-wrap:wrap;font-size:14px;color:var(--ink-3);
+         margin-top:22px;align-items:center}
+  .trust b{color:var(--ink);font-weight:750}
+  .trust span+span::before{content:"·";margin-right:10px;color:var(--line)}
+  .hero-visual{position:relative}
+  .phone{width:100%;max-width:460px;display:block;margin:0 auto;height:auto}
+  .phone text{font-family:var(--font)}
+  .legend{display:flex;gap:8px 18px;flex-wrap:wrap;justify-content:center;
+          font-size:14px;color:var(--ink-2);margin-top:10px}
+  .legend span{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+  .legend .b{background:var(--blue)} .legend .g{background:var(--green)}
+
+  /* ── 数字条 ── */
+  .proof{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+         background:var(--surface);padding:40px 0}
+  .proof-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:20px;text-align:center}
+  .proof b{display:block;font-size:clamp(28px,3vw,40px);font-weight:800;
+           letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+  .proof span{font-size:14px;color:var(--ink-3)}
+  .proof-note{text-align:center;font-size:13px;color:var(--ink-3);margin:22px 0 0}
+
+  /* ── 通用区块 ── */
+  .block{padding:92px 0}
+  .block-head{max-width:760px;margin-bottom:48px}
+  .block-head p{font-size:18px;color:var(--ink-2);margin:0}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+        padding:30px 28px;box-shadow:var(--shadow)}
+  .step-num{font:800 14px/1 var(--mono);color:var(--blue);letter-spacing:.1em;
+            display:block;margin-bottom:20px}
+  .step-ico{width:64px;height:64px;border-radius:16px;background:var(--blue-soft);
+            display:grid;place-items:center;margin-bottom:20px}
+  .step-ico svg{width:36px;height:36px}
+  .card p{color:var(--ink-2);font-size:16px;margin:0 0 18px}
+  .result{border-top:1px solid var(--line);padding-top:14px;font-size:14px;
+          color:var(--ink-3);margin:0}
+  .result b{color:var(--blue-ink)}
+  .note{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
+        padding:20px 24px;margin-top:28px;font-size:15px;color:var(--ink-2)}
+  .note b{color:var(--ink)}
+  .note code{font-family:var(--mono);font-size:13px;background:var(--surface);
+             padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+
+  /* ── 对比表 ── */
+  .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);
+              background:var(--surface);box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:15px;min-width:640px}
+  th,td{padding:16px 14px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--ink-3);font-weight:700;font-size:14px;background:var(--surface-2)}
+  th[scope="row"]{text-align:left;color:var(--ink);font-weight:700;background:transparent}
+  td:first-child{text-align:left;font-weight:650}
+  tbody tr:last-child td{border-bottom:0}
+  .yes{color:var(--green);font-weight:800}.no{color:var(--ink-3)}
+  tr.me td{background:var(--blue-soft);color:var(--ink);font-weight:750}
+
+  /* ── 3.9.23 ── */
+  .chg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:34px}
+  .chg div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .chg b{display:block;font-size:16px;margin-bottom:6px}
+  .chg p{margin:0;font-size:14px;color:var(--ink-2)}
+  .shots{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  figure{margin:0}
+  figure img{width:100%;border-radius:14px;display:block;border:1px solid var(--line);
+             background:var(--surface)}
+  figcaption{font-size:13px;color:var(--ink-3);margin-top:8px}
+  .states{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px;align-items:center}
+  .states span{display:inline-flex;align-items:center;gap:9px;font-size:14px;
+               color:var(--ink-2);background:var(--surface);border:1px solid var(--line);
+               border-radius:99px;padding:8px 16px 8px 9px}
+  .states svg{width:30px;height:30px}
+
+  /* ── 隐私 ── */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:center}
+  .split ul{padding-left:22px;color:var(--ink-2);font-size:16px;margin:0 0 28px}
+  .split li{margin-bottom:10px}
+  .manifest{background:#0E1520;color:#C8E6D4;border-radius:16px;padding:26px 28px;
+            font-family:var(--mono);font-size:14px;line-height:2;overflow-x:auto;margin:0}
+  .manifest .c{color:#7C8BA0}
+  .manifest .k{color:#7FC0FF}
+
+  /* ── 两列受众 ── */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .two .card p{margin:0}
+
+  /* ── 下载 / 折叠 ── */
+  .download-hero{background:var(--blue-soft);border:1px solid var(--line);
+                 border-radius:22px;padding:40px 38px;margin-bottom:24px}
+  .download-hero h2{margin-bottom:10px}
+  .download-hero p{color:var(--ink-2);margin:0 0 26px}
+  details{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+          margin:12px 0;padding:0 24px}
+  summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;
+          align-items:center;gap:16px;min-height:60px;font-weight:750;font-size:17px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font-size:26px;line-height:1;color:var(--blue);font-weight:400;flex:none}
+  details[open] summary::after{content:"−"}
+  .dbody{padding:4px 0 24px;font-size:15px;color:var(--ink-2)}
+  .dbody h4{font-size:15px;color:var(--ink);margin:22px 0 8px}
+  .dbody p{margin:8px 0}
+  .code{font-family:var(--mono);font-size:13px;background:var(--surface-2);
+        border:1px solid var(--line);border-radius:10px;padding:12px 16px;
+        word-break:break-all;color:var(--ink);display:block;margin:8px 0}
+  .warn{color:var(--ink);background:var(--green-soft);border-radius:10px;padding:12px 16px;
+        font-size:14px;margin-top:16px}
+
+  /* ── 收尾 CTA ── */
+  .final{text-align:center;padding:88px 0 96px;border-top:1px solid var(--line)}
+  .final h2{margin-bottom:14px}
+  .final p{color:var(--ink-2);font-size:18px;margin:0 auto 30px}
+
+  /* ── 页脚 ── */
+  footer{border-top:1px solid var(--line);background:var(--surface);padding:52px 0 40px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px}
+  .foot-grid h4{font-size:14px;margin:0 0 14px;color:var(--ink)}
+  .foot-grid a,.foot-grid p{display:block;font-size:14px;color:var(--ink-3);margin:0 0 9px}
+  .foot-grid a:hover{color:var(--blue)}
+  .foot-bottom{border-top:1px solid var(--line);margin-top:36px;padding-top:24px;
+               font-size:13px;color:var(--ink-3);display:flex;justify-content:space-between;
+               gap:16px;flex-wrap:wrap}
+
+  @media (max-width:900px){
+    .hero-grid,.split{grid-template-columns:1fr;gap:40px}
+    .hero{padding:56px 0 48px}
+    .hero::before{display:none}
+    .grid3,.chg{grid-template-columns:1fr 1fr}
+    .proof-grid{grid-template-columns:repeat(3,1fr)}
+    .block{padding:64px 0}
+    .foot-grid{grid-template-columns:1fr 1fr}
   }
-  @media(max-width:480px){.grid3{grid-template-columns:1fr}}
+  @media (max-width:600px){
+    body{font-size:16px}
+    .wrap{padding:0 18px}
+    .head-in{padding:10px 18px;gap:12px}
+    .navlinks{gap:14px;font-size:14px}
+    .navlinks .hide-sm{display:none}
+    .grid3,.chg,.shots,.two,.proof-grid{grid-template-columns:1fr}
+    .proof-grid{gap:16px}
+    .proof b{font-size:30px}
+    .lead{font-size:18px}
+    h1{font-size:clamp(28px,8.2vw,40px)}
+    h1 .ln{white-space:normal}
+    .eyebrow{font-size:12px;padding:6px 12px}
+    .btn{width:100%}
+    .download-hero{padding:28px 22px}
+    .trust span+span::before{margin-right:10px}
+    .foot-grid{grid-template-columns:1fr 1fr}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  }
 </style>
 </head>
 <body>
 
-<nav class="wrap">
-  <div class="brand">看得清 <span style="color:#666;font-weight:400;font-size:14px">KanDeQing</span></div>
-  <div class="navlinks">
-    <a href="#how">怎么用</a><a href="#why">为什么不一样</a><a href="#whatsnew">3.9.23 更新</a>
-    <a href="#subscribe">订阅 / 下载</a><a href="#privacy">隐私</a>
-    <a href="https://github.com/zjh1934/kandeqing">GitHub</a>
-    <a href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md">English</a>
-  </div>
-</nav>
+<a class="skip" href="#main">跳到主要内容</a>
 
-<div class="wrap hero">
-  <div>
-    <span class="kicker">ANDROID · 无障碍 · 两个独立小球 · 开源免费</span>
-    <h1>按住<em>放大</em>，<br>点字<em>念给你听</em>。</h1>
-    <p class="lead">屏幕边上两个小球，各管各的、都能单独拖到顺手的位置：白球管放大和点字朗读，绿喇叭球念你刚复制的内容。给还看得见、但看得很吃力的人。</p>
-    <div class="pills">
-      <span class="pill">不联网</span><span class="pill">不上传</span>
-      <span class="pill">不用 OCR</span><span class="pill">不学手势</span>
-      <span class="pill new">两个球</span><span class="pill new">明朗七色</span><span class="pill new">真不透明</span>
+<header class="site-head">
+  <div class="head-in">
+    <a class="brand" href="#main" aria-label="看得清 KanDeQing，回到页首">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+        <circle cx="14" cy="14" r="11" fill="none" stroke="#1E6BFF" stroke-width="3.5"/>
+        <circle cx="14" cy="14" r="3" fill="#1E6BFF"/>
+      </svg>
+      看得清 <small>KanDeQing</small>
+    </a>
+    <nav class="navlinks" aria-label="主导航">
+      <a href="#how">怎么用</a>
+      <a href="#why">为什么不一样</a>
+      <a href="#whatsnew">3.9.23</a>
+      <a href="#subscribe">下载</a>
+      <a href="https://github.com/zjh1934/kandeqing" class="hide-sm">GitHub</a>
+      <a href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md" class="hide-sm">English</a>
+      <a class="head-cta" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">下载 APK</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><i></i>两个独立小球 · Android 无障碍 · 免费开源</span>
+      <h1 id="hero-title"><span class="ln">字太小？<em>按住放大</em>。</span><span class="ln">不想看？点一下，</span><span class="ln"><em>念给你听</em>。</span></h1>
+      <p class="lead">屏幕边上两颗球，各管各的、都能单独拖到顺手的位置。白球管放大和点字朗读，绿喇叭球念你刚复制的内容。给还看得见、但看得很吃力的人。</p>
+      <div class="btns">
+        <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">下载安装包 · APK</a>
+        <a class="btn btn-s" href="#how">60 秒看懂怎么用 →</a>
+      </div>
+      <p class="trust"><span>当前版本 <b>3.9.23</b></span><span>Android 7.0+</span>
+        <span>零 INTERNET 权限</span><span>MIT</span><span>可覆盖安装</span></p>
     </div>
-    <div class="btns">
+
+    <div class="hero-visual">
+      <svg class="phone" viewBox="0 0 480 540" role="img"
+           aria-label="产品示意：手机屏幕上一段用药说明，圆形放大镜片把文字放大；右边贴着一颗电蓝白球和一颗亮绿喇叭球，分别对应按住放大、点字朗读和念剪贴板">
+        <defs>
+          <clipPath id="screenClip"><rect x="116" y="36" width="228" height="468" rx="28"/></clipPath>
+          <clipPath id="lensClip"><circle cx="230" cy="200" r="74"/></clipPath>
+          <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F3F7FD"/>
+          </linearGradient>
+          <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0B1B3A" flood-opacity=".16"/>
+          </filter>
+          <filter id="ballShadow" x="-60%" y="-60%" width="220%" height="220%">
+            <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#0B1B3A" flood-opacity=".28"/>
+          </filter>
+        </defs>
+
+        <circle cx="250" cy="258" r="226" fill="var(--blue-soft)" opacity=".6"/>
+        <circle cx="250" cy="258" r="226" fill="none" stroke="var(--line)" stroke-width="1" opacity=".7"/>
+
+        <rect x="104" y="24" width="252" height="492" rx="38" fill="var(--surface)"
+              stroke="var(--line)" stroke-width="3" filter="url(#shadow)"/>
+        <rect x="116" y="36" width="228" height="468" rx="28" fill="url(#screen)"/>
+
+        <g clip-path="url(#screenClip)">
+          <rect x="116" y="36" width="228" height="28" fill="#E9EFF7"/>
+          <circle cx="132" cy="50" r="3" fill="#9AAAC0"/><circle cx="143" cy="50" r="3" fill="#9AAAC0"/>
+          <rect x="296" y="46" width="30" height="8" rx="4" fill="#C6D2E2"/>
+
+          <text x="136" y="100" font-family="var(--font)" font-size="18" font-weight="700" fill="#1B2431">用药说明</text>
+          <rect x="136" y="112" width="188" height="2" fill="#DEE6F0"/>
+          <g fill="#C7D3E3">
+            <rect x="136" y="132" width="182" height="9" rx="4.5"/>
+            <rect x="136" y="152" width="160" height="9" rx="4.5"/>
+            <rect x="136" y="172" width="174" height="9" rx="4.5"/>
+            <rect x="136" y="192" width="128" height="9" rx="4.5"/>
+          </g>
+
+          <!-- 放大镜：按住白球时画面跟手放大 -->
+          <g clip-path="url(#lensClip)">
+            <rect x="150" y="120" width="160" height="160" fill="#FFFFFF"/>
+            <text x="158" y="184" font-family="var(--font)" font-size="25" font-weight="750" fill="#16202E">一次 1 片，</text>
+            <text x="158" y="220" font-family="var(--font)" font-size="25" font-weight="750" fill="#16202E">一日 3 次</text>
+            <rect x="158" y="238" width="120" height="6" rx="3" fill="#D8E2EF"/>
+          </g>
+          <circle cx="230" cy="200" r="74" fill="none" stroke="#FFFFFF" stroke-width="9" filter="url(#shadow)"/>
+          <circle cx="230" cy="200" r="74" fill="none" stroke="#1E6BFF" stroke-width="3"/>
+          <circle cx="230" cy="200" r="4" fill="#1E6BFF"/>
+
+          <!-- 屏幕下半部的正文条 -->
+          <g fill="#C7D3E3">
+            <rect x="136" y="296" width="182" height="9" rx="4.5"/>
+            <rect x="136" y="316" width="150" height="9" rx="4.5"/>
+            <rect x="136" y="336" width="178" height="9" rx="4.5"/>
+            <rect x="136" y="356" width="112" height="9" rx="4.5"/>
+            <rect x="136" y="396" width="182" height="9" rx="4.5"/>
+            <rect x="136" y="416" width="164" height="9" rx="4.5"/>
+            <rect x="136" y="436" width="130" height="9" rx="4.5"/>
+          </g>
+          <!-- 朗读命中的那一句，高亮 -->
+          <rect x="130" y="310" width="192" height="22" rx="6" fill="#DCEBFF"/>
+          <rect x="136" y="316" width="150" height="9" rx="4.5" fill="#1E6BFF" opacity=".55"/>
+        </g>
+
+        <!-- 白球：朗动态的环 + 两竖 -->
+        <g filter="url(#ballShadow)">
+          <circle cx="336" cy="272" r="35" fill="#FFFFFF"/>
+          <circle cx="336" cy="272" r="31" fill="#1E6BFF" stroke="#FFFFFF" stroke-width="3"/>
+          <circle cx="336" cy="272" r="21" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+          <rect x="330" y="260" width="5" height="24" rx="2.5" fill="#FFFFFF"/>
+          <rect x="338" y="260" width="5" height="24" rx="2.5" fill="#FFFFFF"/>
+        </g>
+
+        <!-- 绿喇叭球 -->
+        <g filter="url(#ballShadow)">
+          <circle cx="328" cy="406" r="28" fill="#FFFFFF"/>
+          <circle cx="328" cy="406" r="25" fill="#00B578"/>
+          <path d="M317 398 L323 398 L330 391 L330 421 L323 414 L317 414 Z" fill="#FFFFFF"/>
+          <path d="M335 399 Q344 406 335 413" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+          <path d="M340 394 Q352 406 340 418" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+        </g>
+
+        <!-- 三个动作的小标记 -->
+        <g font-family="var(--font)" font-size="13" font-weight="700" fill="var(--ink-2)">
+          <path d="M156 200 H84" stroke="var(--blue)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <circle cx="84" cy="200" r="4" fill="var(--blue)"/>
+          <text x="18" y="188">按住</text><text x="18" y="207">放大跟手</text>
+          <path d="M370 272 H408" stroke="var(--blue)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <circle cx="408" cy="272" r="4" fill="var(--blue)"/>
+          <text x="414" y="262">点字</text><text x="414" y="281">就念</text>
+          <path d="M356 406 H408" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <circle cx="408" cy="406" r="4" fill="var(--green)"/>
+          <text x="414" y="396">点绿球</text><text x="414" y="415">念剪贴板</text>
+        </g>
+      </svg>
+      <p class="legend" aria-label="三个动作图例">
+        <span><i class="b"></i>按住白球 → 放大</span>
+        <span><i class="b"></i>点白球再点字 → 朗读</span>
+        <span><i class="g"></i>点绿球 → 念刚复制的</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="proof" aria-label="项目事实">
+  <div class="wrap">
+    <div class="proof-grid">
+      <div><b>40</b><span>个历史版本可回退</span></div>
+      <div><b>10</b><span>套自检 × 3 轮才准提交</span></div>
+      <div><b>0</b><span>项联网权限</span></div>
+      <div><b>74</b><span>个受管文件有认知索引</span></div>
+      <div><b>MIT</b><span>源码随便审、随便改</span></div>
+    </div>
+    <p class="proof-note">这些数字都能在仓库里一条条数出来，不是形容词。</p>
+  </div>
+</section>
+
+<section id="how" class="block" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="block-head">
+      <h2 id="how-title">装好之后，只要记住三句话</h2>
+      <p>不用学手势、不用注册、不用联网。球会用自己的样子告诉你它在干什么。</p>
+    </div>
+    <div class="grid3">
+      <article class="card">
+        <span class="step-num">01 / 放大</span>
+        <div class="step-ico"><svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="18" cy="18" r="11" fill="none" stroke="#1E6BFF" stroke-width="3"/>
+          <path d="M26 26 L35 35" stroke="#1E6BFF" stroke-width="3" stroke-linecap="round"/>
+          <path d="M13 18 H23 M18 13 V23" stroke="#1E6BFF" stroke-width="2.5" stroke-linecap="round"/>
+        </svg></div>
+        <h3>按住白球</h3>
+        <p>画面立刻放大，手指挪到哪看到哪，松手还原。球心始终贴着触点，不会飘。</p>
+        <p class="result">结果 → <b>药盒小字、快递单号，不用再找老花镜</b></p>
+      </article>
+      <article class="card">
+        <span class="step-num">02 / 朗读</span>
+        <div class="step-ico"><svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="14" fill="none" stroke="#1E6BFF" stroke-width="3.5"/>
+          <path d="M15 12 V28 M25 12 V28" stroke="#1E6BFF" stroke-width="3.5" stroke-linecap="round"/>
+        </svg></div>
+        <h3>点白球，再点字</h3>
+        <p>白球变实心，再点屏幕上想听的那段字，就从这句开始念。再点一下球就停。</p>
+        <p class="result">结果 → <b>微信里一大段话，可以闭着眼睛听完</b></p>
+      </article>
+      <article class="card">
+        <span class="step-num">03 / 剪贴板</span>
+        <div class="step-ico"><svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="14" fill="#00A86B"/>
+          <path d="M14 17 H18 L23 12 V28 L18 23 H14 Z" fill="#FFFFFF"/>
+          <path d="M27 15 Q32 20 27 25" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+        </svg></div>
+        <h3>点绿喇叭球</h3>
+        <p>刚复制的一段话，点一下就念；朗读中再点就停。两颗球各管各的，不抢手势。</p>
+        <p class="result">结果 → <b>复制完不用切 App，也不必再装第二个工具</b></p>
+      </article>
+    </div>
+    <div class="note">
+      <b>两个开关在「朗读」页：</b>「复制朗读」默认开（关掉绿球就收起），
+      「复制后自动朗读」默认关。Android 10 起系统限制后台读剪贴板，自动读属尽力而为，
+      <b>点一下绿球最稳</b>；验证码、过短文本、纯数字会被跳过。
+      不透明度拉到 100% 现在是真的不透明；「更多」页有<b>诊断与日志</b>，
+      可查看 / 复制 / 导出 / 清空，只记状态和字数、不记正文。
+    </div>
+  </div>
+</section>
+
+<section id="why" class="block" aria-labelledby="why-title" style="background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="block-head">
+      <h2 id="why-title">为什么找不到第二个</h2>
+      <p>把「实时放大」「点哪读哪」和「复制完就能听」做进同一个无障碍服务、两颗独立球里，我们目前没有找到同类开源项目。</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <caption class="sr-only">看得清与常见方案的能力对比</caption>
+        <thead><tr><th scope="col">方案</th><th scope="col">放大</th><th scope="col">点哪读哪</th>
+          <th scope="col">复制朗读</th><th scope="col">要学手势</th><th scope="col">联网 / OCR</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">系统放大 / 放大镜 App</th><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td>部分</td><td>否</td></tr>
+          <tr><th scope="row">Select to Speak / TalkBack</th><td class="no">❌</td><td>部分</td><td class="no">❌</td><td>要学</td><td>否</td></tr>
+          <tr><th scope="row">OCR 选区朗读类</th><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td><td>要框选</td><td>截图 + OCR</td></tr>
+          <tr><th scope="row">剪贴板朗读类</th><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td><td>否</td><td>否</td></tr>
+          <tr class="me"><th scope="row">看得清</th><td>✅</td><td>✅</td><td>✅</td><td>点 / 按住 / 点绿球</td><td>都不需要</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>刻意只走 Android 官方无障碍树和 ClipboardManager：</b>不截图、不做 OCR、不引入模型。
+      换来点一下就出声、零网络权限；代价是图片里和游戏自绘的字读不到。这是选的路，不是没修完。</p>
+  </div>
+</section>
+
+<section id="whatsnew" class="block" aria-labelledby="new-title">
+  <div class="wrap">
+    <div class="block-head">
+      <h2 id="new-title">3.9.23 · 看得见的改动</h2>
+      <p>这一版只动球的外观和安装包命名，抓字、放大、球心对齐、TTS、诊断日志一行没改。</p>
+    </div>
+    <div class="chg">
+      <div><b>① 100% 真的不透明</b><p>旧实心球是径向渐变，中心最多 90%、边缘一路透明，调满也发虚。现在内圈用完整 alpha，只留最外一圈柔边抗锯齿。</p></div>
+      <div><b>② 明朗七色</b><p>早期那套低饱和配色已被高饱和明朗七色取代：雪白 / 电蓝 / 翠绿 / 琥珀 / 珊瑚 / 亮紫 / 青碧，按亮度自动配深或白对比描边。</p></div>
+      <div><b>③ 拼音版本号</b><p>安装包统一 <code>kandeqing-v&lt;版本&gt;.apk</code>，40 个历史包同步改名（字节不变），订阅里每条一眼分得清谁是谁。</p></div>
+    </div>
+    <div class="shots">
+      <figure><img src="preview/ball-before-after-323.png" alt="改前与 3.9.23 定稿对比：低饱和七色换成高饱和明朗七色，实心球不再发虚" loading="lazy">
+        <figcaption>定稿 · 明朗七色 / 真不透明 / 对比描边 / 朗读底环（代码自绘，非真机截图）</figcaption></figure>
+      <figure><img src="preview/ball-palette-candidates.png" alt="改前加三套配色候选并排对比，最终选 A 明朗" loading="lazy">
+        <figcaption>改前 + 三套候选 · 逐张在浅色与深色壁纸上比对后定稿</figcaption></figure>
+    </div>
+    <div class="states" aria-label="悬浮球的四种形态">
+      <span><svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="none" stroke="#1E6BFF" stroke-width="2.5"/></svg>空心环 · 待命</span>
+      <span><svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="#1E6BFF"/></svg>实心 · 准备选字</span>
+      <span><svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="none" stroke="#1E6BFF" stroke-width="2.5"/><path d="M12 10 V20 M18 10 V20" stroke="#1E6BFF" stroke-width="2.5"/></svg>环 + 两竖 · 朗读中</span>
+      <span><svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="none" stroke="#1E6BFF" stroke-width="2.5"/><circle cx="15" cy="4" r="2" fill="#1E6BFF"/><circle cx="25" cy="9" r="1.6" fill="#1E6BFF" opacity=".7"/><circle cx="27" cy="18" r="1.3" fill="#1E6BFF" opacity=".5"/></svg>转圈 · 正在准备</span>
+    </div>
+    <p class="note">仓库还接入了一份随 Git 受管的 AOCI 认知索引，源码改动由 SHA-256 基线检测漂移；
+      更早版本的配色预览已不再展示，免得被误认为是当前方案。两张预览图都是代码自绘，不是生图模型出的。</p>
+  </div>
+</section>
+
+<section id="privacy" class="block" aria-labelledby="priv-title" style="background:var(--surface);border-top:1px solid var(--line)">
+  <div class="wrap split">
+    <div>
+      <h2 id="priv-title">从系统层面就传不出去</h2>
+      <p class="muted">不是「我们承诺不上传」，是这个 App 根本没申请上网权限。可以直接翻 Manifest 核对，不需要信任任何人。</p>
+      <ul>
+        <li>屏幕读到的字、你复制的内容，只在内存里活几秒</li>
+        <li>日志只记状态和字数，不记任何读到的文字</li>
+        <li>验证码、过短文本、纯数字会被剪贴板朗读跳过</li>
+        <li>没有第三方 SDK、统计、广告、账号</li>
+        <li>源码全开，MIT 协议，随便审</li>
+      </ul>
+      <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/docs/privacy.md">看完整隐私说明 →</a>
+    </div>
+    <pre class="manifest"><code><span class="c">&lt;!-- AndroidManifest.xml --&gt;</span>
+&lt;uses-permission <span class="k">android:name</span>=
+    "android.permission.VIBRATE" /&gt;
+
+<span class="c">&lt;!-- 没有 INTERNET 这一项 --&gt;
+&lt;!-- 不是我们克制，是系统不给 --&gt;</span></code></pre>
+  </div>
+</section>
+
+<section id="who" class="block" aria-labelledby="who-title">
+  <div class="wrap">
+    <div class="block-head">
+      <h2 id="who-title">给谁用，也说不谁不适合</h2>
+      <p>把边界写清楚，比把功能吹满更让人放心。</p>
+    </div>
+    <div class="two">
+      <div class="card"><h3>✅ 很适合</h3>
+        <p>老花、低视力、弱视、术后恢复、看一会儿就眼酸的人；帮爸妈装手机的儿女；想「少看多听」让眼睛歇一会儿的人。看得见，只是看得很吃力。</p></div>
+      <div class="card"><h3>➖ 请换工具</h3>
+        <p>完全看不见的朋友，系统自带的 <b>TalkBack</b> 更合适。图片里的字、游戏和 Canvas 自绘的字，本工具读不到 —— 只走无障碍树，不做 OCR，需要读图请找 OCR 类工具。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="aoci" class="block" aria-labelledby="aoci-title" style="padding:56px 0;border-top:1px solid var(--line)">
+  <div class="wrap split" style="gap:36px">
+    <div>
+      <h2 id="aoci-title" style="font-size:clamp(24px,3vw,32px)">代码也是受管的 · AOCI</h2>
+      <p class="muted" style="margin:0">仓库里有一份随 Git 受管、<b>不进 APK</b> 的认知索引
+        （<code>aoci.txt</code> / <code>aoci.meta.txt</code> / <code>aoci.code.txt</code> /
+        <code>AGENTS.md</code> / <code>.aoci/</code>）：每个源码文件的职责、强关系，以及
+        「推不出、删了就会改错」的硬约束都在里面。SHA-256 基线会在自检里检测漂移，
+        改了源码没更新认知会被挡在提交前。</p>
+    </div>
+    <div style="text-align:left">
+      <a class="btn btn-s" href="aoci.md">读 docs/aoci.md →</a>
+      <p class="small" style="margin:14px 0 0">这一页的设计决策同样写在 <a href="https://github.com/zjh1934/kandeqing/blob/main/docs/design.md" style="color:var(--blue)">docs/design.md</a>，并受 <code>verify_pages.py</code> 校验。</p>
+    </div>
+  </div>
+</section>
+
+<section id="subscribe" class="block" aria-labelledby="dl-title">
+  <div class="wrap">
+    <div class="download-hero">
+      <h2 id="dl-title">下载，或者让下载器帮你盯着新版本</h2>
+      <p>固定直链永远指向最新版，不重定向、不用换链接；新版可直接覆盖安装，不用卸载。</p>
+      <div class="btns" style="margin:0">
+        <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">直接下载最新版 · APK</a>
+        <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/releases/latest">去 Releases 挑版本</a>
+      </div>
+      <p class="small" style="margin:16px 0 0">当前版本 3.9.23 · 文件名 <code>kandeqing-v3.9.23.apk</code> · 固定签名，覆盖安装不丢设置</p>
+    </div>
+
+    <details>
+      <summary>给 Obtainium / 下载器用的两条链接（点开看）</summary>
+      <div class="dbody">
+        <h4>① 订阅源 —— 填进「新建订阅 / Atom / RSS / JSON Feed」框</h4>
+        <span class="code">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom</span>
+        <span class="code">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json</span>
+        <p>实测返回 <code>application/atom+xml</code> / <code>application/json</code>。
+          里面是<b>全部历史版本</b>（球球 2.0 → 当前版本，逐版一条），最新在最前，
+          每条附件直指该版本真 APK，带大小与 SHA256，文件名是
+          <code>kandeqing-vX.Y.Z.apk</code>。CI 每次发版追加一条，旧版本不删。</p>
+        <p>jsDelivr 同名文件有几小时缓存，CI 发版会主动清；想完全无缓存用 Pages 备用
+          <span class="code" style="display:inline;padding:2px 6px">https://zjh1934.github.io/kandeqing/feed.atom</span>。
+          旧路径 <code>docs/subscribe.atom</code> 内容相同，订阅请一律用 <code>docs/feed.atom</code>。</p>
+
+        <h4>② 文件直链 —— 填进「新建下载任务」框</h4>
+        <span class="code">https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk</span>
+        <p>实测已是 3.9.23，不重定向、链接永不变。要指定历史版本，从上面订阅里选对应条目最稳
+          （版本化路径不受同名 CDN 缓存影响）。备用：
+          <code>https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</code>、
+          <code>https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk</code>。
+          Obtainium 类 App 填仓库 <code>https://github.com/zjh1934/kandeqing</code> 让它自己解析资产。</p>
+        <p class="warn"><b>别填</b> GitHub 自带的 <code>releases.atom</code>：条目链接是 Release 网页（text/html），
+          下载器会报「server returned HTML page」。订阅框和下载框要的不是同一个东西。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>常见问题：绿球不见 / 自动读不触发 / 球找不到</summary>
+      <div class="dbody">
+        <p><b>绿球不见了？</b>「朗读」页「复制朗读」开关默认开，关掉它绿球就收起，白球照常用。</p>
+        <p><b>复制完没自动念？</b>「复制后自动朗读」默认关，要手动打开；Android 10 起系统限制后台读剪贴板，自动读属尽力而为，<b>点一下绿球最稳</b>。</p>
+        <p><b>球太透明、找不到？</b>「悬浮球」页把不透明度拉到最右（3.9.23 起 100% 真不透明），再换成电蓝 / 翠绿 / 这些鲜亮颜色；两个球都能单独拖到顺手的位置。</p>
+        <p><b>球过一会儿消失？</b>部分国产 ROM 的省电策略会自动关掉无障碍服务，到「电池 / 省电」把「看得清」设成不限制即可。</p>
+        <p><b>放大后字发毛？</b>放大是拉开屏幕像素，不会重新排版，这是系统放大的固有代价；想又大又清楚，用朗读。</p>
+        <p>照着做还不行，看 <a href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md" style="color:var(--blue)">给长辈的图文说明</a>，或提 <a href="https://github.com/zjh1934/kandeqing/issues/new/choose" style="color:var(--blue)">Issue</a>（附上机型和 Android 版本就够）。</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="final" aria-labelledby="final-title">
+  <div class="wrap">
+    <h2 id="final-title">装一次，开一次无障碍，就能用</h2>
+    <p>不用注册，不用联网，不用学手势。给家里看小字费劲的人也发一份。</p>
+    <div class="btns" style="justify-content:center">
       <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">下载安装包 · APK</a>
       <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md">给长辈的图文说明</a>
     </div>
-    <p class="ver">当前版本 <b>3.9.23</b>（versionCode 53）· Android 7.0+ · 装完开一次无障碍即可 · 新版可直接覆盖安装</p>
-    <div class="status">
-      <div><b>两个独立球</b><span>白球放大 + 点字朗读，绿球读剪贴板</span></div>
-      <div><b>诊断与日志</b><span>「更多」页可查看 / 复制 / 导出 / 清空</span></div>
-      <div><b>AOCI 认知索引</b><span>随 Git 受管，不进 APK 但管源码</span></div>
-    </div>
-  </div>
-
-  <svg class="orb" viewBox="0 0 400 400" role="img" aria-label="看得清双悬浮球：白球空心环与绿喇叭球">
-    <defs>
-      <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-        <stop offset="62%" stop-color="#1E7BFF" stop-opacity="0"/>
-        <stop offset="80%" stop-color="#1E7BFF" stop-opacity=".45"/>
-        <stop offset="92%" stop-color="#FFFFFF" stop-opacity=".22"/>
-        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-      </radialGradient>
-      <filter id="halo" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="26"/>
-      </filter>
-    </defs>
-    <circle cx="168" cy="182" r="158" fill="#1E7BFF" opacity=".06" filter="url(#halo)"/>
-    <!-- 白球：明朗电蓝实心 + 白对比描边 -->
-    <circle cx="168" cy="182" r="112" fill="#25303C"/>
-    <circle cx="168" cy="182" r="104" fill="#1E7BFF"/>
-    <circle cx="168" cy="182" r="104" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".9"/>
-    <!-- 朗读态：空心环 + 两条竖线 -->
-    <circle cx="168" cy="182" r="72" fill="none" stroke="#FFFFFF" stroke-width="6" opacity=".95"/>
-    <rect x="152" y="156" width="10" height="52" rx="5" fill="#25303C"/>
-    <rect x="152" y="156" width="7" height="52" rx="3.5" fill="#FFFFFF"/>
-    <rect x="176" y="156" width="10" height="52" rx="5" fill="#25303C"/>
-    <rect x="176" y="156" width="7" height="52" rx="3.5" fill="#FFFFFF"/>
-    <!-- 绿球：亮绿实心 + 白描边 + 喇叭 -->
-    <circle cx="310" cy="292" r="50" fill="#FFFFFF"/>
-    <circle cx="310" cy="292" r="46" fill="#00B578"/>
-    <path d="M296 282 L302 282 L310 274 L310 310 L302 302 L296 302 Z" fill="#FFFFFF"/>
-    <path d="M316 284 Q326 292 316 300" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
-    <path d="M320 278 Q334 292 320 306" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
-  </svg>
-</div>
-
-<section id="how" class="wrap">
-  <h2>三个动作，两颗球</h2>
-  <p class="sub">白球用自己的样子告诉你它在干什么；绿球只管复制的内容。两个球都能单独拖，互不干扰，<b>没有双击、不抢手势</b>。</p>
-  <div class="grid3">
-    <div class="card">
-      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".85"/></svg>
-      <h4>按住白球 · 放大</h4>
-      <p>画面跟着手指放大，挪到哪看到哪，松手还原。球心始终贴着触点。</p>
-    </div>
-    <div class="card">
-      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="#1E7BFF" stroke="#FFFFFF" stroke-width="2"/></svg>
-      <h4>点白球再点字 · 朗读</h4>
-      <p>点一下球变实心，再点屏幕上那段字，从这句开始念。再点球就停。</p>
-    </div>
-    <div class="card">
-      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="#00B578" stroke="#FFFFFF" stroke-width="2"/><path d="M26 29 L30 29 L34 25 L34 41 L30 37 L26 37 Z" fill="#FFF"/></svg>
-      <h4>点绿球 · 念剪贴板</h4>
-      <p>刚复制的一段话，点一下绿喇叭球就念。验证码、过短的内容会跳过。</p>
-    </div>
-    <div class="card">
-      <svg class="state" viewBox="0 0 66 66"><circle cx="33" cy="33" r="25" fill="none" stroke="#1E7BFF" stroke-width="3"/><circle cx="33" cy="15" r="3" fill="#FFFFFF"/><circle cx="48" cy="22" r="2.5" fill="#FFFFFF" opacity=".7"/><circle cx="52" cy="38" r="2" fill="#FFFFFF" opacity=".5"/></svg>
-      <h4>转圈 / 两竖 · 状态</h4>
-      <p>等待出声时小点转圈，朗读中变环加两竖。七种高饱和颜色随你挑。</p>
-    </div>
-  </div>
-  <div class="note">
-    <b>两个开关在「朗读」页：</b>「复制朗读」默认开（关掉绿球就收起）；「复制后自动朗读」默认关。
-    Android 10 起系统限制后台读剪贴板，自动读属尽力而为 —— <b>点一下绿球最稳</b>。
-    不透明度拉到 100% 现在是真不透明；「更多」页有<b>诊断与日志</b>，只记状态和字数、不记正文。
+    <p class="small" style="margin:18px auto 0">当前版本 3.9.23 · Android 7.0+ · MIT · 固定签名，可直接覆盖安装</p>
   </div>
 </section>
 
-<section id="why" class="wrap">
-  <h2>为什么找不到第二个</h2>
-  <p class="sub">把「实时放大」「点哪读哪」和「复制完就能听」做进同一个无障碍服务、两颗独立球里，我们目前没有找到同类开源项目。常见方案各自只解决一半。</p>
-  <table>
-    <thead><tr><th>方案</th><th>放大</th><th>点哪读哪</th><th>复制朗读</th><th>要学手势</th><th>联网 / OCR</th></tr></thead>
-    <tbody>
-      <tr><td>系统放大 / 放大镜 App</td><td class="yes">✅</td><td class="no">❌</td><td class="no">❌</td><td>部分</td><td>否</td></tr>
-      <tr><td>Select to Speak / TalkBack</td><td class="no">❌</td><td>部分</td><td class="no">❌</td><td>要学</td><td>否</td></tr>
-      <tr><td>OCR 选区朗读类</td><td class="no">❌</td><td class="yes">✅</td><td class="no">❌</td><td>要框选</td><td>截图 + OCR</td></tr>
-      <tr><td>剪贴板朗读类</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td><td>否</td><td>否</td></tr>
-      <tr class="me"><td>看得清</td><td>✅</td><td>✅</td><td>✅</td><td>点 / 按住 / 点绿球</td><td>都不需要</td></tr>
-    </tbody>
-  </table>
-  <p class="sub" style="margin:26px 0 0">刻意只走 Android 官方无障碍树和 ClipboardManager：不截图、不做 OCR、不引入模型。换来点一下就出声、零网络权限；代价是图片里和游戏自绘的字读不到。这是选的路，不是没修完。</p>
-</section>
+</main>
 
-<section id="whatsnew" class="wrap">
-  <h2>3.9.23 · 球色与不透明度重做</h2>
-  <p class="sub">代码自绘预览，不是真机截图。先出「改前 / A 明朗 / B 霓虹 / C 糖果」四套候选在浅色与深色壁纸上各画一遍，逐张看过、不合适就改；定稿时发现朗读竖线在浅壁纸上发白，又改成球色填充 + 深色描边重出。</p>
-  <figure><img src="preview/ball-before-after-323.png" alt="改前改后定稿"><figcaption>定稿 · 明朗七色 / 不透明度 100% 真不透明 / 对比描边 / 朗读底环</figcaption></figure>
-  <figure><img src="preview/ball-palette-candidates.png" alt="配色候选"><figcaption>改前 + 三套候选 · 改前那排在浅色壁纸上几乎看不见，最终选 A 明朗</figcaption></figure>
-  <div class="note">
-    <b>这一版还改了：</b>安装包文件名统一为 <code>kandeqing-v&lt;版本&gt;.apk</code>，
-    仓库 40 个历史包同步改拼音名（字节不变），订阅里每条一眼分得清谁是谁；
-    仓库接入 AOCI 认知索引，源码改动由 SHA-256 Baseline 受管。
-    <b>3.9.21 那次「清釉」低饱和配色已被本版明朗七色取代</b>，旧预览不再展示，避免误以为还是当前方案。
-  </div>
-</section>
-
-<section id="subscribe" class="wrap">
-  <h2>订阅 / 下载 · 两种链接别填混</h2>
-  <p class="sub">「新建订阅（RSS 2.0 / Atom / JSON Feed）」框要的是 <b>feed 文档</b>；「新建下载任务」框要的是 <b>APK 文件直链</b>。两者不是同一个东西。</p>
-
-  <h3>① 订阅源（填进 Atom / RSS / JSON Feed 框）</h3>
-  <div class="code">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom</div>
-  <p class="sub" style="font-size:14px;margin:12px 0 0">
-    或 JSON Feed：<a href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json" style="color:var(--green);word-break:break-all">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json</a><br>
-    实测返回 <code>application/atom+xml</code> / <code>application/json</code>。<b>里面有全部历史版本</b>
-    （球球 2.0 → 当前版本，逐版一条），最新在最前，每条附件直指<b>该版本</b>真 APK、
-    带大小与 SHA256，文件名是 <code>kandeqing-vX.Y.Z.apk</code>。CI 每次发版追加一条，旧版本不删。
-  </p>
-  <p class="sub" style="font-size:14px;margin:10px 0 0">
-    jsDelivr 同名文件有几小时缓存，CI 每次发版会主动清；想完全无缓存用 Pages 备用
-    <a href="https://zjh1934.github.io/kandeqing/feed.atom" style="color:var(--green);word-break:break-all">https://zjh1934.github.io/kandeqing/feed.atom</a>。
-    旧路径 <code>docs/subscribe.atom</code> 内容相同，订阅请一律用 <code>docs/feed.atom</code>。
-  </p>
-  <p class="sub" style="font-size:14px;margin:10px 0 20px;color:#E0A08E">
-    <b>别填</b> GitHub 自带的 <code>https://github.com/zjh1934/kandeqing/releases.atom</code>：
-    条目链接是 Release 网页（text/html），下载器会报「server returned HTML page」。
-  </p>
-
-  <h3>② 文件直链（填进下载任务框）</h3>
-  <div class="code">https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk</div>
-  <p class="sub" style="font-size:14px;margin:12px 0 0">
-    实测已是 3.9.23，不重定向、链接永不变。<b>要指定版本最稳的是从上面订阅里选对应条目</b> ——
-    每条走版本化路径，不受同名 CDN 缓存影响。<br>
-    jsDelivr 备用：<a href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk" style="color:var(--green);word-break:break-all">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</a>（同名文件在边缘可能滞后一版）<br>
-    Release 页：<a href="https://github.com/zjh1934/kandeqing/releases/latest" style="color:var(--green)">https://github.com/zjh1934/kandeqing/releases/latest</a><br>
-    Obtainium 类 App 填仓库 <code>https://github.com/zjh1934/kandeqing</code>，让它自己解析资产。
-  </p>
-</section>
-
-<section id="aoci" class="wrap">
-  <h2>项目认知层 · AOCI</h2>
-  <p class="sub" style="margin-bottom:14px">
-    仓库里有一份随 Git 受管的认知索引（<code>aoci.txt</code> / <code>aoci.meta.txt</code> /
-    <code>aoci.code.txt</code> / <code>AGENTS.md</code> / <code>.aoci/</code>）。
-    它<b>不进安装包</b>，但记录每个源码文件的职责、强关系与「推不出、删了就会改错」的硬约束；
-    源码 SHA-256 基线会在自检里检测漂移，改了源码没更新认知会被挡在提交前。详见
-    <a href="aoci.md" style="color:var(--green)">docs/aoci.md</a>。
-  </p>
-</section>
-
-<section id="privacy" class="wrap privacy">
-  <div>
-    <h2>从系统层面就传不出去</h2>
-    <p class="sub">不是「我们承诺不上传」，是这个 App 根本没申请上网权限。</p>
-    <ul>
-      <li>屏幕读到的字、你复制的内容，只在内存里活几秒</li>
-      <li>日志只记软件自己的状态和字数，不记任何读到的文字</li>
-      <li>验证码、过短文本、纯数字会被剪贴板朗读跳过</li>
-      <li>没有第三方 SDK、没有统计、没有广告、没有账号</li>
-      <li>源码可查，MIT 协议，随便审</li>
-    </ul>
-    <p style="margin-top:26px"><a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/docs/privacy.md">看完整隐私说明</a></p>
-  </div>
-  <div class="code">&lt;uses-permission android:name=<br>&nbsp;&nbsp;"android.permission.VIBRATE" /&gt;<br><br>&lt;!-- 没有 INTERNET 这一项 --&gt;<br>&lt;!-- 不是我们克制，是系统不给 --&gt;</div>
-</section>
-
-<div class="en">
+<footer>
   <div class="wrap">
-    <h2>Two balls. Three actions.</h2>
-    <p><strong>Hold the white ball</strong> to magnify the screen and follow your finger; <strong>tap it</strong>, then tap any text to hear it read aloud from that sentence; <strong>tap the green speaker ball</strong> to hear what you just copied. No internet permission, no OCR, no account, no gestures to memorize — only the official Android accessibility tree and ClipboardManager, on device. Since 3.9.23 the seven ball colors are high-saturation and 100% opacity is truly opaque. Built for people who can still see, but strain to read.</p>
-    <p style="margin-top:24px"><a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md">Read the English README →</a></p>
+    <div class="foot-grid">
+      <div>
+        <h4>看得清 · KanDeQing</h4>
+        <p>两个独立小球：按住放大、点字朗读、点绿球念剪贴板。零网络权限，不用 OCR，给还看得见但看得很吃力的人。</p>
+        <p>MIT License · 免费开源</p>
+      </div>
+      <div><h4>上手</h4>
+        <a href="https://github.com/zjh1934/kandeqing/releases/latest">下载安装包</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md">给长辈的说明</a>
+        <a href="#subscribe">订阅与固定直链</a>
+        <a href="#privacy">隐私说明</a></div>
+      <div><h4>仓库</h4>
+        <a href="https://github.com/zjh1934/kandeqing">GitHub</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md">English README</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/CHANGELOG.md">更新记录</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/docs/design.md">主页设计说明</a></div>
+      <div><h4>参与</h4>
+        <a href="https://github.com/zjh1934/kandeqing/issues/new/choose">报问题</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/CONTRIBUTING.md">贡献指南</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/docs/privacy.md">隐私说明</a>
+        <a href="https://github.com/zjh1934/kandeqing/blob/main/SECURITY.md">安全与反馈</a></div>
+    </div>
+    <div class="foot-bottom">
+      <span>如果它帮到了你，去 GitHub 点个 ⭐ Star —— 没有推广预算，这是它唯一能被更多需要的人看见的方式。</span>
+      <span>当前版本 3.9.23 · Android 7.0+</span>
+    </div>
   </div>
-</div>
-
-<footer class="wrap">
-  <p>看得清 3.9.23 · MIT License · 免费开源 ·
-    <a href="https://github.com/zjh1934/kandeqing">GitHub</a> ·
-    <a href="https://github.com/zjh1934/kandeqing/releases/latest">下载</a> ·
-    <a href="#subscribe">订阅</a> ·
-    <a href="https://github.com/zjh1934/kandeqing/issues/new/choose">反馈</a></p>
-  <p style="color:#666">如果它帮到了你，去 GitHub 点个 ⭐ Star —— 没有推广预算，这是它唯一能被更多需要的人看见的方式。</p>
 </footer>
 
 </body>

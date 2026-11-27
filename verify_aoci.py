@@ -27,7 +27,8 @@ def rd(p):
 def c_assets():
     need = ["aoci.txt", "aoci.meta.txt", "aoci.code.txt", "AGENTS.md",
             ".gitattributes", ".aoci/baseline.json", ".aoci/config.json",
-            ".aoci/curation.json", ".aoci/.gitignore", "docs/aoci.md"]
+            ".aoci/curation.json", ".aoci/.gitignore", "docs/aoci.md",
+            "docs/design.md"]
     return all(os.path.exists(os.path.join(ROOT, p)) for p in need), ""
 
 

@@ -41,13 +41,13 @@ E[".gitattributes"] = ("F", "V", 5, "强制全部文本以 LF 检出",
 E["AGENTS.md"] = ("S", "G", 9, "任何编码 Agent 进入本仓库时的第一份上下文与红线",
                   "-", "-", "AOCI 托管区块之外还有本项目硬约束；两者冲突时以本文件靠近被改文件的段落为准，且用户当前指令优先")
 E["README.md"] = ("S", "V", 8, "给人看的中文入口：双球功能、安装、两类链接、版本徽章",
-                  "-", "-", "订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page；首屏口径必须与当前软件一致，发新版由 verify_pages.py 点名漏更的页面")
+                  "-", "-", "订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page；首屏口径必须与当前软件一致，发新版由 verify_pages.py 点名漏更的页面；首屏只讲产品与上手，AOCI 与订阅技术段必须后置到「给开发者」之后，别把 README 写成技术手册")
 E["README.en.md"] = ("S", "V", 6, "英文入口，与中文 README 口径一致",
                      "code:README.md", "-", "版本号与订阅地址必须与中文 README 同步，否则对外页面自相矛盾")
 E["使用说明.md"] = ("S", "U", 5, "给长辈看的装包与无障碍开启步骤",
                     "-", "-", "不得写死具体版本号的安装包文件名；下载页曾写死 3.9.7 导致长辈找不到文件")
-E["docs/index.html"] = ("S", "V", 7, "GitHub Pages 落地页：双球首屏、三动作、订阅/下载、3.9.23 预览、AOCI",
-                        "-", "-", "当前版本文案与订阅地址必须随发版更新；主下载按钮只能指向 raw 固定直链，jsDelivr 同名文件在 CDN 边缘会滞后一版；footer 必须在所有 section 之后，不得留已被取代的旧版本预览节")
+E["docs/index.html"] = ("S", "V", 7, "GitHub Pages 落地页：产品示意 Hero、三步上手、数字条、折叠技术细节、收尾 CTA",
+                        "-", "-", "当前版本文案与订阅地址必须随发版更新；所有主 CTA 只能指向 raw 固定直链，jsDelivr 同名文件在 CDN 边缘会滞后一版；footer 必须在所有 section 之后，不得留已被取代的旧版本预览节；单文件零外部依赖（不引字体 / CDN CSS / JS），否则弱网访客连文字都看不到；Hero 必须有代码自绘的产品示意 SVG 而非抽象装饰；订阅与直链等技术细节收进 details，不占主视觉；浅色高对比并支持深色 / 高对比 / 减少动效偏好")
 E["docs/privacy.md"] = ("S", "S", 6, "隐私说明：本地处理、无网络权限、日志不记正文",
                         "-", "-", "若新增 INTERNET 权限或让日志记下朗读内容，本页与对外承诺同时失效")
 E["docs/开发者.md"] = ("S", "S", 5, "技术长文：抓字链路、状态机、发版流程",
@@ -56,6 +56,9 @@ E["docs/推广素材.md"] = ("S", "V", 3, "站外分发的中英文发帖文案�
                          "-", "-", "一句话定位与锚文本必须跟当前双球口径一致；曝光诊断表是改版前历史数据，不得当成现状")
 E["docs/aoci.md"] = ("S", "S", 7, "说明 AOCI 认知层在本仓库的位置、受管边界与维护方式",
                      "-", "-", "本仓库已带索引；clone 后只运行 init --agent 补机器侧配置，禁止再跑 scan，否则 Baseline 冲突")
+E["docs/design.md"] = ("S", "S", 8, "记录主页参考了哪些优秀开源项目、信息架构决策与可访问性基线",
+                       "code:docs/index.html,code:verify_pages.py", "-",
+                       "改页面必须同步改本文与 verify_pages 断言；设计约束同样写进本卷 S 字段，绿色只证明结构对齐不证明好看，视觉改动仍要人眼在桌面和手机各看一遍")
 E["docs/repo-meta.json"] = ("F", "V", 8, "声明仓库 description / homepage / topics，推送脚本据此同步 GitHub 元数据",
                             "code:README.md", "-", "description 是 GitHub 首页第一眼看到的文字，必须与当前双球口径一致；topics 覆盖剪贴板与 AOCI，改动后走推送脚本同步 API，不能只改本地文件")
 E["CODE_OF_CONDUCT.md"] = ("S", "G", 2, "社区行为约定", "-", "-", "-")

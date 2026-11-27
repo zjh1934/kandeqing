@@ -8,7 +8,7 @@ CODE_OF_CONDUCT.md[SG2T]: F:社区行为约定 | R:- | A:- | S:-
 CONTRIBUTING.md[SG3T]: F:贡献与验证要求 | R:- | A:- | S:-
 LICENSE[SG4T]: F:MIT 许可 | R:- | A:- | S:-
 README.en.md[SV6M]: F:英文入口，与中文 README 口径一致 | R:code:README.md | A:- | S:版本号与订阅地址必须与中文 README 同步，否则对外页面自相矛盾
-README.md[SV8M]: F:给人看的中文入口：双球功能、安装、两类链接、版本徽章 | R:- | A:- | S:订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page；首屏口径必须与当前软件一致，发新版由 verify_pages.py 点名漏更的页面
+README.md[SV8M]: F:给人看的中文入口：双球功能、安装、两类链接、版本徽章 | R:- | A:- | S:订阅框收 feed 文档，下载框收 APK 文件直链，两者绝不能混；releases.atom 指向 HTML 网页，会让下载器报 server returned HTML page；首屏口径必须与当前软件一致，发新版由 verify_pages.py 点名漏更的页面；首屏只讲产品与上手，AOCI 与订阅技术段必须后置到「给开发者」之后，别把 README 写成技术手册
 SECURITY.md[SS4T]: F:漏洞报告口径、官方下载渠道、签名指纹与版本支持表 | R:- | A:- | S:Release 资产名已统一 kandeqing-v<版本>.apk，写回 kanqing-<版本>.apk 是失效信息；固定签名指纹必须与 CI 恢复的密钥一致
 build.gradle[FV3T]: F:顶层仓库声明 | R:- | A:- | S:真编译不走 gradle；build_apk.sh 用 aapt2 + d8 手工链
 build_apk.sh[FV9T]: F:aapt2 + javac + d8 + zipalign + apksigner 手工构建链 | R:code:app/build.gradle,code:.github/workflows/build-apk.yml | A:bash build_apk.sh | S:输出名固定 apk/kandeqing-v<版本>.apk；固定签名来自 secrets 恢复的 .toolchain/debug.keystore，换成临时密钥会导致用户无法覆盖安装
@@ -87,7 +87,8 @@ TextCompareTest.java[TQ3T]: F:文本比较用例 | R:- | A:- | S:-
 
 ===/<repository>/docs/===
 aoci.md[SS7T]: F:说明 AOCI 认知层在本仓库的位置、受管边界与维护方式 | R:- | A:- | S:本仓库已带索引；clone 后只运行 init --agent 补机器侧配置，禁止再跑 scan，否则 Baseline 冲突
-index.html[SV7M]: F:GitHub Pages 落地页：双球首屏、三动作、订阅/下载、3.9.23 预览、AOCI | R:- | A:- | S:当前版本文案与订阅地址必须随发版更新；主下载按钮只能指向 raw 固定直链，jsDelivr 同名文件在 CDN 边缘会滞后一版；footer 必须在所有 section 之后，不得留已被取代的旧版本预览节
+design.md[SS8S]: F:记录主页参考了哪些优秀开源项目、信息架构决策与可访问性基线 | R:code:docs/index.html,code:verify_pages.py | A:- | S:改页面必须同步改本文与 verify_pages 断言；设计约束同样写进本卷 S 字段，绿色只证明结构对齐不证明好看，视觉改动仍要人眼在桌面和手机各看一遍
+index.html[SV7L]: F:GitHub Pages 落地页：产品示意 Hero、三步上手、数字条、折叠技术细节、收尾 CTA | R:- | A:- | S:当前版本文案与订阅地址必须随发版更新；所有主 CTA 只能指向 raw 固定直链，jsDelivr 同名文件在 CDN 边缘会滞后一版；footer 必须在所有 section 之后，不得留已被取代的旧版本预览节；单文件零外部依赖（不引字体 / CDN CSS / JS），否则弱网访客连文字都看不到；Hero 必须有代码自绘的产品示意 SVG 而非抽象装饰；订阅与直链等技术细节收进 details，不占主视觉；浅色高对比并支持深色 / 高对比 / 减少动效偏好
 privacy.md[SS6T]: F:隐私说明：本地处理、无网络权限、日志不记正文 | R:- | A:- | S:若新增 INTERNET 权限或让日志记下朗读内容，本页与对外承诺同时失效
 repo-meta.json[FV8T]: F:声明仓库 description / homepage / topics，推送脚本据此同步 GitHub 元数据 | R:code:README.md | A:- | S:description 是 GitHub 首页第一眼看到的文字，必须与当前双球口径一致；topics 覆盖剪贴板与 AOCI，改动后走推送脚本同步 API，不能只改本地文件
 开发者.md[SS5S]: F:技术长文：抓字链路、状态机、发版流程 | R:- | A:- | S:历史版本号是事实记录，不是待同步的当前版本

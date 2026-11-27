@@ -52,46 +52,7 @@ Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠
 输入法或当前有输入焦点的应用读剪贴板，无障碍服务不是豁免。点读也是把
 「复制后点球」当默认用法，自动读只是可选项。没自动念时，点一下绿球即可。
 
-## 项目认知层（AOCI）
-
-本仓库用 [AOCI-CODE](https://github.com/aoci-spec/aoci-code) 维护一份**随 Git 受管的认知索引**：
-`aoci.txt` / `aoci.meta.txt` / `aoci.code.txt` / `AGENTS.md` / `.aoci/`。
-它们**不进 APK、不编译、不是源码**，但管着源码 —— 每个受管文件的职责、强关系、
-对外契约，以及「光看代码推不出、删了就会改错」的硬约束（球心必须恒等触点、
-不透明度 100% 必须真不透明、抓字链路只做减法、订阅源不许覆盖成单条目……）
-都写在里面。`.aoci/baseline.json` 用源码 SHA-256 检测漂移，
-`verify_all.py` 每轮都会拦住「改了源码却没更新认知」。详见 [docs/aoci.md](docs/aoci.md)。
-
-**两种链接，别填混**：
-
-**① 「新建订阅 / RSS 2.0 · Atom · JSON Feed」框**（订阅源，填下面任一条）：
-
-- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom) （Atom，实测 `application/atom+xml`）
-- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) （JSON Feed，实测 `application/json`）
-
-订阅源里是**全部历史版本**（从球球 2.0 到当前版本，逐版一条），最新在最前，
-每条 `enclosure` / `attachments` **直接指向该版本的 APK 文件**，不指向 Release
-网页；带版本、大小、SHA256，CI 每次发版追加一条、旧版本不删。想永远只拿最新
-就用下面②的固定直链。**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接
-是 HTML 网页，下载器会报「server returned HTML page」。
-
-**CDN 缓存**：jsDelivr 对 `@main` 同名文件有几小时缓存，发版后订阅列表可能
-晚一点才出现新版本；CI 每次发版会主动清一次缓存。想立刻拿最新，用
-**GitHub Pages 备用订阅**（不走 jsDelivr、无缓存）：
-`https://zjh1934.github.io/kandeqing/feed.atom`；或直接用下面②的固定直链下最新版。
-早期的 `docs/subscribe.atom` / `subscribe.json` 是同一份内容的旧路径，订阅请一律
-用上面 `docs/feed.atom` / `feed.json`。
-
-**② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
-
-- **主推**（实测已是 3.9.23、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
-- 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.23，那条走版本化路径，不受缓存影响
-- 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
-- Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
-- Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
-  Release 里的 `.apk` 资产；版本通知才订阅 [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom)。
-
-装完开一次无障碍，以后不用管。**不需要注册、不需要登录、不需要联网。**
+球会用自己的样子告诉你它在干什么：
 
 ```mermaid
 flowchart LR
@@ -250,6 +211,53 @@ flowchart LR
 - push 到 `main` 会用固定密钥自动出包、回传 `apk/`、发布 Release、重建订阅源
 - 仓库带一份随 Git 受管的 [AOCI 认知索引](docs/aoci.md)；改了源码要 `python3 tools/aoci_sync.py --refresh`，
   否则 `verify_all.py` 会挡住提交。对外页面由 `verify_pages.py` 按当前版本逐页校验，防止页面原地踏步
+
+---
+
+## 下载与订阅：两种链接别填混
+
+**两种链接，别填混**：
+
+**① 「新建订阅 / RSS 2.0 · Atom · JSON Feed」框**（订阅源，填下面任一条）：
+
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom) （Atom，实测 `application/atom+xml`）
+- [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json) （JSON Feed，实测 `application/json`）
+
+订阅源里是**全部历史版本**（从球球 2.0 到当前版本，逐版一条），最新在最前，
+每条 `enclosure` / `attachments` **直接指向该版本的 APK 文件**，不指向 Release
+网页；带版本、大小、SHA256，CI 每次发版追加一条、旧版本不删。想永远只拿最新
+就用下面②的固定直链。**不要填** GitHub 自带的 `releases.atom` —— 它的条目链接
+是 HTML 网页，下载器会报「server returned HTML page」。
+
+**CDN 缓存**：jsDelivr 对 `@main` 同名文件有几小时缓存，发版后订阅列表可能
+晚一点才出现新版本；CI 每次发版会主动清一次缓存。想立刻拿最新，用
+**GitHub Pages 备用订阅**（不走 jsDelivr、无缓存）：
+`https://zjh1934.github.io/kandeqing/feed.atom`；或直接用下面②的固定直链下最新版。
+早期的 `docs/subscribe.atom` / `subscribe.json` 是同一份内容的旧路径，订阅请一律
+用上面 `docs/feed.atom` / `feed.json`。
+
+**② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
+
+- **主推**（实测已是 3.9.23、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.23，那条走版本化路径，不受缓存影响
+- 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
+- Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
+- Obtainium 类 App 填仓库地址 `https://github.com/zjh1934/kandeqing`，让它自己解析
+  Release 里的 `.apk` 资产；版本通知才订阅 [https://github.com/zjh1934/kandeqing/releases.atom](https://github.com/zjh1934/kandeqing/releases.atom)。
+
+装完开一次无障碍，以后不用管。**不需要注册、不需要登录、不需要联网。**
+
+---
+
+## 项目认知层（AOCI）
+
+本仓库用 [AOCI-CODE](https://github.com/aoci-spec/aoci-code) 维护一份**随 Git 受管的认知索引**：
+`aoci.txt` / `aoci.meta.txt` / `aoci.code.txt` / `AGENTS.md` / `.aoci/`。
+它们**不进 APK、不编译、不是源码**，但管着源码 —— 每个受管文件的职责、强关系、
+对外契约，以及「光看代码推不出、删了就会改错」的硬约束（球心必须恒等触点、
+不透明度 100% 必须真不透明、抓字链路只做减法、订阅源不许覆盖成单条目……）
+都写在里面。`.aoci/baseline.json` 用源码 SHA-256 检测漂移，
+`verify_all.py` 每轮都会拦住「改了源码却没更新认知」。详见 [docs/aoci.md](docs/aoci.md)。
 
 ---
 
