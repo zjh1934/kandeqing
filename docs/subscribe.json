@@ -3,8 +3,30 @@
   "title": "看得清 KanDeQing · 全部历史安装包",
   "home_page_url": "https://github.com/zjh1934/kandeqing",
   "feed_url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.json",
-  "description": "共 40 个版本，最新在最前；每条附件直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
+  "description": "共 41 个版本，最新在最前；每条附件直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk",
   "items": [
+    {
+      "id": "3.9.24",
+      "title": "kandeqing-v3.9.24.apk · 看得清 3.9.24",
+      "date_modified": "2026-11-28T07:38:31Z",
+      "content_text": "看得清 3.9.24 安装包 · 660933 字节 · SHA256 370bfaf9593b372120192ab3a892a2527b9c7055969077d28e150e4cfa0f528d",
+      "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.24.apk",
+      "attachments": [
+        {
+          "url": "https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.24.apk",
+          "mime_type": "application/vnd.android.package-archive",
+          "size_in_bytes": 660933,
+          "title": "kandeqing-v3.9.24.apk"
+        }
+      ],
+      "_kandeqing": {
+        "version": "3.9.24",
+        "sha256": "370bfaf9593b372120192ab3a892a2527b9c7055969077d28e150e4cfa0f528d",
+        "size": 660933,
+        "file": "kandeqing-v3.9.24.apk",
+        "legacy": false
+      }
+    },
     {
       "id": "3.9.23",
       "title": "kandeqing-v3.9.23.apk · 看得清 3.9.23",

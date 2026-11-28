@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>看得清 KanDeQing · 全部历史安装包</title>
-  <subtitle>共 40 个版本，最新在最前；每条条目直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</subtitle>
+  <subtitle>共 41 个版本，最新在最前；每条条目直接指向该版本 APK 文件，不指向 Release 网页。永久最新直链：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</subtitle>
   <id>https://github.com/zjh1934/kandeqing/releases</id>
   <link rel="self" type="application/atom+xml" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom" />
-  <updated>2026-11-25T05:00:37Z</updated>
+  <updated>2026-11-28T07:38:31Z</updated>
   <author><name>zjh1934</name></author>
+  <entry>
+    <title>kandeqing-v3.9.24.apk · 看得清 3.9.24</title>
+    <id>tag:github.com,2026:zjh1934/kandeqing:3.9.24</id>
+    <updated>2026-11-28T07:38:31Z</updated>
+    <summary type="text">kandeqing-v3.9.24.apk · 看得清 3.9.24 · 660933 字节 · SHA256 370bfaf9593b372120192ab3a892a2527b9c7055969077d28e150e4cfa0f528d</summary>
+    <link rel="alternate" type="application/vnd.android.package-archive" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.24.apk" />
+    <link rel="enclosure" type="application/vnd.android.package-archive" length="660933" href="https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.24.apk" />
+    <content type="text">https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-v3.9.24.apk</content>
+  </entry>
   <entry>
     <title>kandeqing-v3.9.23.apk · 看得清 3.9.23</title>
     <id>tag:github.com,2026:zjh1934/kandeqing:3.9.23</id>
