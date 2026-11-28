@@ -16,7 +16,8 @@ public final class Theme {
     public static int DIVIDER = 0xFF333333;
     public static int ACCENT = 0xFF1E7BFF;
     public static int ACCENT_SOFT = 0xFF2E2E2E;
-    public static int TRACK = 0xFF3A3A3A;
+    public static int TRACK = 0xFF55606F;
+    public static int SWITCH_EDGE = 0xFF7A8698;
     public static int BUTTON = 0xFF2C2C2C;
     public static int SUCCESS = 0xFF3ECF8E;
     public static int WARN = 0xFFF5A524;
@@ -51,6 +52,9 @@ public final class Theme {
     public static final int ROW_SLIDER = 48;
     public static final int ROW_CHIPS = 56;
     public static final int ROW_BALL_PREVIEW = 84;
+    public static final int SWITCH_W = 48;
+    public static final int SWITCH_H = 28;
+    public static final int SWITCH_THUMB = 22;
     public static final int ROW_SEGMENT = 46;
     public static final int ROW_PREVIEW = 54;
     public static final int ROW_RESET = 44;
@@ -73,7 +77,8 @@ public final class Theme {
             DIVIDER = 0xFF333333;
             ACCENT = 0xFF1E7BFF;
             ACCENT_SOFT = 0xFF2E2E2E;
-            TRACK = 0xFF3A3A3A;
+            TRACK = 0xFF55606F;
+            SWITCH_EDGE = 0xFF7A8698;
             BUTTON = 0xFF2C2C2C;
             SUCCESS = 0xFF3ECF8E;
             WARN = 0xFFF5A524;
@@ -91,7 +96,8 @@ public final class Theme {
             DIVIDER = 0xFFE7EAF0;
             ACCENT = 0xFF2F6BFF;
             ACCENT_SOFT = 0xFFE6EEFF;
-            TRACK = 0xFFD8DDE7;
+            TRACK = 0xFFB8C2D1;
+            SWITCH_EDGE = 0xFF93A0B2;
             BUTTON = 0xFFF0F3F8;
             SUCCESS = 0xFF00B578;
             WARN = 0xFFD97706;

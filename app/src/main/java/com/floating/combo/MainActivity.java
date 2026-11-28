@@ -212,18 +212,8 @@ public class MainActivity extends Activity
         row.addView(t, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        swBall = new Switch(this);
-        swBall.setShowText(false);
+        swBall = Ui.makeSwitch(this);
         swBall.setContentDescription("悬浮球开关");
-        swBall.setMinHeight(Ui.dp(this, Theme.HIT));
-        int[][] states = new int[][]{
-                new int[]{android.R.attr.state_checked},
-                new int[]{}
-        };
-        swBall.setThumbTintList(new android.content.res.ColorStateList(states,
-                new int[]{Theme.ACCENT, Theme.TEXT_2}));
-        swBall.setTrackTintList(new android.content.res.ColorStateList(states,
-                new int[]{Theme.ACCENT_SOFT, Theme.TRACK}));
         swBall.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton b, boolean checked) {

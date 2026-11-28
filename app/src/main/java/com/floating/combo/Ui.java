@@ -1,8 +1,9 @@
 package com.floating.combo;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.graphics.Canvas;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
@@ -406,30 +407,67 @@ public final class Ui {
         return r;
     }
 
+    public static Switch makeSwitch(Context c) {
+        Switch sw = new Switch(c);
+        sw.setShowText(false);
+        sw.setTextOn("");
+        sw.setTextOff("");
+        sw.setMinHeight(dp(c, Theme.HIT));
+        sw.setMinimumWidth(dp(c, Theme.SWITCH_W));
+        sw.setSwitchMinWidth(dp(c, Theme.SWITCH_W));
+        sw.setThumbTextPadding(dp(c, 4));
+        sw.setSplitTrack(false);
+        sw.setThumbTintList(null);
+        sw.setTrackTintList(null);
+        int w = dp(c, Theme.SWITCH_W);
+        int h = dp(c, Theme.SWITCH_H);
+        int t = dp(c, Theme.SWITCH_THUMB);
+        int stroke = Math.max(1, dp(c, 1));
+        GradientDrawable on = new GradientDrawable();
+        on.setShape(GradientDrawable.RECTANGLE);
+        on.setColor(Theme.ACCENT);
+        on.setCornerRadius(h / 2f);
+        on.setSize(w, h);
+        on.setStroke(stroke, Theme.ACCENT);
+        GradientDrawable off = new GradientDrawable();
+        off.setShape(GradientDrawable.RECTANGLE);
+        off.setColor(Theme.TRACK);
+        off.setCornerRadius(h / 2f);
+        off.setSize(w, h);
+        off.setStroke(stroke, Theme.SWITCH_EDGE);
+        StateListDrawable track = new StateListDrawable();
+        track.addState(new int[]{android.R.attr.state_checked}, on);
+        track.addState(new int[]{}, off);
+        sw.setTrackDrawable(track);
+        GradientDrawable thumb = new GradientDrawable();
+        thumb.setShape(GradientDrawable.OVAL);
+        thumb.setColor(Theme.ON_ACCENT);
+        thumb.setSize(t, t);
+        thumb.setStroke(stroke, Theme.SWITCH_EDGE);
+        sw.setThumbDrawable(thumb);
+        return sw;
+    }
+
     public static LinearLayout switchRow(Context c, String label,
                                          boolean checked, final OnToggle cb) {
         LinearLayout r = newRow(c, Theme.ROW_SWITCH);
         r.addView(body(c, label), new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        Switch sw = new Switch(c);
-        sw.setShowText(false);
+        final Switch sw = makeSwitch(c);
         sw.setChecked(checked);
         sw.setContentDescription(label);
-        sw.setMinHeight(dp(c, Theme.HIT));
-        int[][] states = new int[][]{
-                new int[]{android.R.attr.state_checked},
-                new int[]{}
-        };
-        sw.setThumbTintList(new ColorStateList(states,
-                new int[]{Theme.ACCENT, Theme.TEXT_2}));
-        sw.setTrackTintList(new ColorStateList(states,
-                new int[]{Theme.ACCENT_SOFT, Theme.TRACK}));
         sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton b, boolean on) {
                 if (cb != null) {
                     cb.on(on);
                 }
+            }
+        });
+        r.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sw.toggle();
             }
         });
         r.addView(sw);

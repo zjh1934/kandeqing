@@ -120,7 +120,7 @@ jobs:
           VER="${{ steps.ver.outputs.ver }}"
           APK="${{ steps.ver.outputs.path }}"
           NAME="kandeqing-v$VER.apk"
-          NOTES="看得清 3.9.23：悬浮球配色与不透明度重做，安装包文件名统一为拼音版本号。① 颜色：清釉七色是低饱和莫兰迪，全发灰、不醒目，换成「明朗」高饱和七色（雪白/电蓝/翠绿/琥珀/珊瑚/亮紫/青碧），并按球色亮度自动配深或白对比描边，浅色深色壁纸都能一眼找到；朗读空心环加了对比底环，两条竖线与等待转圈小点改成球色填充+深色描边，浅深壁纸都看得见；复制朗读绿球提亮并加白边；UI 强调色跟随新球色。② 不透明度：旧版实心球用径向渐变，中心最多 0.90×alpha、从 72% 半径一路衰减到边缘全透明，所以调到 100% 仍是半透明。现在 0~80% 半径用完整 alpha（100% 即完全不透明），只有最外 20% 做短柔边抗锯齿，不透明度滑块名副其实。③ 文件名：以后发布一律 apk/kandeqing-v<版本>.apk，仓库 39 个历史包同步改拼音名（字节不变），订阅源每条附件的文件名就是 kandeqing-vX.Y.Z.apk，下载器里不再全叫同一个名字；kandeqing-latest.apk 仍作永久最新直链。抓字、放大、球心对齐、剪贴板链路、四态、TTS 其余一行没动。改前/候选/改后共 2 张代码自绘预览图已逐张看过并修掉朗读态竖线发白的问题。verify_all 10 套三轮全绿。versionCode 53 可覆盖升级，固定签名不变。详见 CHANGELOG.md。"
+          NOTES="看得清 3.9.24：设置页开关重做，开 / 关一眼分得清。旧版用系统 Switch 的 thumb/track tint 染色，浅色主题下轨道是极淡的 #E6EEFF / #D8DDE7，部分 ROM 上系统轨道本身近乎透明，于是截图里只剩一个灰圆点或蓝圆点，看不出是开关、更分不清状态。现在不再依赖 tint：轨道与圆钮全部代码自绘，关闭态是明确的灰色胶囊底 + 白色圆钮在左，开启态是实心蓝胶囊底 + 白色圆钮在右；显式 setSplitTrack(false)、清空 thumb/track tintList，深浅主题都清晰；整行也可点击。设置页十来个开关与首页主开关共用同一个 makeSwitch 工厂，回调电路、Prefs 读写、无障碍开关逻辑一行没动。改前 / 改后对照预览图见 Pages 与 docs/preview/switch-track-before-after.png。抓字、放大、球心对齐、四态形态、剪贴板链路、两个独立球、TTS、诊断日志全没碰。verify_all 10 套三轮全绿，versionCode 54，固定签名不变，可直接覆盖安装。订阅（全部历史版本）：https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/docs/feed.atom ；固定直链（永远最新）：https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk ；详情见 CHANGELOG.md。"
           if ! gh release view "v$VER" >/dev/null 2>&1; then
             gh release create "v$VER" --title "看得清 $VER" --notes "$NOTES"
           fi

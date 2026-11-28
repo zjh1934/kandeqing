@@ -6,7 +6,7 @@
 
 **不联网 · 不上传 · 不用 OCR · 不学手势 · 两个球 · 免费开源**
 
-[![版本](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![版本](https://img.shields.io/badge/version-3.9.24-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![网络权限](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![协议](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -39,6 +39,11 @@
 Android 10 起系统不允许后台应用读剪贴板，所以绿球点击时靠无障碍焦点窗口
 临时取得读取资格，不截图、不走 OCR、不联网；剪贴板内容只在本地交给语音引擎，
 日志不记正文。Android 13 起系统自己会弹「已读取剪贴板」提示，属系统行为。
+
+**3.9.24 设置页开关**：开关不再靠系统 tint 染色 —— 旧版轨道颜色太淡、部分 ROM 上几乎透明，
+只剩一个灰/蓝圆点，看不出是开关。现在轨道与圆钮全部代码自绘：关闭态是**明确的灰色胶囊底 +
+白色圆钮在左**，开启态是**实心蓝胶囊底 + 白色圆钮在右**，关掉 splitTrack、显式清空 tint，
+浅色深色主题都一眼分得清；整行也可点。所有开关的回调电路一行没动。
 
 **3.9.23 配色与不透明度**：旧「清釉」七色低饱和发灰、不醒目，换成高饱和「明朗」
 七色（雪白 / 电蓝 / 翠绿 / 琥珀 / 珊瑚 / 亮紫 / 青碧），按球色亮度自动配深或白对比描边，
@@ -97,7 +102,7 @@ flowchart LR
 
 ## 装上就能用
 
-**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kandeqing-v3.9.23.apk`）
+**👉 [下载最新版 APK](https://github.com/zjh1934/kandeqing/releases/latest)**（在 Assets 里点 `kandeqing-v3.9.24.apk`）
 
 1. 点开下载好的文件 → 提示「未知来源」时选 **允许 / 继续**（安卓对所有非商店应用的统一提醒，不是软件有问题）
 2. 装完打开 → 按首页提示去 **设置 → 无障碍 → 看得清 → 打开**
@@ -238,7 +243,7 @@ flowchart LR
 
 **② 「直接下载 / 新建下载任务」框**（文件直链，不是 feed）：
 
-- **主推**（实测已是 3.9.23、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- **主推**（实测已是 3.9.24、无 CDN 缓存滞后、不重定向、链接永不变）：[https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
 - 备用（jsDelivr）：[https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) —— 同名文件在 CDN 边缘可能滞后一版；要最新版就从订阅里选第一条 3.9.23，那条走版本化路径，不受缓存影响
 - 备用 B（GitHub Pages 托管）：[https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release 资产直链（会 302 到签名地址）：[https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)

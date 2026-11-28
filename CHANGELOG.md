@@ -1,3 +1,32 @@
+> **3.9.24 · 设置页开关有了椭圆底（versionCode 54，可覆盖安装）**
+>
+> 反馈：「软件里的这些开关开启和关闭状态下没有椭圆底，按钮不明显」。
+> 截图里「复制朗读」「复制后自动朗读」只剩一个灰 / 蓝圆点，轨道几乎看不见。
+>
+> **根因**：`Ui.switchRow` 与首页 `swBall` 都只调 `setThumbTintList` /
+> `setTrackTintList`，给系统 Switch 的默认 drawable 染色。浅色主题下
+> `ACCENT_SOFT` 是 `#E6EEFF`、`TRACK` 是 `#D8DDE7`，都极淡；部分 ROM 的
+> 系统轨道 drawable 本身近透明 / 带 splitTrack 挖空，tint 之后就只剩实心圆点。
+> 关态 thumb 还被染成 `TEXT_2` 灰、开态染成蓝，于是看起来是个孤立圆点而不是开关。
+>
+> **改法**：新增 `Ui.makeSwitch(Context)` 共用工厂，两处统一调用。
+> 不再依赖 tint，轨道与圆钮全部代码自绘（`GradientDrawable` + `StateListDrawable`）：
+> 关闭态**明确灰色胶囊底 + 白色圆钮在左**，开启态**实心蓝胶囊底 + 白色圆钮在右**；
+> `setSplitTrack(false)`、显式 `setThumbTintList(null)` / `setTrackTintList(null)`；
+> `SWITCH_W 48 / SWITCH_H 28 / SWITCH_THUMB 22` 三个常量进 Theme，`TRACK` 深浅主题
+> 调深成 `#B8C2D1` / `#55606F` 并加 `SWITCH_EDGE` 描边；整行也可点击。
+> **回调电路一行没动**：`OnToggle`、`syncSwitch`、`Prefs` 读写、无障碍开关流程全原样。
+> 抓字、放大、球心对齐、四态形态、剪贴板链路、两个独立球、TTS、诊断日志全没碰。
+>
+> 改前 / 改后对照图 `docs/preview/switch-track-before-after.png` 用 PIL 自绘，
+> 浅色 / 深色主题各四格，逐张看过：第一版四张卡片溢出画布，缩窄间距后重出定稿；
+> 已挂到 Pages 的「看得见的改动」区块。`verify_ui.py` 新增 12 项开关断言，
+> 防以后又退化回 tint 圆点。`verify_pages.py` 数字条把会随发版过期的「40 个历史版本」
+> 改成「2.0 起逐版留档」，并保留订阅源条目数 ≥30 的活校验。
+>
+> 全部对外页面（README 中英 / 落地页 / 安全页 / 开发者文档 / 推广素材 / 仓库简介）
+> 同步到 3.9.24，CI Release 说明、订阅源、固定直链由发版流程自动更新。
+
 > **主页按优秀开源项目的做法重做（不重出包，版本仍 3.9.23 / versionCode 53）**
 >
 > 反馈是「这个主页是给人看的，设计太拉垮，要去学人家优秀开源项目主页怎么做的」。

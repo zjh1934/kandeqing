@@ -10,7 +10,7 @@
   verify_calls.py     —— 无点号调用能不能解析到方法（补 verify_structure 的盲区）
   verify_ball.py      —— 球定位数值模拟 + 控制实心/朗读空心的静态断言
   verify_clipboard.py —— 双球独立 / 无双击 / 焦点读剪贴板 / 复制事件驱动 / 隐私
-  verify_ui.py       —— 3.9.23 配色 / 不透明度 / 层级常量 / 字号 / 拼音命名
+  verify_ui.py       —— 3.9.24 开关胶囊轨道 / 配色 / 层级 / 字号 / 拼音命名
   verify_aoci.py     —— 认知资产 / Entry 覆盖 / SHA-256 Baseline 漂移 / 不进 APK
   verify_pages.py    —— 对外页面是否与当前版本一致（防 GitHub 页面原地踏步）
 

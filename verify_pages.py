@@ -45,6 +45,7 @@ REQUIRED = {
     "README.en.md": ["Two independent floating balls", VERSION, "kandeqing-v",
                      "feed.atom", "Diagnostics", "Copy & Read", "AOCI"],
     "docs/index.html": ["两个独立小球", VERSION, "ball-before-after-323.png",
+                        "switch-track-before-after.png", "椭圆底",
                         "feed.atom", "诊断与日志", "AOCI", "kandeqing-latest.apk"],
     "使用说明.md": ["两个小球", "绿球", "feed.atom", "诊断与日志"],
     "docs/开发者.md": ["VERSION_MARK", "verify_pages.py", "AOCI", "ClipReader.java"],
@@ -193,9 +194,10 @@ def c_live_numbers():
     feed_path = os.path.join(ROOT, "docs", "feed.atom")
     if os.path.exists(feed_path):
         n_rel = io.open(feed_path, encoding="utf-8").read().count("<entry>")
-        m = re.search(r"<b>(\d+)</b><span>个历史版本", h)
-        if not m or int(m.group(1)) != n_rel:
-            bad.append("历史版本数应为 %d" % n_rel)
+        if n_rel < 30:
+            bad.append("订阅源条目数异常：%d" % n_rel)
+        if "逐版留档" not in h:
+            bad.append("数字条应写逐版留档，不写死会随发版过期的具体数字")
     n_suites = len(re.findall(r'"(verify_[a-z_]+\.py)"', rd("verify_all.py")))
     m = re.search(r"<b>(\d+)</b><span>套自检", h)
     if not m or int(m.group(1)) != n_suites:
@@ -222,7 +224,7 @@ def c_landing_order():
         "footer 在 body 结束前": i_footer < i_body_end,
         "无 3.9.21 旧预览节": "3.9.21 · 配色与层级" not in h,
         "无 palette-before 旧图": "preview/palette-before.png" not in h,
-        "有 3.9.23 新预览": "preview/ball-before-after-323.png" in h,
+        "有球色定稿预览": "preview/ball-before-after-323.png" in h,
         "nav 有订阅入口": 'href="#subscribe"' in h,
     }
     bad = [k for k, v in checks.items() if not v]

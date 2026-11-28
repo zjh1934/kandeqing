@@ -6,7 +6,7 @@
 
 **No internet permission · No OCR · No account · No gestures to memorize · Two balls · Free & open source**
 
-[![version](https://img.shields.io/badge/version-3.9.23-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
+[![version](https://img.shields.io/badge/version-3.9.24-2F6BFF)](https://github.com/zjh1934/kandeqing/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84)](https://github.com/zjh1934/kandeqing)
 [![no internet permission](https://img.shields.io/badge/no%20internet%20permission-0-critical)](https://github.com/zjh1934/kandeqing/blob/main/app/src/main/AndroidManifest.xml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -40,6 +40,12 @@ Android 10+ blocks background clipboard reads, so the green ball briefly obtains
 an accessibility focus window to read. No screenshots, no OCR, no network;
 clipboard text stays on device and is never written to logs. Android 13+ may show
 its own "app read clipboard" toast — that is a system behavior.
+
+**3.9.24 settings switches**: the track is no longer a tinted, nearly invisible
+system drawable that left only a grey/blue dot. Both track and thumb are now drawn in
+code: **off = solid grey capsule + white knob on the left**, **on = solid blue capsule +
+white knob on the right**. Split-track is disabled and tint lists are cleared explicitly,
+so state reads at a glance in both themes; the whole row is tappable. No callback wiring changed.
 
 **3.9.23 palette & opacity**: the muted "Qingyou" 7 colors are replaced by a
 saturated "Bright" set (snow white / electric blue / emerald / amber / coral /
@@ -96,7 +102,7 @@ same file but may still show the old single-entry feed — always subscribe with
 
 **2) "New download / direct file" field** (a file URL, not a feed):
 
-- **Recommended** (verified 3.9.23, no CDN staleness, no redirect, permanent): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
+- **Recommended** (verified 3.9.24, no CDN staleness, no redirect, permanent): [https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk](https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk)
 - Fallback (jsDelivr): [https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk](https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk) — a same-named file can be one release behind at the CDN edge; for the newest, pick the first entry (3.9.23) in the feed, which uses a versioned path with no cache.
 - Fallback B (GitHub Pages): [https://zjh1934.github.io/kandeqing/kandeqing-latest.apk](https://zjh1934.github.io/kandeqing/kandeqing-latest.apk)
 - Release asset (302 to a signed URL): [https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk](https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk)
@@ -151,7 +157,7 @@ That is a chosen boundary, not an unfinished feature — use an OCR-based tool i
 
 ## Install
 
-**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kandeqing-v3.9.23.apk` under Assets).
+**[Download the latest APK](https://github.com/zjh1934/kandeqing/releases/latest)** (`kandeqing-v3.9.24.apk` under Assets).
 
 1. Open the downloaded file; if Android warns about unknown sources, choose **Allow / Continue** (standard for any sideloaded app).
 2. Open the app, then go to **Settings → Accessibility → KanDeQing → On**.

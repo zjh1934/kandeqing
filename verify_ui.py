@@ -1,5 +1,5 @@
 """
-3.9.23 配色与 UI 自检。
+3.9.24 开关胶囊轨道与 UI 自检。
 
 静态断言：明朗七色、实心不透明、对比描边、绿球、主题强调色、
 安装包拼音命名、层级常量、字号、试听归组、版本号、订阅资产名。两遍全绿才算过。
@@ -131,10 +131,35 @@ def c_voice():
             and "TtsManager.saveVoice(MainActivity.this, name)" in t
             and "else if (TtsManager.isReady())" in t), ""
 
-@case("版本 3.9.23 / versionCode 53")
+@case("版本 3.9.24 / versionCode 54")
 def c_ver():
     g = io.open(os.path.join(ROOT,"app","build.gradle"),encoding="utf-8").read()
-    return ("versionCode 53" in g and 'versionName "3.9.23"' in g), ""
+    return ("versionCode 54" in g and 'versionName "3.9.24"' in g), ""
+
+@case("设置页开关有自绘椭圆胶囊轨道，不再靠 tint 染色")
+def c_switch_track():
+    u = rd("Ui.java")
+    m = rd("MainActivity.java")
+    t = rd("Theme.java")
+    seg = u[u.find("public static Switch makeSwitch"):u.find("public static LinearLayout switchRow")]
+    checks = {
+        "共用工厂": "public static Switch makeSwitch(Context c)" in u,
+        "自绘 track": "setTrackDrawable(track)" in seg and "StateListDrawable track" in seg,
+        "自绘白色圆钮": "setThumbDrawable(thumb)" in seg and "GradientDrawable.OVAL" in seg,
+        "胶囊圆角": "setCornerRadius(h / 2f)" in seg,
+        "开态实心蓝": "on.setColor(Theme.ACCENT)" in seg,
+        "关态明确灰": "off.setColor(Theme.TRACK)" in seg and "0xFFB8C2D1" in t and "0xFF55606F" in t,
+        "不再挖空轨道": "setSplitTrack(false)" in seg,
+        "不再 tint 染色": "setThumbTintList(null)" in seg and "setTrackTintList(null)" in seg
+                        and "new ColorStateList" not in u and "setThumbTintList(new" not in m,
+        "尺寸常量": all(x in t for x in ["SWITCH_W = 48","SWITCH_H = 28","SWITCH_THUMB = 22"]),
+        "首页主开关也用工厂": "swBall = Ui.makeSwitch(this);" in m,
+        "整行可点": "r.setOnClickListener" in u[u.find("public static LinearLayout switchRow"):u.find("public static LinearLayout actionRow")],
+        "回调电路不动": "cb.on(on)" in u and "syncSwitch" in m,
+    }
+    bad = [k for k, v in checks.items() if not v]
+    return not bad, bad
+
 
 @case("订阅资产仍为固定名 kandeqing-latest.apk")
 def c_subscribe():

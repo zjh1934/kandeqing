@@ -271,7 +271,7 @@
     <nav class="navlinks" aria-label="主导航">
       <a href="#how">怎么用</a>
       <a href="#why">为什么不一样</a>
-      <a href="#whatsnew">3.9.23</a>
+      <a href="#whatsnew">更新</a>
       <a href="#subscribe">下载</a>
       <a href="https://github.com/zjh1934/kandeqing" class="hide-sm">GitHub</a>
       <a href="https://github.com/zjh1934/kandeqing/blob/main/README.en.md" class="hide-sm">English</a>
@@ -292,7 +292,7 @@
         <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">下载安装包 · APK</a>
         <a class="btn btn-s" href="#how">60 秒看懂怎么用 →</a>
       </div>
-      <p class="trust"><span>当前版本 <b>3.9.23</b></span><span>Android 7.0+</span>
+      <p class="trust"><span>当前版本 <b>3.9.24</b></span><span>Android 7.0+</span>
         <span>零 INTERNET 权限</span><span>MIT</span></p>
     </div>
 
@@ -403,7 +403,7 @@
 <section class="proof" aria-label="项目事实">
   <div class="wrap">
     <div class="proof-grid">
-      <div><b>40</b><span>个历史版本可回退</span></div>
+      <div><b>2.0</b><span>起逐版留档，一条不少</span></div>
       <div><b>10</b><span>套自检 × 3 轮才准提交</span></div>
       <div><b>0</b><span>项联网权限</span></div>
       <div><b>74</b><span>个受管文件有认知索引</span></div>
@@ -491,14 +491,21 @@
 <section id="whatsnew" class="block" aria-labelledby="new-title">
   <div class="wrap">
     <div class="block-head">
-      <h2 id="new-title">3.9.23 · 看得见的改动</h2>
-      <p>这一版只动球的外观和安装包命名，抓字、放大、球心对齐、TTS、诊断日志一行没改。</p>
+      <h2 id="new-title">3.9.23 → 3.9.24 · 看得见的改动</h2>
+      <p>从球的配色到设置页开关，都是「看得见」的改动。功能逻辑一直没动：抓字、放大、球心对齐、TTS、诊断日志全是原样。</p>
     </div>
     <div class="chg">
       <div><b>① 100% 真的不透明</b><p>旧实心球是径向渐变，中心最多 90%、边缘一路透明，调满也发虚。现在内圈用完整 alpha，只留最外一圈柔边抗锯齿。</p></div>
       <div><b>② 明朗七色</b><p>早期那套低饱和配色已被高饱和明朗七色取代：雪白 / 电蓝 / 翠绿 / 琥珀 / 珊瑚 / 亮紫 / 青碧，按亮度自动配深或白对比描边。</p></div>
       <div><b>③ 拼音版本号</b><p>安装包统一 <code>kandeqing-v&lt;版本&gt;.apk</code>，40 个历史包同步改名（字节不变），订阅里每条一眼分得清谁是谁。</p></div>
     </div>
+    <div class="note"><b>3.9.24 · 开关终于有椭圆底了</b>：旧版开关靠系统 tint 染色，轨道淡到几乎透明，
+      截图里就只剩一个灰 / 蓝圆点，看不出开还是关。现在轨道与圆钮全部代码自绘 ——
+      <b>关 = 灰色胶囊 + 白钮在左，开 = 实心蓝胶囊 + 白钮在右</b>，关掉 splitTrack、显式清空 tint，
+      浅色深色主题都一眼分得清；整行也能点。所有开关的回调电路一行没动。</div>
+    <figure style="margin:0 0 28px"><img src="preview/switch-track-before-after.png"
+      alt="开关改前改后对照：改前只有圆点没有椭圆底，改后是明显的胶囊轨道加白色圆钮" loading="lazy">
+      <figcaption>3.9.24 · 浅色 / 深色主题下，开与关的改前改后对照（代码自绘，非真机截图）</figcaption></figure>
     <div class="shots">
       <figure><img src="preview/ball-before-after-323.png" alt="改前与 3.9.23 定稿对比：低饱和七色换成高饱和明朗七色，实心球不再发虚" loading="lazy">
         <figcaption>定稿 · 明朗七色 / 真不透明 / 对比描边 / 朗读底环（代码自绘，非真机截图）</figcaption></figure>
@@ -580,7 +587,7 @@
         <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">直接下载最新版 · APK</a>
         <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/releases/latest">去 Releases 挑版本</a>
       </div>
-      <p class="small" style="margin:16px 0 0">当前版本 3.9.23 · 文件名 <code>kandeqing-v3.9.23.apk</code> · 固定签名，覆盖安装不丢设置</p>
+      <p class="small" style="margin:16px 0 0">当前版本 3.9.24 · 文件名 <code>kandeqing-v3.9.24.apk</code> · 固定签名，覆盖安装不丢设置</p>
     </div>
 
     <details>
@@ -599,7 +606,7 @@
 
         <h4>② 文件直链 —— 填进「新建下载任务」框</h4>
         <span class="code">https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk</span>
-        <p>实测已是 3.9.23，不重定向、链接永不变。要指定历史版本，从上面订阅里选对应条目最稳
+        <p>实测已是 3.9.24，不重定向、链接永不变。要指定历史版本，从上面订阅里选对应条目最稳
           （版本化路径不受同名 CDN 缓存影响）。备用：
           <code>https://cdn.jsdelivr.net/gh/zjh1934/kandeqing@main/apk/kandeqing-latest.apk</code>、
           <code>https://github.com/zjh1934/kandeqing/releases/latest/download/kandeqing-latest.apk</code>。
@@ -631,7 +638,7 @@
       <a class="btn btn-p" href="https://raw.githubusercontent.com/zjh1934/kandeqing/main/apk/kandeqing-latest.apk">下载安装包 · APK</a>
       <a class="btn btn-s" href="https://github.com/zjh1934/kandeqing/blob/main/使用说明.md">给长辈的图文说明</a>
     </div>
-    <p class="small" style="margin:18px auto 0">当前版本 3.9.23 · Android 7.0+ · MIT · 固定签名，可直接覆盖安装</p>
+    <p class="small" style="margin:18px auto 0">当前版本 3.9.24 · Android 7.0+ · MIT · 固定签名，可直接覆盖安装</p>
   </div>
 </section>
 
@@ -663,7 +670,7 @@
     </div>
     <div class="foot-bottom">
       <span>如果它帮到了你，去 GitHub 点个 ⭐ Star —— 没有推广预算，这是它唯一能被更多需要的人看见的方式。</span>
-      <span>当前版本 3.9.23 · Android 7.0+</span>
+      <span>当前版本 3.9.24 · Android 7.0+</span>
     </div>
   </div>
 </footer>
